@@ -1,5 +1,6 @@
 const TasksUI = {
   tasks: [],
+  _editingId: null,
 
   async load() {
     try {
@@ -10,16 +11,18 @@ const TasksUI = {
     }
   },
 
-  render() {
+  render(filteredTasks) {
     const container = document.getElementById('tasks-grid');
     const empty = document.getElementById('tasks-empty-state');
 
     if (!container) return;
 
+    const tasks = filteredTasks || TasksUI.tasks;
+
     const existingCards = container.querySelectorAll('.task-card');
     existingCards.forEach((c) => c.remove());
 
-    if (TasksUI.tasks.length === 0) {
+    if (tasks.length === 0) {
       if (empty) empty.style.display = 'flex';
       return;
     }
@@ -28,7 +31,7 @@ const TasksUI = {
 
     const fragment = document.createDocumentFragment();
 
-    TasksUI.tasks.forEach((task) => {
+    tasks.forEach((task) => {
       const wrapper = document.createElement('div');
       wrapper.innerHTML = TasksUI._renderCard(task);
       fragment.appendChild(wrapper.firstElementChild);
@@ -39,10 +42,25 @@ const TasksUI = {
     if (window.lucide) lucide.createIcons({ nodes: [container] });
   },
 
+  filter(searchText, categoryFilter) {
+    const search = (searchText || '').toLowerCase();
+    const category = categoryFilter || '';
+
+    const filtered = TasksUI.tasks.filter((t) => {
+      const name = (t.name || '').toLowerCase();
+      const desc = (t.description || '').toLowerCase();
+      const matchesSearch = !search || name.includes(search) || desc.includes(search);
+      const matchesCategory = !category || t.category === category;
+      return matchesSearch && matchesCategory;
+    });
+
+    TasksUI.render(filtered);
+  },
+
   _renderCard(task) {
     const categoryClass = TasksUI._categoryClass(task.category);
     const categoryLabel = task.category || 'Geral';
-    const createdAt = TasksUI._formatDate(task.createdAt);
+    const createdAt = TasksUI._formatDate(task.createdAt || task.created_at);
 
     return `
       <div class="task-card" data-task-id="${task.id}">
@@ -70,39 +88,52 @@ const TasksUI = {
   },
 
   openCreateModal() {
+    TasksUI._editingId = null;
+    TasksUI._openInlineForm({});
+  },
+
+  openEditModal(taskId) {
+    const task = TasksUI.tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    TasksUI._editingId = taskId;
+    TasksUI._openInlineForm(task);
+  },
+
+  _openInlineForm(task) {
     const container = document.getElementById('tasks-grid');
     if (!container) return;
 
     const existing = document.getElementById('task-inline-form');
-    if (existing) {
-      existing.remove();
-      return;
-    }
+    if (existing) existing.remove();
+
+    const isEdit = !!TasksUI._editingId;
+    const title = isEdit ? 'Editar tarefa' : 'Nome da tarefa *';
+    const btnLabel = isEdit ? 'Atualizar' : 'Salvar';
 
     const formHtml = `
       <div class="task-card task-card--form" id="task-inline-form">
         <div class="form-group">
-          <label class="form-label" for="task-inline-name">Nome da tarefa *</label>
-          <input type="text" id="task-inline-name" class="input" placeholder="Ex: Code Review de PR" required autocomplete="off">
+          <label class="form-label" for="task-inline-name">${title}</label>
+          <input type="text" id="task-inline-name" class="input" placeholder="Ex: Code Review de PR" required autocomplete="off" value="${task.name || ''}">
         </div>
         <div class="form-group">
           <label class="form-label" for="task-inline-category">Categoria</label>
           <select id="task-inline-category" class="select">
             <option value="">Selecionar...</option>
-            <option value="code-review">Code Review</option>
-            <option value="security">Segurança</option>
-            <option value="refactor">Refatoração</option>
-            <option value="tests">Testes</option>
-            <option value="docs">Documentação</option>
-            <option value="performance">Performance</option>
+            <option value="code-review" ${task.category === 'code-review' ? 'selected' : ''}>Code Review</option>
+            <option value="security" ${task.category === 'security' ? 'selected' : ''}>Segurança</option>
+            <option value="refactor" ${task.category === 'refactor' ? 'selected' : ''}>Refatoração</option>
+            <option value="tests" ${task.category === 'tests' ? 'selected' : ''}>Testes</option>
+            <option value="docs" ${task.category === 'docs' ? 'selected' : ''}>Documentação</option>
+            <option value="performance" ${task.category === 'performance' ? 'selected' : ''}>Performance</option>
           </select>
         </div>
         <div class="form-group">
           <label class="form-label" for="task-inline-description">Descrição</label>
-          <textarea id="task-inline-description" class="textarea" rows="2" placeholder="Descreva o objetivo desta tarefa..."></textarea>
+          <textarea id="task-inline-description" class="textarea" rows="2" placeholder="Descreva o objetivo desta tarefa...">${task.description || ''}</textarea>
         </div>
         <div class="form-actions">
-          <button class="btn btn--primary" id="btn-save-inline-task" type="button">Salvar</button>
+          <button class="btn btn--primary" id="btn-save-inline-task" type="button">${btnLabel}</button>
           <button class="btn btn--ghost" id="btn-cancel-inline-task" type="button">Cancelar</button>
         </div>
       </div>
@@ -128,6 +159,7 @@ const TasksUI = {
 
     document.getElementById('btn-cancel-inline-task')?.addEventListener('click', () => {
       document.getElementById('task-inline-form')?.remove();
+      TasksUI._editingId = null;
       if (TasksUI.tasks.length === 0) {
         const emptyEl = document.getElementById('tasks-empty-state');
         if (emptyEl) emptyEl.style.display = 'flex';
@@ -144,8 +176,15 @@ const TasksUI = {
     }
 
     try {
-      await API.tasks.create(data);
-      Toast.success('Tarefa criada com sucesso');
+      if (TasksUI._editingId) {
+        await API.tasks.update(TasksUI._editingId, data);
+        Toast.success('Tarefa atualizada com sucesso');
+      } else {
+        await API.tasks.create(data);
+        Toast.success('Tarefa criada com sucesso');
+      }
+
+      TasksUI._editingId = null;
       document.getElementById('task-inline-form')?.remove();
       await TasksUI.load();
     } catch (err) {

@@ -21,24 +21,26 @@ const AgentsUI = {
     }
   },
 
-  render() {
+  render(filteredAgents) {
     const grid = document.getElementById('agents-grid');
     const empty = document.getElementById('agents-empty-state');
 
     if (!grid) return;
 
-    if (AgentsUI.agents.length === 0) {
+    const agents = filteredAgents || AgentsUI.agents;
+
+    const existingCards = grid.querySelectorAll('.agent-card');
+    existingCards.forEach((c) => c.remove());
+
+    if (agents.length === 0) {
       if (empty) empty.style.display = 'flex';
       return;
     }
 
     if (empty) empty.style.display = 'none';
 
-    const existingCards = grid.querySelectorAll('.agent-card');
-    existingCards.forEach((c) => c.remove());
-
     const fragment = document.createDocumentFragment();
-    AgentsUI.agents.forEach((agent) => {
+    agents.forEach((agent) => {
       const wrapper = document.createElement('div');
       wrapper.innerHTML = AgentsUI.renderCard(agent);
       fragment.appendChild(wrapper.firstElementChild);
@@ -49,6 +51,22 @@ const AgentsUI = {
     if (window.lucide) lucide.createIcons({ nodes: [grid] });
   },
 
+  filter(searchText, statusFilter) {
+    const search = (searchText || '').toLowerCase();
+    const status = statusFilter || '';
+
+    const filtered = AgentsUI.agents.filter((a) => {
+      const name = (a.agent_name || '').toLowerCase();
+      const desc = (a.description || '').toLowerCase();
+      const tags = (a.tags || []).join(' ').toLowerCase();
+      const matchesSearch = !search || name.includes(search) || desc.includes(search) || tags.includes(search);
+      const matchesStatus = !status || a.status === status;
+      return matchesSearch && matchesStatus;
+    });
+
+    AgentsUI.render(filtered);
+  },
+
   renderCard(agent) {
     const name = agent.agent_name || agent.name || 'Sem nome';
     const color = AgentsUI.getAvatarColor(name);
@@ -57,6 +75,9 @@ const AgentsUI = {
     const statusClass = agent.status === 'active' ? 'badge-active' : 'badge-inactive';
     const model = (agent.config && agent.config.model) || agent.model || 'claude-sonnet-4-6';
     const updatedAt = AgentsUI.formatDate(agent.updated_at || agent.updatedAt || agent.created_at || agent.createdAt);
+    const tags = Array.isArray(agent.tags) && agent.tags.length > 0
+      ? `<div class="agent-tags">${agent.tags.map((t) => `<span class="tag-chip tag-chip--sm">${t}</span>`).join('')}</div>`
+      : '';
 
     return `
       <div class="agent-card" data-agent-id="${agent.id}">
@@ -72,6 +93,7 @@ const AgentsUI = {
           </div>
 
           ${agent.description ? `<p class="agent-description">${agent.description}</p>` : ''}
+          ${tags}
 
           <div class="agent-meta">
             <span class="agent-meta-item">
@@ -124,6 +146,15 @@ const AgentsUI = {
     const tagsChips = document.getElementById('agent-tags-chips');
     if (tagsChips) tagsChips.innerHTML = '';
 
+    const allowedTools = document.getElementById('agent-allowed-tools');
+    if (allowedTools) allowedTools.value = '';
+
+    const maxTurns = document.getElementById('agent-max-turns');
+    if (maxTurns) maxTurns.value = '0';
+
+    const permissionMode = document.getElementById('agent-permission-mode');
+    if (permissionMode) permissionMode.value = '';
+
     Modal.open('agent-modal-overlay');
   },
 
@@ -141,6 +172,9 @@ const AgentsUI = {
         'agent-system-prompt': (agent.config && agent.config.systemPrompt) || '',
         'agent-model': (agent.config && agent.config.model) || 'claude-sonnet-4-6',
         'agent-workdir': (agent.config && agent.config.workingDirectory) || '',
+        'agent-allowed-tools': (agent.config && agent.config.allowedTools) || '',
+        'agent-max-turns': (agent.config && agent.config.maxTurns) || 0,
+        'agent-permission-mode': (agent.config && agent.config.permissionMode) || '',
       };
 
       for (const [fieldId, value] of Object.entries(fields)) {
@@ -191,11 +225,15 @@ const AgentsUI = {
     const data = {
       agent_name: nameEl.value.trim(),
       description: document.getElementById('agent-description')?.value.trim() || '',
+      tags,
       status: toggle && toggle.checked ? 'active' : 'inactive',
       config: {
         systemPrompt: document.getElementById('agent-system-prompt')?.value.trim() || '',
         model: document.getElementById('agent-model')?.value || 'claude-sonnet-4-6',
         workingDirectory: document.getElementById('agent-workdir')?.value.trim() || '',
+        allowedTools: document.getElementById('agent-allowed-tools')?.value.trim() || '',
+        maxTurns: parseInt(document.getElementById('agent-max-turns')?.value) || 0,
+        permissionMode: document.getElementById('agent-permission-mode')?.value || '',
       },
     };
 
@@ -233,8 +271,6 @@ const AgentsUI = {
   },
 
   async execute(agentId) {
-    const agent = AgentsUI.agents.find((a) => a.id === agentId);
-
     try {
       const allAgents = AgentsUI.agents.length > 0 ? AgentsUI.agents : await API.agents.list();
       const selectEl = document.getElementById('execute-agent-select');
@@ -272,6 +308,37 @@ const AgentsUI = {
       Modal.open('export-modal-overlay');
     } catch (err) {
       Toast.error(`Erro ao exportar agente: ${err.message}`);
+    }
+  },
+
+  openImportModal() {
+    const textarea = document.getElementById('import-json-content');
+    if (textarea) textarea.value = '';
+    Modal.open('import-modal-overlay');
+  },
+
+  async importAgent() {
+    const textarea = document.getElementById('import-json-content');
+    if (!textarea || !textarea.value.trim()) {
+      Toast.warning('Cole o JSON do agente para importar');
+      return;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(textarea.value.trim());
+    } catch {
+      Toast.error('JSON inválido');
+      return;
+    }
+
+    try {
+      await API.agents.import(data);
+      Toast.success('Agente importado com sucesso');
+      Modal.close('import-modal-overlay');
+      await AgentsUI.load();
+    } catch (err) {
+      Toast.error(`Erro ao importar agente: ${err.message}`);
     }
   },
 

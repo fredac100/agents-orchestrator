@@ -18,16 +18,28 @@ const PipelinesUI = {
     }
   },
 
-  render() {
+  filter(searchText) {
+    const search = (searchText || '').toLowerCase();
+    const filtered = PipelinesUI.pipelines.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const desc = (p.description || '').toLowerCase();
+      return !search || name.includes(search) || desc.includes(search);
+    });
+    PipelinesUI.render(filtered);
+  },
+
+  render(filteredPipelines) {
     const grid = document.getElementById('pipelines-grid');
     if (!grid) return;
+
+    const pipelines = filteredPipelines || PipelinesUI.pipelines;
 
     const existingCards = grid.querySelectorAll('.pipeline-card');
     existingCards.forEach((c) => c.remove());
 
     const emptyState = grid.querySelector('.empty-state');
 
-    if (PipelinesUI.pipelines.length === 0) {
+    if (pipelines.length === 0) {
       if (!emptyState) {
         grid.insertAdjacentHTML('beforeend', PipelinesUI.renderEmpty());
       }
@@ -38,7 +50,7 @@ const PipelinesUI = {
     if (emptyState) emptyState.remove();
 
     const fragment = document.createDocumentFragment();
-    PipelinesUI.pipelines.forEach((pipeline) => {
+    pipelines.forEach((pipeline) => {
       const wrapper = document.createElement('div');
       wrapper.innerHTML = PipelinesUI.renderCard(pipeline);
       fragment.appendChild(wrapper.firstElementChild);

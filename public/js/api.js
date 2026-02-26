@@ -1,10 +1,18 @@
 const API = {
   baseUrl: '/api',
+  clientId: sessionStorage.getItem('clientId') || (() => {
+    const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+    sessionStorage.setItem('clientId', id);
+    return id;
+  })(),
 
   async request(method, path, body = null) {
     const options = {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Client-Id': API.clientId,
+      },
     };
 
     if (body !== null) {
@@ -33,6 +41,7 @@ const API = {
     execute(id, task, instructions) { return API.request('POST', `/agents/${id}/execute`, { task, instructions }); },
     cancel(id, executionId) { return API.request('POST', `/agents/${id}/cancel/${executionId}`); },
     export(id) { return API.request('GET', `/agents/${id}/export`); },
+    import(data) { return API.request('POST', '/agents/import', data); },
   },
 
   tasks: {
@@ -45,7 +54,9 @@ const API = {
   schedules: {
     list() { return API.request('GET', '/schedules'); },
     create(data) { return API.request('POST', '/schedules', data); },
+    update(id, data) { return API.request('PUT', `/schedules/${id}`, data); },
     delete(taskId) { return API.request('DELETE', `/schedules/${taskId}`); },
+    history() { return API.request('GET', '/schedules/history'); },
   },
 
   pipelines: {
@@ -60,7 +71,17 @@ const API = {
 
   system: {
     status() { return API.request('GET', '/system/status'); },
+    info() { return API.request('GET', '/system/info'); },
     activeExecutions() { return API.request('GET', '/executions/active'); },
+  },
+
+  settings: {
+    get() { return API.request('GET', '/settings'); },
+    save(data) { return API.request('PUT', '/settings', data); },
+  },
+
+  executions: {
+    recent(limit = 20) { return API.request('GET', `/executions/recent?limit=${limit}`); },
   },
 };
 

@@ -1,10 +1,35 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { settingsStore } from '../store/db.js';
 
-const CLAUDE_BIN = '/home/fred/.local/bin/claude';
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const CLAUDE_BIN = resolveBin();
 const activeExecutions = new Map();
+
+function resolveBin() {
+  if (process.env.CLAUDE_BIN) return process.env.CLAUDE_BIN;
+
+  const home = process.env.HOME || '';
+  const candidates = [
+    `${home}/.local/bin/claude`,
+    '/usr/local/bin/claude',
+    '/usr/bin/claude',
+  ];
+
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+
+  return 'claude';
+}
+
+function sanitizeText(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/\x00/g, '')
+    .replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+    .slice(0, 50000);
+}
 
 function cleanEnv() {
   const env = { ...process.env };
@@ -14,20 +39,33 @@ function cleanEnv() {
 }
 
 function buildArgs(agentConfig, prompt) {
-  const model = agentConfig.model || DEFAULT_MODEL;
+  const model = agentConfig.model || 'claude-sonnet-4-6';
   const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--model', model];
 
   if (agentConfig.systemPrompt) {
     args.push('--system-prompt', agentConfig.systemPrompt);
   }
 
+  if (agentConfig.maxTurns && agentConfig.maxTurns > 0) {
+    args.push('--max-turns', String(agentConfig.maxTurns));
+  }
+
+  if (agentConfig.allowedTools && agentConfig.allowedTools.length > 0) {
+    const tools = Array.isArray(agentConfig.allowedTools)
+      ? agentConfig.allowedTools.join(',')
+      : agentConfig.allowedTools;
+    args.push('--allowedTools', tools);
+  }
+
+  args.push('--permission-mode', agentConfig.permissionMode || 'bypassPermissions');
+
   return args;
 }
 
 function buildPrompt(task, instructions) {
   const parts = [];
-  if (task) parts.push(task);
-  if (instructions) parts.push(`\nInstruções adicionais:\n${instructions}`);
+  if (task) parts.push(sanitizeText(task));
+  if (instructions) parts.push(`\nInstruções adicionais:\n${sanitizeText(instructions)}`);
   return parts.join('\n');
 }
 
@@ -74,7 +112,19 @@ function extractText(event) {
   return null;
 }
 
+function getMaxConcurrent() {
+  const s = settingsStore.get();
+  return s.maxConcurrent || 5;
+}
+
 export function execute(agentConfig, task, callbacks = {}) {
+  const maxConcurrent = getMaxConcurrent();
+  if (activeExecutions.size >= maxConcurrent) {
+    const err = new Error(`Limite de ${maxConcurrent} execuções simultâneas atingido`);
+    if (callbacks.onError) callbacks.onError(err, uuidv4());
+    return null;
+  }
+
   const executionId = uuidv4();
   const { onData, onError, onComplete } = callbacks;
 
@@ -96,7 +146,7 @@ export function execute(agentConfig, task, callbacks = {}) {
   }
 
   console.log(`[executor] Iniciando: ${executionId}`);
-  console.log(`[executor] Modelo: ${agentConfig.model || DEFAULT_MODEL}`);
+  console.log(`[executor] Modelo: ${agentConfig.model || 'claude-sonnet-4-6'}`);
   console.log(`[executor] cwd: ${spawnOptions.cwd || process.cwd()}`);
 
   const child = spawn(CLAUDE_BIN, args, spawnOptions);
@@ -180,10 +230,21 @@ export function cancel(executionId) {
   return true;
 }
 
+export function cancelAllExecutions() {
+  for (const [id, exec] of activeExecutions) {
+    exec.process.kill('SIGTERM');
+  }
+  activeExecutions.clear();
+}
+
 export function getActiveExecutions() {
   return Array.from(activeExecutions.entries()).map(([id, exec]) => ({
     executionId: id,
     startedAt: exec.startedAt,
     agentConfig: exec.agentConfig,
   }));
+}
+
+export function getBinPath() {
+  return CLAUDE_BIN;
 }

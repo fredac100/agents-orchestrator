@@ -1,20 +1,57 @@
 import { Router } from 'express';
+import { execSync } from 'child_process';
+import os from 'os';
 import * as manager from '../agents/manager.js';
-import { tasksStore } from '../store/db.js';
+import { tasksStore, settingsStore } from '../store/db.js';
 import * as scheduler from '../agents/scheduler.js';
 import * as pipeline from '../agents/pipeline.js';
+import { getBinPath } from '../agents/executor.js';
 
 const router = Router();
 
 let wsbroadcast = null;
+let wsBroadcastTo = null;
 
 export function setWsBroadcast(fn) {
   wsbroadcast = fn;
 }
 
-function wsCallback(message) {
-  if (wsbroadcast) wsbroadcast(message);
+export function setWsBroadcastTo(fn) {
+  wsBroadcastTo = fn;
 }
+
+function wsCallback(message, clientId) {
+  if (clientId && wsBroadcastTo) {
+    wsBroadcastTo(clientId, message);
+  } else if (wsbroadcast) {
+    wsbroadcast(message);
+  }
+}
+
+router.get('/settings', (req, res) => {
+  try {
+    res.json(settingsStore.get());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/settings', (req, res) => {
+  try {
+    const allowed = ['defaultModel', 'defaultWorkdir', 'maxConcurrent'];
+    const data = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+    if (data.maxConcurrent !== undefined) {
+      data.maxConcurrent = Math.max(1, Math.min(20, parseInt(data.maxConcurrent) || 5));
+    }
+    const saved = settingsStore.save(data);
+    res.json(saved);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 router.get('/agents', (req, res) => {
   try {
@@ -37,6 +74,15 @@ router.get('/agents/:id', (req, res) => {
 router.post('/agents', (req, res) => {
   try {
     const agent = manager.createAgent(req.body);
+    res.status(201).json(agent);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/agents/import', (req, res) => {
+  try {
+    const agent = manager.importAgent(req.body);
     res.status(201).json(agent);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -68,7 +114,11 @@ router.post('/agents/:id/execute', (req, res) => {
     const { task, instructions } = req.body;
     if (!task) return res.status(400).json({ error: 'task é obrigatório' });
 
-    const executionId = manager.executeTask(req.params.id, task, instructions, wsCallback);
+    const clientId = req.headers['x-client-id'] || null;
+    const executionId = manager.executeTask(
+      req.params.id, task, instructions,
+      (msg) => wsCallback(msg, clientId)
+    );
     res.status(202).json({ executionId, status: 'started' });
   } catch (err) {
     const status = err.message.includes('não encontrado') ? 404 : 400;
@@ -140,11 +190,20 @@ router.post('/schedules', (req, res) => {
     if (!agentId || !taskDescription || !cronExpression) {
       return res.status(400).json({ error: 'agentId, taskDescription e cronExpression são obrigatórios' });
     }
-    const result = manager.scheduleTask(agentId, taskDescription, cronExpression, wsCallback);
+    const clientId = req.headers['x-client-id'] || null;
+    const result = manager.scheduleTask(agentId, taskDescription, cronExpression, (msg) => wsCallback(msg, clientId));
     res.status(201).json(result);
   } catch (err) {
     const status = err.message.includes('não encontrado') ? 404 : 400;
     res.status(status).json({ error: err.message });
+  }
+});
+
+router.get('/schedules/history', (req, res) => {
+  try {
+    res.json(scheduler.getHistory());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -153,6 +212,18 @@ router.get('/schedules', (req, res) => {
     res.json(scheduler.getSchedules());
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/schedules/:id', (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || null;
+    const updated = manager.updateScheduleTask(req.params.id, req.body, (msg) => wsCallback(msg, clientId));
+    if (!updated) return res.status(404).json({ error: 'Agendamento não encontrado' });
+    res.json(updated);
+  } catch (err) {
+    const status = err.message.includes('não encontrado') ? 404 : 400;
+    res.status(status).json({ error: err.message });
   }
 });
 
@@ -218,7 +289,8 @@ router.post('/pipelines/:id/execute', (req, res) => {
     const { input } = req.body;
     if (!input) return res.status(400).json({ error: 'input é obrigatório' });
 
-    pipeline.executePipeline(req.params.id, input, wsCallback).catch(() => {});
+    const clientId = req.headers['x-client-id'] || null;
+    pipeline.executePipeline(req.params.id, input, (msg) => wsCallback(msg, clientId)).catch(() => {});
     res.status(202).json({ pipelineId: req.params.id, status: 'started' });
   } catch (err) {
     const status = err.message.includes('não encontrado') ? 404 : 400;
@@ -252,6 +324,7 @@ router.get('/system/status', (req, res) => {
       },
       executions: {
         active: activeExecutions.length,
+        today: manager.getDailyExecutionCount(),
         list: activeExecutions,
       },
       schedules: {
@@ -269,9 +342,37 @@ router.get('/system/status', (req, res) => {
   }
 });
 
+router.get('/system/info', (req, res) => {
+  try {
+    let claudeVersion = 'N/A';
+    try {
+      claudeVersion = execSync(`${getBinPath()} --version`, { timeout: 5000 }).toString().trim();
+    } catch {}
+
+    res.json({
+      serverVersion: '1.0.0',
+      nodeVersion: process.version,
+      claudeVersion,
+      platform: `${os.platform()} ${os.arch()}`,
+      uptime: Math.floor(process.uptime()),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/executions/active', (req, res) => {
   try {
     res.json(manager.getActiveExecutions());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/executions/recent', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    res.json(manager.getRecentExecutions(limit));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

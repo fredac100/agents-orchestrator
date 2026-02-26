@@ -5,11 +5,11 @@ const Terminal = {
   executionFilter: null,
   _processingInterval: null,
 
-  addLine(content, type = 'default') {
+  addLine(content, type = 'default', executionId = null) {
     const time = new Date();
     const formatted = time.toTimeString().slice(0, 8);
 
-    Terminal.lines.push({ content, type, timestamp: formatted });
+    Terminal.lines.push({ content, type, timestamp: formatted, executionId });
 
     if (Terminal.lines.length > Terminal.maxLines) {
       Terminal.lines.shift();
@@ -63,7 +63,7 @@ const Terminal = {
     if (!output) return;
 
     const lines = Terminal.executionFilter
-      ? Terminal.lines.filter((l) => l.executionId === Terminal.executionFilter)
+      ? Terminal.lines.filter((l) => !l.executionId || l.executionId === Terminal.executionFilter)
       : Terminal.lines;
 
     if (lines.length === 0 && !Terminal._processingInterval) {

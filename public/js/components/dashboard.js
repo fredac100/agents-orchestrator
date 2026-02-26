@@ -1,24 +1,24 @@
 const DashboardUI = {
   async load() {
     try {
-      const [status, agents] = await Promise.all([
+      const [status, recentExecs] = await Promise.all([
         API.system.status(),
-        API.agents.list(),
+        API.executions.recent(10),
       ]);
 
-      DashboardUI.updateMetrics(status, agents);
-      DashboardUI.updateRecentActivity(status.executions?.list || []);
+      DashboardUI.updateMetrics(status);
+      DashboardUI.updateRecentActivity(recentExecs || []);
       DashboardUI.updateSystemStatus(status);
     } catch (err) {
       Toast.error(`Erro ao carregar dashboard: ${err.message}`);
     }
   },
 
-  updateMetrics(status, agents) {
+  updateMetrics(status) {
     const metrics = {
-      'metric-total-agents': status.agents?.total ?? (agents?.length ?? 0),
+      'metric-total-agents': status.agents?.total ?? 0,
       'metric-active-agents': status.agents?.active ?? 0,
-      'metric-executions-today': status.executions?.active ?? 0,
+      'metric-executions-today': status.executions?.today ?? 0,
       'metric-schedules': status.schedules?.total ?? 0,
     };
 

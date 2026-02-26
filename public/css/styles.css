@@ -2504,6 +2504,24 @@ tbody tr:hover td {
   text-align: center;
 }
 
+#schedules-table {
+  table-layout: fixed;
+}
+
+.schedule-task-cell {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
 .terminal-wrapper {
   display: flex;
   flex-direction: column;

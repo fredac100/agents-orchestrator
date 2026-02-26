@@ -70,6 +70,7 @@ const App = {
         case 'tasks': await TasksUI.load(); break;
         case 'schedules': await SchedulesUI.load(); break;
         case 'pipelines': await PipelinesUI.load(); break;
+        case 'settings': await SettingsUI.load(); break;
       }
     } catch (err) {
       Toast.error(`Erro ao carregar seção: ${err.message}`);
@@ -78,7 +79,8 @@ const App = {
 
   setupWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${window.location.host}`;
+    const clientId = API.clientId;
+    const url = `${protocol}//${window.location.host}?clientId=${clientId}`;
 
     try {
       App.ws = new WebSocket(url);
@@ -126,11 +128,14 @@ const App = {
 
   handleWsMessage(data) {
     switch (data.type) {
+      case 'connected':
+        break;
+
       case 'execution_output': {
         Terminal.stopProcessing();
         const content = data.data?.content || '';
         if (content) {
-          Terminal.addLine(content, 'default');
+          Terminal.addLine(content, 'default', data.executionId);
         }
         App._updateActiveBadge();
         break;
@@ -140,12 +145,12 @@ const App = {
         Terminal.stopProcessing();
         const result = data.data?.result || '';
         if (result) {
-          Terminal.addLine(result, 'success');
+          Terminal.addLine(result, 'success', data.executionId);
         } else {
-          Terminal.addLine('Execução concluída (sem resultado textual).', 'info');
+          Terminal.addLine('Execução concluída (sem resultado textual).', 'info', data.executionId);
         }
         if (data.data?.stderr) {
-          Terminal.addLine(data.data.stderr, 'error');
+          Terminal.addLine(data.data.stderr, 'error', data.executionId);
         }
         Toast.success('Execução concluída');
         App.refreshCurrentSection();
@@ -155,10 +160,19 @@ const App = {
 
       case 'execution_error':
         Terminal.stopProcessing();
-        Terminal.addLine(data.data?.error || 'Erro na execução', 'error');
+        Terminal.addLine(data.data?.error || 'Erro na execução', 'error', data.executionId);
         Toast.error(`Erro na execução: ${data.data?.error || 'desconhecido'}`);
         App._updateActiveBadge();
         break;
+
+      case 'pipeline_step_output': {
+        Terminal.stopProcessing();
+        const stepContent = data.data?.content || '';
+        if (stepContent) {
+          Terminal.addLine(stepContent, 'default', data.executionId);
+        }
+        break;
+      }
 
       case 'pipeline_step_start':
         Terminal.stopProcessing();
@@ -238,6 +252,7 @@ const App = {
 
     on('new-agent-btn', 'click', () => AgentsUI.openCreateModal());
     on('agents-empty-new-btn', 'click', () => AgentsUI.openCreateModal());
+    on('import-agent-btn', 'click', () => AgentsUI.openImportModal());
 
     on('agent-form-submit', 'click', (e) => {
       e.preventDefault();
@@ -248,6 +263,8 @@ const App = {
       e.preventDefault();
       AgentsUI.save();
     });
+
+    on('import-confirm-btn', 'click', () => AgentsUI.importAgent());
 
     on('execute-form-submit', 'click', (e) => {
       e.preventDefault();
@@ -297,7 +314,53 @@ const App = {
 
     on('settings-form', 'submit', (e) => {
       e.preventDefault();
-      Toast.info('Configurações salvas');
+      SettingsUI.save();
+    });
+
+    on('agents-search', 'input', () => {
+      AgentsUI.filter(
+        document.getElementById('agents-search')?.value,
+        document.getElementById('agents-filter-status')?.value
+      );
+    });
+
+    on('agents-filter-status', 'change', () => {
+      AgentsUI.filter(
+        document.getElementById('agents-search')?.value,
+        document.getElementById('agents-filter-status')?.value
+      );
+    });
+
+    on('tasks-search', 'input', () => {
+      TasksUI.filter(
+        document.getElementById('tasks-search')?.value,
+        document.getElementById('tasks-filter-category')?.value
+      );
+    });
+
+    on('tasks-filter-category', 'change', () => {
+      TasksUI.filter(
+        document.getElementById('tasks-search')?.value,
+        document.getElementById('tasks-filter-category')?.value
+      );
+    });
+
+    on('schedules-search', 'input', () => {
+      SchedulesUI.filter(
+        document.getElementById('schedules-search')?.value,
+        document.getElementById('schedules-filter-status')?.value
+      );
+    });
+
+    on('schedules-filter-status', 'change', () => {
+      SchedulesUI.filter(
+        document.getElementById('schedules-search')?.value,
+        document.getElementById('schedules-filter-status')?.value
+      );
+    });
+
+    on('pipelines-search', 'input', () => {
+      PipelinesUI.filter(document.getElementById('pipelines-search')?.value);
     });
 
     document.getElementById('agents-grid')?.addEventListener('click', (e) => {
@@ -320,7 +383,10 @@ const App = {
 
       const { action, id } = btn.dataset;
 
-      if (action === 'delete-task') TasksUI.delete(id);
+      switch (action) {
+        case 'edit-task': TasksUI.openEditModal(id); break;
+        case 'delete-task': TasksUI.delete(id); break;
+      }
     });
 
     document.getElementById('schedules-tbody')?.addEventListener('click', (e) => {
@@ -329,7 +395,10 @@ const App = {
 
       const { action, id } = btn.dataset;
 
-      if (action === 'delete-schedule') SchedulesUI.delete(id);
+      switch (action) {
+        case 'edit-schedule': SchedulesUI.openEditModal(id); break;
+        case 'delete-schedule': SchedulesUI.delete(id); break;
+      }
     });
 
     document.getElementById('pipelines-grid')?.addEventListener('click', (e) => {

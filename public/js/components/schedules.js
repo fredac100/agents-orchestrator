@@ -5,16 +5,19 @@ const SchedulesUI = {
     try {
       SchedulesUI.schedules = await API.schedules.list();
       SchedulesUI.render();
+      SchedulesUI.loadHistory();
     } catch (err) {
       Toast.error(`Erro ao carregar agendamentos: ${err.message}`);
     }
   },
 
-  render() {
+  render(filteredSchedules) {
     const tbody = document.getElementById('schedules-tbody');
     if (!tbody) return;
 
-    if (SchedulesUI.schedules.length === 0) {
+    const schedules = filteredSchedules || SchedulesUI.schedules;
+
+    if (schedules.length === 0) {
       tbody.innerHTML = `
         <tr class="table-empty-row">
           <td colspan="6">
@@ -29,7 +32,7 @@ const SchedulesUI = {
       return;
     }
 
-    tbody.innerHTML = SchedulesUI.schedules.map((schedule) => {
+    tbody.innerHTML = schedules.map((schedule) => {
       const cronExpr = schedule.cronExpression || schedule.cronExpr || '';
       const statusClass = schedule.active ? 'badge-active' : 'badge-inactive';
       const statusLabel = schedule.active ? 'Ativo' : 'Inativo';
@@ -37,10 +40,11 @@ const SchedulesUI = {
       const nextRun = schedule.nextRun
         ? new Date(schedule.nextRun).toLocaleString('pt-BR')
         : '—';
+      const scheduleId = schedule.id || schedule.taskId;
 
       return `
         <tr>
-          <td>${schedule.agentName || schedule.agentId || '—'}</td>
+          <td>${schedule.agentName || '—'}</td>
           <td class="schedule-task-cell" title="${schedule.taskDescription || ''}">${schedule.taskDescription || '—'}</td>
           <td>
             <span title="${cronExpr}">${humanCron}</span>
@@ -49,15 +53,26 @@ const SchedulesUI = {
           <td>${nextRun}</td>
           <td><span class="badge ${statusClass}">${statusLabel}</span></td>
           <td>
-            <button
-              class="btn btn-ghost btn-sm btn-danger"
-              data-action="delete-schedule"
-              data-id="${schedule.taskId}"
-              title="Remover agendamento"
-              aria-label="Remover agendamento"
-            >
-              <i data-lucide="trash-2"></i>
-            </button>
+            <div class="schedule-actions-cell">
+              <button
+                class="btn btn-ghost btn-sm"
+                data-action="edit-schedule"
+                data-id="${scheduleId}"
+                title="Editar agendamento"
+                aria-label="Editar agendamento"
+              >
+                <i data-lucide="pencil"></i>
+              </button>
+              <button
+                class="btn btn-ghost btn-sm btn-danger"
+                data-action="delete-schedule"
+                data-id="${scheduleId}"
+                title="Remover agendamento"
+                aria-label="Remover agendamento"
+              >
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
           </td>
         </tr>
       `;
@@ -66,7 +81,24 @@ const SchedulesUI = {
     if (window.lucide) lucide.createIcons({ nodes: [tbody] });
   },
 
-  async openCreateModal() {
+  filter(searchText, statusFilter) {
+    const search = (searchText || '').toLowerCase();
+    const status = statusFilter || '';
+
+    const filtered = SchedulesUI.schedules.filter((s) => {
+      const agent = (s.agentName || '').toLowerCase();
+      const task = (s.taskDescription || '').toLowerCase();
+      const matchesSearch = !search || agent.includes(search) || task.includes(search);
+      const matchesStatus = !status ||
+        (status === 'active' && s.active) ||
+        (status === 'paused' && !s.active);
+      return matchesSearch && matchesStatus;
+    });
+
+    SchedulesUI.render(filtered);
+  },
+
+  async openCreateModal(editSchedule) {
     try {
       const agents = await API.agents.list();
       const select = document.getElementById('schedule-agent');
@@ -79,11 +111,23 @@ const SchedulesUI = {
             .join('');
       }
 
+      const titleEl = document.getElementById('schedule-modal-title');
+      const idEl = document.getElementById('schedule-form-id');
       const taskEl = document.getElementById('schedule-task');
-      if (taskEl) taskEl.value = '';
-
       const cronEl = document.getElementById('schedule-cron');
-      if (cronEl) cronEl.value = '';
+
+      if (editSchedule) {
+        if (titleEl) titleEl.textContent = 'Editar Agendamento';
+        if (idEl) idEl.value = editSchedule.id || editSchedule.taskId || '';
+        if (select) select.value = editSchedule.agentId || '';
+        if (taskEl) taskEl.value = editSchedule.taskDescription || '';
+        if (cronEl) cronEl.value = editSchedule.cronExpression || editSchedule.cronExpr || '';
+      } else {
+        if (titleEl) titleEl.textContent = 'Novo Agendamento';
+        if (idEl) idEl.value = '';
+        if (taskEl) taskEl.value = '';
+        if (cronEl) cronEl.value = '';
+      }
 
       Modal.open('schedule-modal-overlay');
     } catch (err) {
@@ -91,7 +135,16 @@ const SchedulesUI = {
     }
   },
 
+  async openEditModal(scheduleId) {
+    const schedule = SchedulesUI.schedules.find(
+      (s) => (s.id || s.taskId) === scheduleId
+    );
+    if (!schedule) return;
+    await SchedulesUI.openCreateModal(schedule);
+  },
+
   async save() {
+    const scheduleId = document.getElementById('schedule-form-id')?.value.trim();
     const agentId = document.getElementById('schedule-agent')?.value;
     const taskDescription = document.getElementById('schedule-task')?.value.trim();
     const cronExpression = document.getElementById('schedule-cron')?.value.trim();
@@ -112,12 +165,17 @@ const SchedulesUI = {
     }
 
     try {
-      await API.schedules.create({ agentId, taskDescription, cronExpression });
-      Toast.success('Agendamento criado com sucesso');
+      if (scheduleId) {
+        await API.schedules.update(scheduleId, { agentId, taskDescription, cronExpression });
+        Toast.success('Agendamento atualizado com sucesso');
+      } else {
+        await API.schedules.create({ agentId, taskDescription, cronExpression });
+        Toast.success('Agendamento criado com sucesso');
+      }
       Modal.close('schedule-modal-overlay');
       await SchedulesUI.load();
     } catch (err) {
-      Toast.error(`Erro ao criar agendamento: ${err.message}`);
+      Toast.error(`Erro ao salvar agendamento: ${err.message}`);
     }
   },
 
@@ -136,6 +194,39 @@ const SchedulesUI = {
     } catch (err) {
       Toast.error(`Erro ao remover agendamento: ${err.message}`);
     }
+  },
+
+  async loadHistory() {
+    try {
+      const history = await API.schedules.history();
+      SchedulesUI.renderHistory(history || []);
+    } catch {
+    }
+  },
+
+  renderHistory(history) {
+    const container = document.getElementById('schedules-history');
+    if (!container) return;
+
+    if (history.length === 0) {
+      container.innerHTML = '<p class="empty-state-desc">Nenhum disparo registrado</p>';
+      return;
+    }
+
+    container.innerHTML = `
+      <ul class="activity-list">
+        ${history.slice(0, 20).map((h) => `
+          <li class="activity-item">
+            <div class="activity-item-info">
+              <span class="activity-item-agent">${h.cronExpr}</span>
+            </div>
+            <div class="activity-item-meta">
+              <span class="activity-item-time">${new Date(h.firedAt).toLocaleString('pt-BR')}</span>
+            </div>
+          </li>
+        `).join('')}
+      </ul>
+    `;
   },
 
   cronToHuman(expression) {

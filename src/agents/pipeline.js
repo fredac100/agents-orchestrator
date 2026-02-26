@@ -32,26 +32,55 @@ function buildSteps(steps) {
     .sort((a, b) => a.order - b.order);
 }
 
+function enrichStepsWithAgentNames(steps) {
+  const agents = agentsStore.getAll();
+  const agentMap = new Map(agents.map((a) => [a.id, a.agent_name]));
+
+  return steps.map((s) => ({
+    ...s,
+    agentName: agentMap.get(s.agentId) || s.agentId,
+  }));
+}
+
 function applyTemplate(template, input) {
   if (!template) return input;
   return template.replace(/\{\{input\}\}/g, input);
 }
 
-function executeStepAsPromise(agentConfig, prompt, pipelineState) {
+function executeStepAsPromise(agentConfig, prompt, pipelineState, wsCallback, pipelineId, stepIndex) {
   return new Promise((resolve, reject) => {
     const executionId = executor.execute(
       agentConfig,
       { description: prompt },
       {
-        onData: () => {},
+        onData: (parsed, execId) => {
+          if (wsCallback) {
+            wsCallback({
+              type: 'pipeline_step_output',
+              pipelineId,
+              stepIndex,
+              executionId: execId,
+              data: parsed,
+            });
+          }
+        },
         onError: (err) => {
           reject(err);
         },
         onComplete: (result) => {
+          if (result.exitCode !== 0 && !result.result) {
+            reject(new Error(result.stderr || `Processo encerrado com código ${result.exitCode}`));
+            return;
+          }
           resolve(result.result || '');
         },
       }
     );
+
+    if (!executionId) {
+      reject(new Error('Limite de execuções simultâneas atingido'));
+      return;
+    }
 
     pipelineState.currentExecutionId = executionId;
   });
@@ -97,7 +126,7 @@ export async function executePipeline(pipelineId, initialInput, wsCallback) {
         });
       }
 
-      const result = await executeStepAsPromise(agent.config, prompt, pipelineState);
+      const result = await executeStepAsPromise(agent.config, prompt, pipelineState, wsCallback, pipelineId, i);
 
       if (pipelineState.canceled) break;
 
@@ -200,5 +229,9 @@ export function getPipeline(id) {
 }
 
 export function getAllPipelines() {
-  return pipelinesStore.getAll();
+  const pipelines = pipelinesStore.getAll();
+  return pipelines.map((p) => ({
+    ...p,
+    steps: enrichStepsWithAgentNames(p.steps || []),
+  }));
 }

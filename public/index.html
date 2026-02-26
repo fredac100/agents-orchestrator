@@ -91,6 +91,10 @@
             <i data-lucide="server"></i>
             <span>Sistema</span>
           </button>
+          <button class="btn btn--ghost btn--icon-text" id="import-agent-btn" type="button">
+            <i data-lucide="upload"></i>
+            <span>Importar</span>
+          </button>
           <button class="btn btn--primary btn--icon-text" id="new-agent-btn" type="button">
             <i data-lucide="plus"></i>
             <span>Novo Agente</span>
@@ -288,6 +292,14 @@
           <div class="card">
             <div class="table-wrapper">
               <table class="table" id="schedules-table">
+                <colgroup>
+                  <col style="width: 15%">
+                  <col style="width: 30%">
+                  <col style="width: 18%">
+                  <col style="width: 17%">
+                  <col style="width: 8%">
+                  <col style="width: 12%">
+                </colgroup>
                 <thead>
                   <tr>
                     <th scope="col">Agente</th>
@@ -309,6 +321,15 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top: 1rem;">
+            <div class="card-header">
+              <h2 class="card-title">Histórico de Disparos</h2>
+            </div>
+            <div class="card-body" id="schedules-history">
+              <p class="empty-state-desc">Nenhum disparo registrado</p>
             </div>
           </div>
         </section>
@@ -531,6 +552,44 @@
                 placeholder="/home/fred/projetos"
                 autocomplete="off"
               />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group form-group--grow">
+              <label class="form-label" for="agent-allowed-tools">Ferramentas Permitidas</label>
+              <input
+                type="text"
+                class="input"
+                id="agent-allowed-tools"
+                name="allowedTools"
+                placeholder="Bash,Read,Write,Glob,Grep"
+                autocomplete="off"
+              />
+              <p class="form-hint">Lista separada por vírgula. Vazio = todas permitidas.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="agent-max-turns">Max Turns</label>
+              <input
+                type="number"
+                class="input"
+                id="agent-max-turns"
+                name="maxTurns"
+                min="0"
+                max="100"
+                value="0"
+              />
+              <p class="form-hint">Limite de turnos agênticos. 0 = sem limite.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="agent-permission-mode">Permission Mode</label>
+              <select class="select" id="agent-permission-mode" name="permissionMode">
+                <option value="">Padrão</option>
+                <option value="default">default</option>
+                <option value="plan">plan</option>
+                <option value="acceptEdits">acceptEdits</option>
+                <option value="bypassPermissions">bypassPermissions</option>
+              </select>
             </div>
           </div>
 
@@ -852,6 +911,36 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="import-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="import-modal-title" hidden>
+    <div class="modal modal--md">
+      <div class="modal-header">
+        <h2 class="modal-title" id="import-modal-title">Importar Agente</h2>
+        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="import-modal-overlay">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="import-json-content">JSON do Agente</label>
+          <textarea
+            class="textarea textarea--code"
+            id="import-json-content"
+            rows="10"
+            placeholder="Cole aqui o JSON exportado do agente..."
+          ></textarea>
+          <p class="form-hint">Cole o JSON gerado pela função de exportar agente.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn--ghost" type="button" data-modal-close="import-modal-overlay">Cancelar</button>
+        <button class="btn btn--primary btn--icon-text" type="button" id="import-confirm-btn">
+          <i data-lucide="upload"></i>
+          <span>Importar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container" id="toast-container" aria-live="assertive" aria-atomic="false" role="region" aria-label="Notificações"></div>
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
@@ -864,6 +953,7 @@
   <script src="js/components/tasks.js"></script>
   <script src="js/components/schedules.js"></script>
   <script src="js/components/pipelines.js"></script>
+  <script src="js/components/settings.js"></script>
   <script src="js/app.js"></script>
   <script>
     lucide.createIcons();
