@@ -3,6 +3,7 @@ const PipelinesUI = {
   agents: [],
   _editingId: null,
   _steps: [],
+  _pendingApprovals: new Map(),
 
   async load() {
     try {
@@ -84,10 +85,13 @@ const PipelinesUI = {
     const flowHtml = steps.map((step, index) => {
       const agentName = step.agentName || step.agentId || 'Agente';
       const isLast = index === steps.length - 1;
+      const approvalIcon = step.requiresApproval && index > 0
+        ? '<i data-lucide="shield-check" style="width:10px;height:10px;color:var(--warning)"></i> '
+        : '';
       return `
         <span class="pipeline-step-badge">
           <span class="pipeline-step-number">${index + 1}</span>
-          ${agentName}
+          ${approvalIcon}${agentName}
         </span>
         ${!isLast ? '<span class="pipeline-flow-arrow">→</span>' : ''}
       `;
@@ -130,8 +134,8 @@ const PipelinesUI = {
   openCreateModal() {
     PipelinesUI._editingId = null;
     PipelinesUI._steps = [
-      { agentId: '', inputTemplate: '' },
-      { agentId: '', inputTemplate: '' },
+      { agentId: '', inputTemplate: '', requiresApproval: false },
+      { agentId: '', inputTemplate: '', requiresApproval: false },
     ];
 
     const titleEl = document.getElementById('pipeline-modal-title');
@@ -156,7 +160,7 @@ const PipelinesUI = {
 
       PipelinesUI._editingId = pipelineId;
       PipelinesUI._steps = Array.isArray(pipeline.steps)
-        ? pipeline.steps.map((s) => ({ agentId: s.agentId || '', inputTemplate: s.inputTemplate || '' }))
+        ? pipeline.steps.map((s) => ({ agentId: s.agentId || '', inputTemplate: s.inputTemplate || '', requiresApproval: !!s.requiresApproval }))
         : [];
 
       const titleEl = document.getElementById('pipeline-modal-title');
@@ -198,6 +202,15 @@ const PipelinesUI = {
         ? '<div class="pipeline-step-connector"><i data-lucide="arrow-down" style="width:14px;height:14px"></i></div>'
         : '';
 
+      const approvalChecked = step.requiresApproval ? 'checked' : '';
+      const approvalHtml = index > 0
+        ? `<label class="pipeline-step-approval">
+            <input type="checkbox" data-step-field="requiresApproval" data-step-index="${index}" ${approvalChecked} />
+            <i data-lucide="shield-check" style="width:12px;height:12px"></i>
+            <span>Requer aprovação</span>
+          </label>`
+        : '';
+
       return `
         <div class="pipeline-step-row" data-step-index="${index}">
           <span class="pipeline-step-number-lg">${index + 1}</span>
@@ -213,6 +226,7 @@ const PipelinesUI = {
               data-step-field="inputTemplate"
               data-step-index="${index}"
             >${step.inputTemplate || ''}</textarea>
+            ${approvalHtml}
           </div>
           <div class="pipeline-step-actions">
             <button class="btn btn-ghost btn-icon btn-sm" type="button" data-step-action="move-up" data-step-index="${index}" title="Mover para cima" ${isFirst ? 'disabled' : ''}>
@@ -246,14 +260,18 @@ const PipelinesUI = {
       const index = parseInt(el.dataset.stepIndex, 10);
       const field = el.dataset.stepField;
       if (PipelinesUI._steps[index] !== undefined) {
-        PipelinesUI._steps[index][field] = el.value;
+        if (el.type === 'checkbox') {
+          PipelinesUI._steps[index][field] = el.checked;
+        } else {
+          PipelinesUI._steps[index][field] = el.value;
+        }
       }
     });
   },
 
   addStep() {
     PipelinesUI._syncStepsFromDOM();
-    PipelinesUI._steps.push({ agentId: '', inputTemplate: '' });
+    PipelinesUI._steps.push({ agentId: '', inputTemplate: '', requiresApproval: false });
     PipelinesUI.renderSteps();
   },
 
@@ -299,6 +317,7 @@ const PipelinesUI = {
       steps: PipelinesUI._steps.map((s) => ({
         agentId: s.agentId,
         inputTemplate: s.inputTemplate || '',
+        requiresApproval: !!s.requiresApproval,
       })),
     };
 
@@ -347,12 +366,16 @@ const PipelinesUI = {
     const inputEl = document.getElementById('pipeline-execute-input');
     if (inputEl) inputEl.value = '';
 
+    const workdirEl = document.getElementById('pipeline-execute-workdir');
+    if (workdirEl) workdirEl.value = '';
+
     Modal.open('pipeline-execute-modal-overlay');
   },
 
   async _executeFromModal() {
     const pipelineId = document.getElementById('pipeline-execute-id')?.value;
     const input = document.getElementById('pipeline-execute-input')?.value.trim();
+    const workingDirectory = document.getElementById('pipeline-execute-workdir')?.value.trim() || '';
 
     if (!input) {
       Toast.warning('O input inicial é obrigatório');
@@ -360,7 +383,7 @@ const PipelinesUI = {
     }
 
     try {
-      await API.pipelines.execute(pipelineId, input);
+      await API.pipelines.execute(pipelineId, input, workingDirectory);
       Modal.close('pipeline-execute-modal-overlay');
       App.navigateTo('terminal');
       Toast.info('Pipeline iniciado');

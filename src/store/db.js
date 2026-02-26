@@ -185,4 +185,5 @@ export const tasksStore = createStore(`${DATA_DIR}/tasks.json`);
 export const pipelinesStore = createStore(`${DATA_DIR}/pipelines.json`);
 export const schedulesStore = createStore(`${DATA_DIR}/schedules.json`);
 export const executionsStore = createStore(`${DATA_DIR}/executions.json`);
+export const webhooksStore = createStore(`${DATA_DIR}/webhooks.json`);
 export const settingsStore = createSettingsStore(`${DATA_DIR}/settings.json`);

@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import apiRouter, { setWsBroadcast, setWsBroadcastTo } from './src/routes/api.js';
+import apiRouter, { setWsBroadcast, setWsBroadcastTo, hookRouter } from './src/routes/api.js';
 import * as manager from './src/agents/manager.js';
 import { setGlobalBroadcast } from './src/agents/manager.js';
 import { cancelAllExecutions } from './src/agents/executor.js';
@@ -40,6 +40,7 @@ if (AUTH_TOKEN) {
 }
 
 app.use(express.json());
+app.use('/hook', hookRouter);
 app.use(express.static(join(__dirname, 'public')));
 app.use('/api', apiRouter);
 

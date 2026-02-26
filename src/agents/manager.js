@@ -105,7 +105,7 @@ export function deleteAgent(id) {
   return agentsStore.delete(id);
 }
 
-export function executeTask(agentId, task, instructions, wsCallback) {
+export function executeTask(agentId, task, instructions, wsCallback, metadata = {}) {
   const agent = agentsStore.getById(agentId);
   if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
   if (agent.status !== 'active') throw new Error(`Agente ${agentId} está inativo`);
@@ -116,6 +116,7 @@ export function executeTask(agentId, task, instructions, wsCallback) {
 
   const historyRecord = executionsStore.create({
     type: 'agent',
+    ...metadata,
     agentId,
     agentName: agent.agent_name,
     task: taskText,
@@ -154,6 +155,11 @@ export function executeTask(agentId, task, instructions, wsCallback) {
           result: result.result || '',
           exitCode: result.exitCode,
           endedAt,
+          costUsd: result.costUsd || 0,
+          totalCostUsd: result.totalCostUsd || 0,
+          durationMs: result.durationMs || 0,
+          numTurns: result.numTurns || 0,
+          sessionId: result.sessionId || '',
         });
         if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
       },
@@ -216,7 +222,7 @@ export function scheduleTask(agentId, taskDescription, cronExpression, wsCallbac
   schedulesStore.save(items);
 
   scheduler.schedule(scheduleId, cronExpression, () => {
-    executeTask(agentId, taskDescription, null, null);
+    executeTask(agentId, taskDescription, null, null, { source: 'schedule', scheduleId });
   }, false);
 
   return { scheduleId, agentId, agentName: agent.agent_name, taskDescription, cronExpression };
@@ -234,11 +240,69 @@ export function updateScheduleTask(scheduleId, data, wsCallback) {
   const cronExpression = data.cronExpression || stored.cronExpression;
 
   scheduler.updateSchedule(scheduleId, cronExpression, () => {
-    executeTask(agentId, taskDescription, null, null);
+    executeTask(agentId, taskDescription, null, null, { source: 'schedule', scheduleId });
   });
 
   schedulesStore.update(scheduleId, { agentId, agentName: agent.agent_name, taskDescription, cronExpression });
   return schedulesStore.getById(scheduleId);
+}
+
+export function continueConversation(agentId, sessionId, message, wsCallback) {
+  const agent = agentsStore.getById(agentId);
+  if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
+
+  const cb = getWsCallback(wsCallback);
+  const startedAt = new Date().toISOString();
+
+  const historyRecord = executionsStore.create({
+    type: 'agent',
+    agentId,
+    agentName: agent.agent_name,
+    task: message,
+    status: 'running',
+    startedAt,
+    parentSessionId: sessionId,
+  });
+
+  const executionId = executor.resume(
+    agent.config,
+    sessionId,
+    message,
+    {
+      onData: (parsed, execId) => {
+        if (cb) cb({ type: 'execution_output', executionId: execId, agentId, data: parsed });
+      },
+      onError: (err, execId) => {
+        const endedAt = new Date().toISOString();
+        executionsStore.update(historyRecord.id, { status: 'error', error: err.message, endedAt });
+        if (cb) cb({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
+      },
+      onComplete: (result, execId) => {
+        const endedAt = new Date().toISOString();
+        executionsStore.update(historyRecord.id, {
+          status: 'completed',
+          result: result.result || '',
+          exitCode: result.exitCode,
+          endedAt,
+          costUsd: result.costUsd || 0,
+          totalCostUsd: result.totalCostUsd || 0,
+          durationMs: result.durationMs || 0,
+          numTurns: result.numTurns || 0,
+          sessionId: result.sessionId || sessionId,
+        });
+        if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
+      },
+    }
+  );
+
+  if (!executionId) {
+    executionsStore.update(historyRecord.id, { status: 'error', error: 'Limite de execuções simultâneas atingido', endedAt: new Date().toISOString() });
+    throw new Error('Limite de execuções simultâneas atingido');
+  }
+
+  executionsStore.update(historyRecord.id, { executionId });
+  incrementDailyCount();
+  return executionId;
 }
 
 export function cancelExecution(executionId) {
@@ -278,9 +342,9 @@ export function importAgent(data) {
 }
 
 export function restoreSchedules() {
-  scheduler.restoreSchedules((agentId, taskDescription) => {
+  scheduler.restoreSchedules((agentId, taskDescription, scheduleId) => {
     try {
-      executeTask(agentId, taskDescription, null, null);
+      executeTask(agentId, taskDescription, null, null, { source: 'schedule', scheduleId });
     } catch (err) {
       console.log(`[manager] Erro ao executar tarefa agendada: ${err.message}`);
     }

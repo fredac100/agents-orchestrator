@@ -47,8 +47,7 @@ const SchedulesUI = {
           <td>${schedule.agentName || '—'}</td>
           <td class="schedule-task-cell" title="${schedule.taskDescription || ''}">${schedule.taskDescription || '—'}</td>
           <td>
-            <span title="${cronExpr}">${humanCron}</span>
-            <small class="font-mono">${cronExpr}</small>
+            <code class="font-mono">${cronExpr}</code>
           </td>
           <td>${nextRun}</td>
           <td><span class="badge ${statusClass}">${statusLabel}</span></td>
@@ -214,19 +213,84 @@ const SchedulesUI = {
     }
 
     container.innerHTML = `
-      <ul class="activity-list">
-        ${history.slice(0, 20).map((h) => `
-          <li class="activity-item">
-            <div class="activity-item-info">
-              <span class="activity-item-agent">${h.cronExpr}</span>
-            </div>
-            <div class="activity-item-meta">
-              <span class="activity-item-time">${new Date(h.firedAt).toLocaleString('pt-BR')}</span>
-            </div>
-          </li>
-        `).join('')}
-      </ul>
+      <div class="table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Agente</th>
+              <th scope="col">Tarefa</th>
+              <th scope="col">Status</th>
+              <th scope="col">Data</th>
+              <th scope="col">Duração</th>
+              <th scope="col">Custo</th>
+              <th scope="col" aria-label="Ações"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${history.map((exec) => {
+              const status = SchedulesUI._statusBadge(exec.status);
+              const date = exec.startedAt ? new Date(exec.startedAt).toLocaleString('pt-BR') : '—';
+              const duration = SchedulesUI._formatDuration(exec.startedAt, exec.endedAt);
+              const cost = exec.costUsd || exec.totalCostUsd || 0;
+              const costStr = cost > 0 ? `$${cost.toFixed(4)}` : '—';
+              const taskStr = SchedulesUI._escapeHtml(SchedulesUI._truncate(exec.task || '', 60));
+
+              return `
+                <tr>
+                  <td>${SchedulesUI._escapeHtml(exec.agentName || '—')}</td>
+                  <td title="${SchedulesUI._escapeHtml(exec.task || '')}">${taskStr}</td>
+                  <td>${status}</td>
+                  <td>${date}</td>
+                  <td>${duration}</td>
+                  <td class="font-mono">${costStr}</td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm" data-action="view-schedule-exec" data-id="${exec.id}" type="button" title="Ver resultado">
+                      <i data-lucide="eye"></i>
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
     `;
+
+    if (window.lucide) lucide.createIcons({ nodes: [container] });
+  },
+
+  _statusBadge(status) {
+    const map = {
+      running: ['badge-running', 'Executando'],
+      completed: ['badge-active', 'Concluído'],
+      error: ['badge-error', 'Erro'],
+    };
+    const [cls, label] = map[status] || ['badge-inactive', status || '—'];
+    return `<span class="badge ${cls}">${label}</span>`;
+  },
+
+  _formatDuration(start, end) {
+    if (!start) return '—';
+    const startMs = new Date(start).getTime();
+    const endMs = end ? new Date(end).getTime() : Date.now();
+    const totalSeconds = Math.floor((endMs - startMs) / 1000);
+    if (totalSeconds < 0) return '—';
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m ${seconds}s`;
+  },
+
+  _escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+
+  _truncate(str, max) {
+    if (!str || str.length <= max) return str;
+    return str.slice(0, max) + '…';
   },
 
   cronToHuman(expression) {
@@ -262,8 +326,10 @@ const SchedulesUI = {
 
     if (minute.startsWith('*/')) return `A cada ${minute.slice(2)} minutos`;
     if (hour.startsWith('*/') && minute === '0') return `A cada ${hour.slice(2)} horas`;
-    if (minute === '0' && hour !== '*' && day === '*' && month === '*' && weekday === '*') {
-      return `Todo dia às ${hour.padStart(2, '0')}h`;
+    if (hour !== '*' && day === '*' && month === '*' && weekday === '*') {
+      const h = hour.padStart(2, '0');
+      if (minute === '0') return `Todo dia às ${h}h`;
+      return `Todo dia às ${h}:${minute.padStart(2, '0')}`;
     }
 
     return expression;

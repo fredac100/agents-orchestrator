@@ -40,6 +40,7 @@ const API = {
     delete(id) { return API.request('DELETE', `/agents/${id}`); },
     execute(id, task, instructions) { return API.request('POST', `/agents/${id}/execute`, { task, instructions }); },
     cancel(id, executionId) { return API.request('POST', `/agents/${id}/cancel/${executionId}`); },
+    continue(id, sessionId, message) { return API.request('POST', `/agents/${id}/continue`, { sessionId, message }); },
     export(id) { return API.request('GET', `/agents/${id}/export`); },
     import(data) { return API.request('POST', '/agents/import', data); },
   },
@@ -65,8 +66,25 @@ const API = {
     create(data) { return API.request('POST', '/pipelines', data); },
     update(id, data) { return API.request('PUT', `/pipelines/${id}`, data); },
     delete(id) { return API.request('DELETE', `/pipelines/${id}`); },
-    execute(id, input) { return API.request('POST', `/pipelines/${id}/execute`, { input }); },
+    execute(id, input, workingDirectory) {
+      const body = { input };
+      if (workingDirectory) body.workingDirectory = workingDirectory;
+      return API.request('POST', `/pipelines/${id}/execute`, body);
+    },
     cancel(id) { return API.request('POST', `/pipelines/${id}/cancel`); },
+    approve(id) { return API.request('POST', `/pipelines/${id}/approve`); },
+    reject(id) { return API.request('POST', `/pipelines/${id}/reject`); },
+  },
+
+  webhooks: {
+    list() { return API.request('GET', '/webhooks'); },
+    create(data) { return API.request('POST', '/webhooks', data); },
+    update(id, data) { return API.request('PUT', `/webhooks/${id}`, data); },
+    delete(id) { return API.request('DELETE', `/webhooks/${id}`); },
+  },
+
+  stats: {
+    costs(days) { return API.request('GET', `/stats/costs${days ? '?days=' + days : ''}`); },
   },
 
   system: {

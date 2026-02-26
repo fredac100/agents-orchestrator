@@ -42,6 +42,7 @@ function buildSteps(steps) {
       order: step.order !== undefined ? step.order : index,
       inputTemplate: step.inputTemplate || null,
       description: step.description || '',
+      requiresApproval: index === 0 ? false : !!step.requiresApproval,
     }))
     .sort((a, b) => a.order - b.order);
 }
@@ -79,7 +80,12 @@ function executeStepAsPromise(agentConfig, prompt, pipelineState, wsCallback, pi
             reject(new Error(result.stderr || `Processo encerrado com código ${result.exitCode}`));
             return;
           }
-          resolve(result.result || '');
+          resolve({
+            text: result.result || '',
+            costUsd: result.costUsd || 0,
+            durationMs: result.durationMs || 0,
+            numTurns: result.numTurns || 0,
+          });
         },
       }
     );
@@ -93,11 +99,53 @@ function executeStepAsPromise(agentConfig, prompt, pipelineState, wsCallback, pi
   });
 }
 
-export async function executePipeline(pipelineId, initialInput, wsCallback) {
+function waitForApproval(pipelineId, stepIndex, previousOutput, agentName, wsCallback) {
+  return new Promise((resolve) => {
+    const state = activePipelines.get(pipelineId);
+    if (!state) { resolve(false); return; }
+
+    state.pendingApproval = {
+      stepIndex,
+      previousOutput: previousOutput.slice(0, 3000),
+      agentName,
+      resolve,
+    };
+
+    if (wsCallback) {
+      wsCallback({
+        type: 'pipeline_approval_required',
+        pipelineId,
+        stepIndex,
+        agentName,
+        previousOutput: previousOutput.slice(0, 3000),
+      });
+    }
+  });
+}
+
+export function approvePipelineStep(pipelineId) {
+  const state = activePipelines.get(pipelineId);
+  if (!state?.pendingApproval) return false;
+  const { resolve } = state.pendingApproval;
+  state.pendingApproval = null;
+  resolve(true);
+  return true;
+}
+
+export function rejectPipelineStep(pipelineId) {
+  const state = activePipelines.get(pipelineId);
+  if (!state?.pendingApproval) return false;
+  const { resolve } = state.pendingApproval;
+  state.pendingApproval = null;
+  resolve(false);
+  return true;
+}
+
+export async function executePipeline(pipelineId, initialInput, wsCallback, options = {}) {
   const pl = pipelinesStore.getById(pipelineId);
   if (!pl) throw new Error(`Pipeline ${pipelineId} não encontrado`);
 
-  const pipelineState = { currentExecutionId: null, currentStep: 0, canceled: false };
+  const pipelineState = { currentExecutionId: null, currentStep: 0, canceled: false, pendingApproval: null };
   activePipelines.set(pipelineId, pipelineState);
 
   const historyRecord = executionsStore.create({
@@ -108,11 +156,13 @@ export async function executePipeline(pipelineId, initialInput, wsCallback) {
     status: 'running',
     startedAt: new Date().toISOString(),
     steps: [],
+    totalCostUsd: 0,
   });
 
   const steps = buildSteps(pl.steps);
   const results = [];
   let currentInput = initialInput;
+  let totalCost = 0;
 
   try {
     for (let i = 0; i < steps.length; i++) {
@@ -121,9 +171,39 @@ export async function executePipeline(pipelineId, initialInput, wsCallback) {
       const step = steps[i];
       pipelineState.currentStep = i;
 
+      if (step.requiresApproval && i > 0) {
+        const prevAgentName = results.length > 0 ? results[results.length - 1].agentName : '';
+
+        executionsStore.update(historyRecord.id, { status: 'awaiting_approval' });
+
+        if (wsCallback) {
+          wsCallback({ type: 'pipeline_status', pipelineId, status: 'awaiting_approval', stepIndex: i });
+        }
+
+        const approved = await waitForApproval(pipelineId, i, currentInput, prevAgentName, wsCallback);
+
+        if (!approved) {
+          pipelineState.canceled = true;
+          executionsStore.update(historyRecord.id, { status: 'rejected', endedAt: new Date().toISOString(), totalCostUsd: totalCost });
+          if (wsCallback) {
+            wsCallback({ type: 'pipeline_rejected', pipelineId, stepIndex: i });
+          }
+          break;
+        }
+
+        executionsStore.update(historyRecord.id, { status: 'running' });
+      }
+
+      if (pipelineState.canceled) break;
+
       const agent = agentsStore.getById(step.agentId);
       if (!agent) throw new Error(`Agente ${step.agentId} não encontrado no passo ${i}`);
       if (agent.status !== 'active') throw new Error(`Agente ${agent.agent_name} está inativo`);
+
+      const stepConfig = { ...agent.config };
+      if (options.workingDirectory) {
+        stepConfig.workingDirectory = options.workingDirectory;
+      }
 
       const prompt = applyTemplate(step.inputTemplate, currentInput);
       const stepStart = new Date().toISOString();
@@ -139,12 +219,13 @@ export async function executePipeline(pipelineId, initialInput, wsCallback) {
         });
       }
 
-      const result = await executeStepAsPromise(agent.config, prompt, pipelineState, wsCallback, pipelineId, i);
+      const stepResult = await executeStepAsPromise(stepConfig, prompt, pipelineState, wsCallback, pipelineId, i);
 
       if (pipelineState.canceled) break;
 
-      currentInput = result;
-      results.push({ stepId: step.id, agentName: agent.agent_name, result });
+      totalCost += stepResult.costUsd;
+      currentInput = stepResult.text;
+      results.push({ stepId: step.id, agentName: agent.agent_name, result: stepResult.text });
 
       const current = executionsStore.getById(historyRecord.id);
       const savedSteps = current ? (current.steps || []) : [];
@@ -153,12 +234,15 @@ export async function executePipeline(pipelineId, initialInput, wsCallback) {
         agentId: step.agentId,
         agentName: agent.agent_name,
         prompt: prompt.slice(0, 5000),
-        result,
+        result: stepResult.text,
         startedAt: stepStart,
         endedAt: new Date().toISOString(),
         status: 'completed',
+        costUsd: stepResult.costUsd,
+        durationMs: stepResult.durationMs,
+        numTurns: stepResult.numTurns,
       });
-      executionsStore.update(historyRecord.id, { steps: savedSteps });
+      executionsStore.update(historyRecord.id, { steps: savedSteps, totalCostUsd: totalCost });
 
       if (wsCallback) {
         wsCallback({
@@ -166,19 +250,23 @@ export async function executePipeline(pipelineId, initialInput, wsCallback) {
           pipelineId,
           stepIndex: i,
           stepId: step.id,
-          result: result.slice(0, 500),
+          result: stepResult.text.slice(0, 500),
+          costUsd: stepResult.costUsd,
         });
       }
     }
 
     activePipelines.delete(pipelineId);
+
+    const finalStatus = pipelineState.canceled ? 'canceled' : 'completed';
     executionsStore.update(historyRecord.id, {
-      status: pipelineState.canceled ? 'canceled' : 'completed',
+      status: finalStatus,
       endedAt: new Date().toISOString(),
+      totalCostUsd: totalCost,
     });
 
     if (!pipelineState.canceled && wsCallback) {
-      wsCallback({ type: 'pipeline_complete', pipelineId, results });
+      wsCallback({ type: 'pipeline_complete', pipelineId, results, totalCostUsd: totalCost });
     }
 
     return results;
@@ -188,6 +276,7 @@ export async function executePipeline(pipelineId, initialInput, wsCallback) {
       status: 'error',
       error: err.message,
       endedAt: new Date().toISOString(),
+      totalCostUsd: totalCost,
     });
     if (wsCallback) {
       wsCallback({
@@ -205,6 +294,10 @@ export function cancelPipeline(pipelineId) {
   const state = activePipelines.get(pipelineId);
   if (!state) return false;
   state.canceled = true;
+  if (state.pendingApproval) {
+    state.pendingApproval.resolve(false);
+    state.pendingApproval = null;
+  }
   if (state.currentExecutionId) executor.cancel(state.currentExecutionId);
   activePipelines.delete(pipelineId);
   return true;
@@ -215,6 +308,7 @@ export function getActivePipelines() {
     pipelineId: id,
     currentStep: state.currentStep,
     currentExecutionId: state.currentExecutionId,
+    pendingApproval: !!state.pendingApproval,
   }));
 }
 

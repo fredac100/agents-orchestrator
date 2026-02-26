@@ -4,6 +4,31 @@ const Terminal = {
   autoScroll: true,
   executionFilter: null,
   _processingInterval: null,
+  _chatSession: null,
+
+  enableChat(agentId, agentName, sessionId) {
+    Terminal._chatSession = { agentId, agentName, sessionId };
+    const bar = document.getElementById('terminal-input-bar');
+    const ctx = document.getElementById('terminal-input-context');
+    const input = document.getElementById('terminal-input');
+    if (bar) bar.hidden = false;
+    if (ctx) ctx.textContent = `Conversando com: ${agentName}`;
+    if (input) { input.value = ''; input.focus(); }
+  },
+
+  disableChat() {
+    Terminal._chatSession = null;
+    const bar = document.getElementById('terminal-input-bar');
+    if (bar) bar.hidden = true;
+  },
+
+  getChatSession() {
+    return Terminal._chatSession;
+  },
+
+  updateSessionId(sessionId) {
+    if (Terminal._chatSession) Terminal._chatSession.sessionId = sessionId;
+  },
 
   addLine(content, type = 'default', executionId = null) {
     const time = new Date();

@@ -38,6 +38,9 @@ function cleanEnv() {
   const env = { ...process.env };
   delete env.CLAUDECODE;
   delete env.ANTHROPIC_API_KEY;
+  if (!env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
+    env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = '128000';
+  }
   return env;
 }
 
@@ -151,20 +154,31 @@ export function execute(agentConfig, task, callbacks = {}) {
   let outputBuffer = '';
   let errorBuffer = '';
   let fullText = '';
+  let resultMeta = null;
+
+  function processEvent(parsed) {
+    if (!parsed) return;
+    const text = extractText(parsed);
+    if (text) {
+      fullText += text;
+      if (onData) onData({ type: 'chunk', content: text }, executionId);
+    }
+    if (parsed.type === 'result') {
+      resultMeta = {
+        costUsd: parsed.cost_usd || 0,
+        totalCostUsd: parsed.total_cost_usd || 0,
+        durationMs: parsed.duration_ms || 0,
+        durationApiMs: parsed.duration_api_ms || 0,
+        numTurns: parsed.num_turns || 0,
+        sessionId: parsed.session_id || '',
+      };
+    }
+  }
 
   child.stdout.on('data', (chunk) => {
     const lines = (outputBuffer + chunk.toString()).split('\n');
     outputBuffer = lines.pop();
-
-    for (const line of lines) {
-      const parsed = parseStreamLine(line);
-      if (!parsed) continue;
-      const text = extractText(parsed);
-      if (text) {
-        fullText += text;
-        if (onData) onData({ type: 'chunk', content: text }, executionId);
-      }
-    }
+    for (const line of lines) processEvent(parseStreamLine(line));
   });
 
   child.stderr.on('data', (chunk) => {
@@ -182,16 +196,126 @@ export function execute(agentConfig, task, callbacks = {}) {
     activeExecutions.delete(executionId);
     if (hadError) return;
 
-    if (outputBuffer.trim()) {
-      const parsed = parseStreamLine(outputBuffer);
-      if (parsed) {
-        const text = extractText(parsed);
-        if (text) fullText += text;
-      }
-    }
+    if (outputBuffer.trim()) processEvent(parseStreamLine(outputBuffer));
 
     if (onComplete) {
-      onComplete({ executionId, exitCode: code, result: fullText, stderr: errorBuffer }, executionId);
+      onComplete({
+        executionId,
+        exitCode: code,
+        result: fullText,
+        stderr: errorBuffer,
+        ...(resultMeta || {}),
+      }, executionId);
+    }
+  });
+
+  return executionId;
+}
+
+export function resume(agentConfig, sessionId, message, callbacks = {}) {
+  if (activeExecutions.size >= maxConcurrent) {
+    const err = new Error(`Limite de ${maxConcurrent} execuções simultâneas atingido`);
+    if (callbacks.onError) callbacks.onError(err, uuidv4());
+    return null;
+  }
+
+  const executionId = uuidv4();
+  const { onData, onError, onComplete } = callbacks;
+
+  const model = agentConfig.model || 'claude-sonnet-4-6';
+  const args = [
+    '--resume', sessionId,
+    '-p', sanitizeText(message),
+    '--output-format', 'stream-json',
+    '--verbose',
+    '--model', model,
+    '--permission-mode', agentConfig.permissionMode || 'bypassPermissions',
+  ];
+
+  if (agentConfig.maxTurns && agentConfig.maxTurns > 0) {
+    args.push('--max-turns', String(agentConfig.maxTurns));
+  }
+
+  const spawnOptions = {
+    env: cleanEnv(),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  };
+
+  if (agentConfig.workingDirectory && agentConfig.workingDirectory.trim()) {
+    if (!existsSync(agentConfig.workingDirectory)) {
+      const err = new Error(`Diretório de trabalho não encontrado: ${agentConfig.workingDirectory}`);
+      if (onError) onError(err, executionId);
+      return executionId;
+    }
+    spawnOptions.cwd = agentConfig.workingDirectory;
+  }
+
+  console.log(`[executor] Resumindo sessão: ${sessionId} | Execução: ${executionId}`);
+
+  const child = spawn(CLAUDE_BIN, args, spawnOptions);
+  let hadError = false;
+
+  activeExecutions.set(executionId, {
+    process: child,
+    agentConfig,
+    task: { description: message },
+    startedAt: new Date().toISOString(),
+    executionId,
+  });
+
+  let outputBuffer = '';
+  let errorBuffer = '';
+  let fullText = '';
+  let resultMeta = null;
+
+  function processEvent(parsed) {
+    if (!parsed) return;
+    const text = extractText(parsed);
+    if (text) {
+      fullText += text;
+      if (onData) onData({ type: 'chunk', content: text }, executionId);
+    }
+    if (parsed.type === 'result') {
+      resultMeta = {
+        costUsd: parsed.cost_usd || 0,
+        totalCostUsd: parsed.total_cost_usd || 0,
+        durationMs: parsed.duration_ms || 0,
+        durationApiMs: parsed.duration_api_ms || 0,
+        numTurns: parsed.num_turns || 0,
+        sessionId: parsed.session_id || sessionId,
+      };
+    }
+  }
+
+  child.stdout.on('data', (chunk) => {
+    const lines = (outputBuffer + chunk.toString()).split('\n');
+    outputBuffer = lines.pop();
+    for (const line of lines) processEvent(parseStreamLine(line));
+  });
+
+  child.stderr.on('data', (chunk) => {
+    errorBuffer += chunk.toString();
+  });
+
+  child.on('error', (err) => {
+    console.log(`[executor][error] ${err.message}`);
+    hadError = true;
+    activeExecutions.delete(executionId);
+    if (onError) onError(err, executionId);
+  });
+
+  child.on('close', (code) => {
+    activeExecutions.delete(executionId);
+    if (hadError) return;
+    if (outputBuffer.trim()) processEvent(parseStreamLine(outputBuffer));
+    if (onComplete) {
+      onComplete({
+        executionId,
+        exitCode: code,
+        result: fullText,
+        stderr: errorBuffer,
+        ...(resultMeta || {}),
+      }, executionId);
     }
   });
 

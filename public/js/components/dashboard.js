@@ -29,6 +29,18 @@ const DashboardUI = {
       const current = parseInt(el.textContent, 10) || 0;
       DashboardUI._animateCount(el, current, target);
     }
+
+    const costEl = document.getElementById('metric-cost-today');
+    if (costEl) {
+      const cost = status.costs?.today ?? 0;
+      costEl.textContent = `$${cost.toFixed(4)}`;
+    }
+
+    const webhooksEl = document.getElementById('metric-webhooks');
+    if (webhooksEl) {
+      const current = parseInt(webhooksEl.textContent, 10) || 0;
+      DashboardUI._animateCount(webhooksEl, current, status.webhooks?.active ?? 0);
+    }
   },
 
   _animateCount(el, from, to) {
@@ -77,6 +89,10 @@ const DashboardUI = {
       const date = exec.startedAt
         ? new Date(exec.startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
         : '';
+      const cost = exec.costUsd || exec.totalCostUsd || 0;
+      const costHtml = cost > 0
+        ? `<span class="activity-item-cost">$${cost.toFixed(4)}</span>`
+        : '';
 
       return `
         <li class="activity-item">
@@ -85,6 +101,7 @@ const DashboardUI = {
             <span class="activity-item-task">${taskText.length > 80 ? taskText.slice(0, 80) + '...' : taskText}</span>
           </div>
           <div class="activity-item-meta">
+            ${costHtml}
             <span class="badge ${statusClass}">${statusLabel}</span>
             <span class="activity-item-time">${date} ${time}</span>
           </div>
@@ -107,7 +124,9 @@ const DashboardUI = {
       running: 'badge--blue',
       completed: 'badge--green',
       error: 'badge--red',
-      cancelled: 'badge--gray',
+      canceled: 'badge--gray',
+      awaiting_approval: 'badge--yellow',
+      rejected: 'badge--red',
     };
     return map[status] || 'badge--gray';
   },
@@ -117,7 +136,9 @@ const DashboardUI = {
       running: 'Em execução',
       completed: 'Concluído',
       error: 'Erro',
-      cancelled: 'Cancelado',
+      canceled: 'Cancelado',
+      awaiting_approval: 'Aguardando',
+      rejected: 'Rejeitado',
     };
     return map[status] || status || 'Desconhecido';
   },

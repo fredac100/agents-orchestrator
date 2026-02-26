@@ -1029,6 +1029,17 @@ textarea {
   color: var(--success);
 }
 
+.terminal-line.user-message {
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+  margin: 6px 0;
+}
+
+.terminal-line.user-message .content {
+  color: var(--accent);
+  font-weight: 500;
+}
+
 .terminal-line.info .content {
   color: var(--info);
 }
@@ -2004,6 +2015,20 @@ tbody tr:hover td {
   color: var(--warning);
 }
 
+.metric-card-icon--yellow {
+  background-color: rgba(250, 204, 21, 0.12);
+  color: #facc15;
+}
+
+.metric-card-icon--cyan {
+  background-color: rgba(6, 182, 212, 0.12);
+  color: #06b6d4;
+}
+
+.metric-card-value--sm {
+  font-size: 1.25rem;
+}
+
 .metric-card-body {
   display: flex;
   flex-direction: column;
@@ -2617,6 +2642,55 @@ tbody tr:hover td {
 
 .terminal-placeholder {
   color: var(--text-muted);
+}
+
+.terminal-input-bar {
+  border-top: 1px solid var(--border);
+  background-color: #0c0c14;
+  padding: 10px 16px;
+}
+
+.terminal-input-context {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.terminal-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-input-prompt {
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.terminal-input {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.terminal-input:focus {
+  border-color: var(--accent);
+}
+
+.terminal-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 .settings-grid {
@@ -3720,4 +3794,251 @@ tbody tr:hover td {
 .input--sm {
   padding: 5px 10px;
   font-size: 12px;
+}
+
+.approval-notification {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.05));
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 0;
+}
+
+.approval-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.approval-icon {
+  color: var(--warning);
+  flex-shrink: 0;
+}
+
+.approval-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.approval-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.approval-text strong {
+  font-size: 13px;
+  color: var(--warning);
+}
+
+.approval-text span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.approval-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.webhook-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+
+.webhook-card:hover {
+  border-color: var(--border-secondary);
+}
+
+.webhook-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.webhook-card-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.webhook-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.webhook-card-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.webhook-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.webhook-card-target,
+.webhook-card-url {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.webhook-card-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.webhook-card-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.webhook-url-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.webhook-url-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--bg-input);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.webhook-card-curl {
+  padding-top: 6px;
+}
+
+.webhook-card-meta {
+  display: flex;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-primary);
+}
+
+.webhook-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pipeline-step-approval {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--warning);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.pipeline-step-approval input[type="checkbox"] {
+  accent-color: var(--warning);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.cost-value {
+  color: #facc15;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+}
+
+.activity-item-cost {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #facc15;
+}
+
+.history-card-cost {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #facc15;
+}
+
+.history-card-cost svg {
+  width: 12px;
+  height: 12px;
+}
+
+.history-card-duration-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pipeline-step-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pipeline-step-cost {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #facc15;
+}
+
+.badge-warning {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.badge--yellow {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.form-hint-block {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.form-hint-block p {
+  margin-bottom: 6px;
+}
+
+.form-hint-block p:last-child {
+  margin-bottom: 0;
+}
+
+.form-hint-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--bg-input);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-top: 4px;
+  display: block;
+  white-space: pre;
 }

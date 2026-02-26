@@ -135,7 +135,7 @@ export function restoreSchedules(executeFn) {
     if (!s.active) continue;
     const cronExpr = s.cronExpression || s.cronExpr;
     try {
-      schedule(s.id, cronExpr, () => executeFn(s.agentId, s.taskDescription), false);
+      schedule(s.id, cronExpr, () => executeFn(s.agentId, s.taskDescription, s.id), false);
       restored++;
     } catch (err) {
       console.log(`[scheduler] Falha ao restaurar ${s.id}: ${err.message}`);

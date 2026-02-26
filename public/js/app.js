@@ -4,6 +4,7 @@ const App = {
   wsReconnectAttempts: 0,
   wsReconnectTimer: null,
   _initialized: false,
+  _lastAgentName: '',
 
   sectionTitles: {
     dashboard: 'Dashboard',
@@ -11,6 +12,7 @@ const App = {
     tasks: 'Tarefas',
     schedules: 'Agendamentos',
     pipelines: 'Pipelines',
+    webhooks: 'Webhooks',
     terminal: 'Terminal',
     history: 'Histórico',
     settings: 'Configurações',
@@ -71,6 +73,7 @@ const App = {
         case 'tasks': await TasksUI.load(); break;
         case 'schedules': await SchedulesUI.load(); break;
         case 'pipelines': await PipelinesUI.load(); break;
+        case 'webhooks': await WebhooksUI.load(); break;
         case 'history': await HistoryUI.load(); break;
         case 'settings': await SettingsUI.load(); break;
       }
@@ -154,6 +157,23 @@ const App = {
         if (data.data?.stderr) {
           Terminal.addLine(data.data.stderr, 'error', data.executionId);
         }
+        const costUsd = data.data?.costUsd || 0;
+        const numTurns = data.data?.numTurns || 0;
+        if (costUsd > 0) {
+          Terminal.addLine(`Custo: $${costUsd.toFixed(4)} | Turnos: ${numTurns}`, 'info', data.executionId);
+        }
+
+        const sessionId = data.data?.sessionId || '';
+        if (sessionId && data.agentId) {
+          if (Terminal.getChatSession()?.sessionId === sessionId || !Terminal.getChatSession()) {
+            const agentName = App._lastAgentName || 'Agente';
+            Terminal.enableChat(data.agentId, agentName, sessionId);
+          }
+          if (Terminal.getChatSession()) {
+            Terminal.updateSessionId(sessionId);
+          }
+        }
+
         Toast.success('Execução concluída');
         App.refreshCurrentSection();
         App._updateActiveBadge();
@@ -200,6 +220,82 @@ const App = {
         Terminal.addLine(`Erro no passo ${data.stepIndex + 1}: ${data.error}`, 'error');
         Toast.error('Erro no pipeline');
         break;
+
+      case 'pipeline_approval_required':
+        Terminal.stopProcessing();
+        Terminal.addLine(`Passo ${data.stepIndex + 1} requer aprovação antes de executar.`, 'system');
+        if (data.previousOutput) {
+          Terminal.addLine(`Output do passo anterior:\n${data.previousOutput.slice(0, 1000)}`, 'info');
+        }
+        App._showApprovalNotification(data.pipelineId, data.stepIndex, data.agentName);
+        Toast.warning('Pipeline aguardando aprovação');
+        break;
+
+      case 'pipeline_rejected':
+        Terminal.stopProcessing();
+        Terminal.addLine(`Pipeline rejeitado no passo ${data.stepIndex + 1}.`, 'error');
+        App._hideApprovalNotification();
+        Toast.info('Pipeline rejeitado');
+        App.refreshCurrentSection();
+        break;
+
+      case 'pipeline_status':
+        break;
+    }
+  },
+
+  _showApprovalNotification(pipelineId, stepIndex, agentName) {
+    const container = document.getElementById('approval-notification');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="approval-content">
+        <div class="approval-icon"><i data-lucide="shield-alert"></i></div>
+        <div class="approval-text">
+          <strong>Aprovação necessária</strong>
+          <span>Passo ${stepIndex + 1} (${agentName || 'agente'}) aguardando autorização</span>
+        </div>
+        <div class="approval-actions">
+          <button class="btn btn--primary btn--sm" id="approval-approve-btn" type="button">Aprovar</button>
+          <button class="btn btn--danger btn--sm" id="approval-reject-btn" type="button">Rejeitar</button>
+        </div>
+      </div>
+    `;
+    container.hidden = false;
+    container.dataset.pipelineId = pipelineId;
+
+    if (window.lucide) lucide.createIcons({ nodes: [container] });
+
+    document.getElementById('approval-approve-btn')?.addEventListener('click', () => {
+      App._handleApproval(pipelineId, true);
+    });
+    document.getElementById('approval-reject-btn')?.addEventListener('click', () => {
+      App._handleApproval(pipelineId, false);
+    });
+  },
+
+  _hideApprovalNotification() {
+    const container = document.getElementById('approval-notification');
+    if (container) {
+      container.hidden = true;
+      container.innerHTML = '';
+    }
+  },
+
+  async _handleApproval(pipelineId, approve) {
+    try {
+      if (approve) {
+        await API.pipelines.approve(pipelineId);
+        Terminal.addLine('Passo aprovado. Continuando pipeline...', 'success');
+        Toast.success('Passo aprovado');
+      } else {
+        await API.pipelines.reject(pipelineId);
+        Terminal.addLine('Pipeline rejeitado pelo usuário.', 'error');
+        Toast.info('Pipeline rejeitado');
+      }
+      App._hideApprovalNotification();
+    } catch (err) {
+      Toast.error(`Erro: ${err.message}`);
     }
   },
 
@@ -306,6 +402,17 @@ const App = {
       SchedulesUI.save();
     });
 
+    on('webhooks-new-btn', 'click', () => WebhooksUI.openCreateModal());
+
+    on('webhook-form-submit', 'click', (e) => {
+      e.preventDefault();
+      WebhooksUI.save();
+    });
+
+    on('webhook-target-type', 'change', (e) => {
+      WebhooksUI._updateTargetSelect(e.target.value);
+    });
+
     on('pipelines-new-btn', 'click', () => PipelinesUI.openCreateModal());
 
     on('pipeline-form-submit', 'click', (e) => {
@@ -317,7 +424,19 @@ const App = {
 
     on('pipeline-execute-submit', 'click', () => PipelinesUI._executeFromModal());
 
-    on('terminal-clear-btn', 'click', () => Terminal.clear());
+    on('terminal-clear-btn', 'click', () => {
+      Terminal.clear();
+      Terminal.disableChat();
+    });
+
+    on('terminal-send-btn', 'click', () => App._sendChatMessage());
+
+    on('terminal-input', 'keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        App._sendChatMessage();
+      }
+    });
 
     on('export-copy-btn', 'click', () => App._copyExportJson());
 
@@ -372,6 +491,10 @@ const App = {
         document.getElementById('schedules-search')?.value,
         document.getElementById('schedules-filter-status')?.value
       );
+    });
+
+    on('webhooks-search', 'input', () => {
+      WebhooksUI.filter(document.getElementById('webhooks-search')?.value);
     });
 
     on('pipelines-search', 'input', () => {
@@ -443,6 +566,13 @@ const App = {
       }
     });
 
+    document.getElementById('schedules-history')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const { action, id } = btn.dataset;
+      if (action === 'view-schedule-exec') HistoryUI.viewDetail(id);
+    });
+
     document.getElementById('pipelines-grid')?.addEventListener('click', (e) => {
       if (e.target.closest('#pipelines-empty-new-btn')) {
         PipelinesUI.openCreateModal();
@@ -468,6 +598,18 @@ const App = {
       switch (action) {
         case 'view-execution': HistoryUI.viewDetail(id); break;
         case 'delete-execution': HistoryUI.deleteExecution(id); break;
+      }
+    });
+
+    document.getElementById('webhooks-list')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const { action, id, url } = btn.dataset;
+      switch (action) {
+        case 'toggle-webhook': WebhooksUI.toggleActive(id); break;
+        case 'delete-webhook': WebhooksUI.delete(id); break;
+        case 'copy-webhook-url': WebhooksUI.copyUrl(url); break;
+        case 'copy-webhook-curl': WebhooksUI.copyCurl(id); break;
       }
     });
 
@@ -572,6 +714,9 @@ const App = {
       const selectEl = document.getElementById('execute-agent-select');
       const agentName = selectEl?.selectedOptions[0]?.text || 'Agente';
 
+      Terminal.disableChat();
+      App._lastAgentName = agentName;
+
       await API.agents.execute(agentId, task, instructions);
 
       Modal.close('execute-modal-overlay');
@@ -580,6 +725,27 @@ const App = {
       Terminal.startProcessing(agentName);
     } catch (err) {
       Toast.error(`Erro ao iniciar execução: ${err.message}`);
+    }
+  },
+
+  async _sendChatMessage() {
+    const session = Terminal.getChatSession();
+    if (!session) return;
+
+    const input = document.getElementById('terminal-input');
+    const message = input?.value.trim();
+    if (!message) return;
+
+    input.value = '';
+
+    Terminal.addLine(`❯ ${message}`, 'user-message', null);
+
+    try {
+      await API.agents.continue(session.agentId, session.sessionId, message);
+      Terminal.startProcessing(session.agentName);
+    } catch (err) {
+      Terminal.addLine(`Erro: ${err.message}`, 'error');
+      Toast.error(`Erro ao continuar conversa: ${err.message}`);
     }
   },
 

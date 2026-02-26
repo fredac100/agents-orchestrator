@@ -60,6 +60,10 @@ const HistoryUI = {
       : (exec.task || '');
     const date = HistoryUI._formatDate(exec.startedAt);
     const duration = HistoryUI._formatDuration(exec.startedAt, exec.endedAt);
+    const cost = exec.costUsd || exec.totalCostUsd || 0;
+    const costHtml = cost > 0
+      ? `<span class="history-card-cost"><i data-lucide="dollar-sign" aria-hidden="true"></i>$${cost.toFixed(4)}</span>`
+      : '';
 
     return `
       <article class="history-card">
@@ -75,9 +79,12 @@ const HistoryUI = {
         </div>
         <div class="history-card-meta">
           <span class="history-card-task">${HistoryUI._escapeHtml(task)}</span>
-          <span class="history-card-duration">
-            <i data-lucide="clock" aria-hidden="true"></i>
-            ${duration}
+          <span class="history-card-duration-group">
+            <span class="history-card-duration">
+              <i data-lucide="clock" aria-hidden="true"></i>
+              ${duration}
+            </span>
+            ${costHtml}
           </span>
         </div>
         <div class="history-card-actions">
@@ -222,6 +229,16 @@ const HistoryUI = {
           <span class="execution-detail-label">Exit Code</span>
           <span class="execution-detail-value font-mono">${exec.exitCode}</span>
         </div>` : ''}
+        ${exec.costUsd || exec.totalCostUsd ? `
+        <div class="execution-detail-row">
+          <span class="execution-detail-label">Custo</span>
+          <span class="execution-detail-value cost-value">$${(exec.costUsd || exec.totalCostUsd || 0).toFixed(4)}</span>
+        </div>` : ''}
+        ${exec.numTurns ? `
+        <div class="execution-detail-row">
+          <span class="execution-detail-label">Turnos</span>
+          <span class="execution-detail-value font-mono">${exec.numTurns}</span>
+        </div>` : ''}
       </div>
       ${exec.task ? `
       <div class="execution-detail-section">
@@ -265,9 +282,12 @@ const HistoryUI = {
                 <span class="pipeline-step-agent">${HistoryUI._escapeHtml(step.agentName || step.agentId || 'Agente')}</span>
                 ${HistoryUI._statusBadge(step.status)}
               </div>
-              <span class="pipeline-step-duration">
-                <i data-lucide="clock" aria-hidden="true"></i>
-                ${stepDuration}
+              <span class="pipeline-step-meta-group">
+                <span class="pipeline-step-duration">
+                  <i data-lucide="clock" aria-hidden="true"></i>
+                  ${stepDuration}
+                </span>
+                ${step.costUsd ? `<span class="pipeline-step-cost">$${step.costUsd.toFixed(4)}</span>` : ''}
               </span>
             </div>
             ${step.prompt ? `
@@ -314,6 +334,11 @@ const HistoryUI = {
           <span class="execution-detail-label">Duração</span>
           <span class="execution-detail-value">${duration}</span>
         </div>
+        ${exec.totalCostUsd ? `
+        <div class="execution-detail-row">
+          <span class="execution-detail-label">Custo Total</span>
+          <span class="execution-detail-value cost-value">$${(exec.totalCostUsd || 0).toFixed(4)}</span>
+        </div>` : ''}
       </div>
       ${exec.input ? `
       <div class="execution-detail-section">
@@ -373,6 +398,9 @@ const HistoryUI = {
       running: ['badge-running', 'Em execução'],
       completed: ['badge-active', 'Concluído'],
       error: ['badge-error', 'Erro'],
+      awaiting_approval: ['badge-warning', 'Aguardando'],
+      rejected: ['badge-error', 'Rejeitado'],
+      canceled: ['badge-inactive', 'Cancelado'],
     };
     const [cls, label] = map[status] || ['badge-inactive', status || 'Desconhecido'];
     return `<span class="badge ${cls}">${label}</span>`;
