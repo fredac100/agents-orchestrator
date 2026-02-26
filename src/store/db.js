@@ -41,6 +41,7 @@ function createStore(filePath) {
   let mem = null;
   let dirty = false;
   let timer = null;
+  let maxSize = Infinity;
 
   function boot() {
     if (mem !== null) return;
@@ -81,6 +82,9 @@ function createStore(filePath) {
         updated_at: new Date().toISOString(),
       };
       mem.push(item);
+      if (maxSize !== Infinity && mem.length > maxSize) {
+        mem.splice(0, mem.length - maxSize);
+      }
       touch();
       return clone(item);
     },
@@ -117,6 +121,10 @@ function createStore(filePath) {
         writeJson(filePath, mem);
         dirty = false;
       }
+    },
+
+    setMaxSize(n) {
+      maxSize = n;
     },
   };
 
@@ -185,5 +193,9 @@ export const tasksStore = createStore(`${DATA_DIR}/tasks.json`);
 export const pipelinesStore = createStore(`${DATA_DIR}/pipelines.json`);
 export const schedulesStore = createStore(`${DATA_DIR}/schedules.json`);
 export const executionsStore = createStore(`${DATA_DIR}/executions.json`);
+executionsStore.setMaxSize(5000);
 export const webhooksStore = createStore(`${DATA_DIR}/webhooks.json`);
 export const settingsStore = createSettingsStore(`${DATA_DIR}/settings.json`);
+export const secretsStore = createStore(`${DATA_DIR}/secrets.json`);
+export const notificationsStore = createStore(`${DATA_DIR}/notifications.json`);
+export const agentVersionsStore = createStore(`${DATA_DIR}/agent_versions.json`);

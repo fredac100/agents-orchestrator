@@ -253,7 +253,7 @@ const App = {
         <div class="approval-icon"><i data-lucide="shield-alert"></i></div>
         <div class="approval-text">
           <strong>Aprovação necessária</strong>
-          <span>Passo ${stepIndex + 1} (${agentName || 'agente'}) aguardando autorização</span>
+          <span>Passo ${stepIndex + 1} (${Utils.escapeHtml(agentName) || 'agente'}) aguardando autorização</span>
         </div>
         <div class="approval-actions">
           <button class="btn btn--primary btn--sm" id="approval-approve-btn" type="button">Aprovar</button>
@@ -661,8 +661,8 @@ const App = {
       hidden.value = JSON.stringify(tags);
       chips.innerHTML = tags.map((t) => `
         <span class="tag-chip">
-          ${t}
-          <button type="button" class="tag-remove" data-tag="${t}" aria-label="Remover tag ${t}">×</button>
+          ${Utils.escapeHtml(t)}
+          <button type="button" class="tag-remove" data-tag="${Utils.escapeHtml(t)}" aria-label="Remover tag ${Utils.escapeHtml(t)}">×</button>
         </span>
       `).join('');
     };

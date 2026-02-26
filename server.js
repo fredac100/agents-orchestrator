@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import apiRouter, { setWsBroadcast, setWsBroadcastTo, hookRouter } from './src/routes/api.js';
 import * as manager from './src/agents/manager.js';
 import { setGlobalBroadcast } from './src/agents/manager.js';
@@ -14,6 +15,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const AUTH_TOKEN = process.env.AUTH_TOKEN || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '';
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
+
+function verifyWebhookSignature(req, res, next) {
+  if (!WEBHOOK_SECRET) return next();
+  const sig = req.headers['x-hub-signature-256'];
+  if (!sig) return res.status(401).json({ error: 'Assinatura ausente' });
+  const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
+  hmac.update(req.rawBody || '');
+  const expected = 'sha256=' + hmac.digest('hex');
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      return res.status(401).json({ error: 'Assinatura inválida' });
+    }
+  } catch {
+    return res.status(401).json({ error: 'Assinatura inválida' });
+  }
+  next();
+}
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,8 +58,10 @@ if (AUTH_TOKEN) {
   });
 }
 
-app.use(express.json());
-app.use('/hook', hookRouter);
+app.use(express.json({
+  verify: (req, res, buf) => { req.rawBody = buf; },
+}));
+app.use('/hook', verifyWebhookSignature, hookRouter);
 app.use(express.static(join(__dirname, 'public')));
 app.use('/api', apiRouter);
 

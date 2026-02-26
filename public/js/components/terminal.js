@@ -102,7 +102,7 @@ const Terminal = {
 
     const html = lines.map((line) => {
       const typeClass = line.type && line.type !== 'default' ? ' ' + line.type : '';
-      const escaped = Terminal._escapeHtml(line.content);
+      const escaped = Utils.escapeHtml(line.content);
       const formatted = escaped.replace(/\n/g, '<br>');
 
       return `<div class="terminal-line${typeClass}">
@@ -120,14 +120,6 @@ const Terminal = {
     if (Terminal.autoScroll) Terminal.scrollToBottom();
   },
 
-  _escapeHtml(text) {
-    return String(text)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  },
 };
 
 window.Terminal = Terminal;

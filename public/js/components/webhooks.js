@@ -71,7 +71,7 @@ const WebhooksUI = {
       <article class="webhook-card">
         <div class="webhook-card-header">
           <div class="webhook-card-identity">
-            <span class="webhook-card-name">${WebhooksUI._escapeHtml(webhook.name)}</span>
+            <span class="webhook-card-name">${Utils.escapeHtml(webhook.name)}</span>
             ${typeBadge}
             ${statusBadge}
           </div>
@@ -87,7 +87,7 @@ const WebhooksUI = {
         <div class="webhook-card-body">
           <div class="webhook-card-target">
             <span class="webhook-card-label">Destino</span>
-            <span class="webhook-card-value">${WebhooksUI._escapeHtml(targetName)}</span>
+            <span class="webhook-card-value">${Utils.escapeHtml(targetName)}</span>
           </div>
           <div class="webhook-card-url">
             <span class="webhook-card-label">URL</span>
@@ -150,10 +150,10 @@ const WebhooksUI = {
 
     if (targetType === 'agent') {
       selectEl.innerHTML = '<option value="">Selecionar agente...</option>' +
-        WebhooksUI.agents.map((a) => `<option value="${a.id}">${a.agent_name || a.name}</option>`).join('');
+        WebhooksUI.agents.map((a) => `<option value="${a.id}">${Utils.escapeHtml(a.agent_name || a.name)}</option>`).join('');
     } else {
       selectEl.innerHTML = '<option value="">Selecionar pipeline...</option>' +
-        WebhooksUI.pipelines.map((p) => `<option value="${p.id}">${p.name}</option>`).join('');
+        WebhooksUI.pipelines.map((p) => `<option value="${p.id}">${Utils.escapeHtml(p.name)}</option>`).join('');
     }
   },
 
@@ -243,15 +243,6 @@ const WebhooksUI = {
     }
   },
 
-  _escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  },
 };
 
 window.WebhooksUI = WebhooksUI;

@@ -44,8 +44,8 @@ const SchedulesUI = {
 
       return `
         <tr>
-          <td>${schedule.agentName || '—'}</td>
-          <td class="schedule-task-cell" title="${schedule.taskDescription || ''}">${schedule.taskDescription || '—'}</td>
+          <td>${Utils.escapeHtml(schedule.agentName || '—')}</td>
+          <td class="schedule-task-cell" title="${Utils.escapeHtml(schedule.taskDescription || '')}">${Utils.escapeHtml(schedule.taskDescription || '—')}</td>
           <td>
             <code class="font-mono">${cronExpr}</code>
           </td>
@@ -106,7 +106,7 @@ const SchedulesUI = {
         select.innerHTML = '<option value="">Selecionar agente...</option>' +
           agents
             .filter((a) => a.status === 'active')
-            .map((a) => `<option value="${a.id}">${a.agent_name || a.name}</option>`)
+            .map((a) => `<option value="${a.id}">${Utils.escapeHtml(a.agent_name || a.name)}</option>`)
             .join('');
       }
 
@@ -233,12 +233,12 @@ const SchedulesUI = {
               const duration = SchedulesUI._formatDuration(exec.startedAt, exec.endedAt);
               const cost = exec.costUsd || exec.totalCostUsd || 0;
               const costStr = cost > 0 ? `$${cost.toFixed(4)}` : '—';
-              const taskStr = SchedulesUI._escapeHtml(SchedulesUI._truncate(exec.task || '', 60));
+              const taskStr = Utils.escapeHtml(Utils.truncate(exec.task || '', 60));
 
               return `
                 <tr>
-                  <td>${SchedulesUI._escapeHtml(exec.agentName || '—')}</td>
-                  <td title="${SchedulesUI._escapeHtml(exec.task || '')}">${taskStr}</td>
+                  <td>${Utils.escapeHtml(exec.agentName || '—')}</td>
+                  <td title="${Utils.escapeHtml(exec.task || '')}">${taskStr}</td>
                   <td>${status}</td>
                   <td>${date}</td>
                   <td>${duration}</td>
@@ -281,16 +281,6 @@ const SchedulesUI = {
     const seconds = totalSeconds % 60;
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m ${seconds}s`;
-  },
-
-  _escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  },
-
-  _truncate(str, max) {
-    if (!str || str.length <= max) return str;
-    return str.slice(0, max) + '…';
   },
 
   cronToHuman(expression) {

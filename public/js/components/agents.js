@@ -76,7 +76,7 @@ const AgentsUI = {
     const model = (agent.config && agent.config.model) || agent.model || 'claude-sonnet-4-6';
     const updatedAt = AgentsUI.formatDate(agent.updated_at || agent.updatedAt || agent.created_at || agent.createdAt);
     const tags = Array.isArray(agent.tags) && agent.tags.length > 0
-      ? `<div class="agent-tags">${agent.tags.map((t) => `<span class="tag-chip tag-chip--sm">${t}</span>`).join('')}</div>`
+      ? `<div class="agent-tags">${agent.tags.map((t) => `<span class="tag-chip tag-chip--sm">${Utils.escapeHtml(t)}</span>`).join('')}</div>`
       : '';
 
     return `
@@ -87,12 +87,12 @@ const AgentsUI = {
               <span>${initials}</span>
             </div>
             <div class="agent-info">
-              <h3 class="agent-name">${name}</h3>
+              <h3 class="agent-name">${Utils.escapeHtml(name)}</h3>
               <span class="badge ${statusClass}">${statusLabel}</span>
             </div>
           </div>
 
-          ${agent.description ? `<p class="agent-description">${agent.description}</p>` : ''}
+          ${agent.description ? `<p class="agent-description">${Utils.escapeHtml(agent.description)}</p>` : ''}
           ${tags}
 
           <div class="agent-meta">
@@ -279,7 +279,7 @@ const AgentsUI = {
         selectEl.innerHTML = '<option value="">Selecionar agente...</option>' +
           allAgents
             .filter((a) => a.status === 'active')
-            .map((a) => `<option value="${a.id}">${a.agent_name || a.name}</option>`)
+            .map((a) => `<option value="${a.id}">${Utils.escapeHtml(a.agent_name || a.name)}</option>`)
             .join('');
 
         selectEl.value = agentId;
@@ -311,7 +311,7 @@ const AgentsUI = {
       savedTaskSelect.innerHTML = '<option value="">Digitar manualmente...</option>' +
         tasks.map((t) => {
           const label = t.category ? `[${t.category.toUpperCase()}] ${t.name}` : t.name;
-          return `<option value="${t.id}">${label}</option>`;
+          return `<option value="${t.id}">${Utils.escapeHtml(label)}</option>`;
         }).join('');
       AgentsUI._savedTasksCache = tasks;
     } catch {

@@ -65,10 +65,10 @@ const TasksUI = {
     return `
       <div class="task-card" data-task-id="${task.id}">
         <div class="task-card-header">
-          <h4 class="task-card-name">${task.name}</h4>
-          <span class="badge ${categoryClass}">${categoryLabel}</span>
+          <h4 class="task-card-name">${Utils.escapeHtml(task.name)}</h4>
+          <span class="badge ${categoryClass}">${Utils.escapeHtml(categoryLabel)}</span>
         </div>
-        ${task.description ? `<p class="task-card-description">${task.description}</p>` : ''}
+        ${task.description ? `<p class="task-card-description">${Utils.escapeHtml(task.description)}</p>` : ''}
         <div class="task-card-footer">
           <span class="task-card-date">
             <i data-lucide="calendar"></i>
@@ -117,7 +117,7 @@ const TasksUI = {
       <div class="task-card task-card--form" id="task-inline-form">
         <div class="form-group">
           <label class="form-label" for="task-inline-name">${title}</label>
-          <input type="text" id="task-inline-name" class="input" placeholder="Ex: Code Review de PR" required autocomplete="off" value="${task.name || ''}">
+          <input type="text" id="task-inline-name" class="input" placeholder="Ex: Code Review de PR" required autocomplete="off" value="${Utils.escapeHtml(task.name || '')}">
         </div>
         <div class="form-group">
           <label class="form-label" for="task-inline-category">Categoria</label>
@@ -133,7 +133,7 @@ const TasksUI = {
         </div>
         <div class="form-group">
           <label class="form-label" for="task-inline-description">Descrição</label>
-          <textarea id="task-inline-description" class="textarea" rows="2" placeholder="Descreva o objetivo desta tarefa...">${task.description || ''}</textarea>
+          <textarea id="task-inline-description" class="textarea" rows="2" placeholder="Descreva o objetivo desta tarefa...">${Utils.escapeHtml(task.description || '')}</textarea>
         </div>
         <div class="form-actions">
           <button class="btn btn--primary" id="btn-save-inline-task" type="button">${btnLabel}</button>
@@ -228,7 +228,7 @@ const TasksUI = {
       const selectEl = document.getElementById('execute-agent-select');
       if (selectEl) {
         selectEl.innerHTML = '<option value="">Selecionar agente...</option>' +
-          activeAgents.map((a) => `<option value="${a.id}">${a.agent_name || a.name}</option>`).join('');
+          activeAgents.map((a) => `<option value="${a.id}">${Utils.escapeHtml(a.agent_name || a.name)}</option>`).join('');
         selectEl.value = '';
       }
 

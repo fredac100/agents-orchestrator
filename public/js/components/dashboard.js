@@ -78,8 +78,8 @@ const DashboardUI = {
     list.innerHTML = executions.map((exec) => {
       const statusClass = DashboardUI._statusBadgeClass(exec.status);
       const statusLabel = DashboardUI._statusLabel(exec.status);
-      const name = exec.agentName || exec.pipelineName || exec.agentId || 'Execução';
-      const taskText = exec.task || exec.input || '';
+      const name = Utils.escapeHtml(exec.agentName || exec.pipelineName || exec.agentId || 'Execução');
+      const taskText = Utils.escapeHtml(exec.task || exec.input || '');
       const typeBadge = exec.type === 'pipeline'
         ? '<span class="badge badge--purple" style="font-size:0.6rem;padding:1px 5px;">Pipeline</span> '
         : '';

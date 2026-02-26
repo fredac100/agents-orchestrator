@@ -70,22 +70,21 @@ const HistoryUI = {
         <div class="history-card-header">
           <div class="history-card-identity">
             ${typeBadge}
-            <span class="history-card-name">${HistoryUI._escapeHtml(name)}</span>
-          </div>
-          <div class="history-card-status">
+            <span class="history-card-name">${Utils.escapeHtml(name)}</span>
             ${statusBadge}
-            <span class="history-card-date">${date}</span>
           </div>
         </div>
-        <div class="history-card-meta">
-          <span class="history-card-task">${HistoryUI._escapeHtml(task)}</span>
-          <span class="history-card-duration-group">
-            <span class="history-card-duration">
-              <i data-lucide="clock" aria-hidden="true"></i>
-              ${duration}
-            </span>
-            ${costHtml}
+        <div class="history-card-task">${Utils.escapeHtml(task)}</div>
+        <div class="history-card-info">
+          <span class="history-card-date">
+            <i data-lucide="calendar" aria-hidden="true"></i>
+            ${date}
           </span>
+          <span class="history-card-duration">
+            <i data-lucide="clock" aria-hidden="true"></i>
+            ${duration}
+          </span>
+          ${costHtml}
         </div>
         <div class="history-card-actions">
           <button class="btn btn-ghost btn-sm" data-action="view-execution" data-id="${exec.id}" type="button">
@@ -195,18 +194,18 @@ const HistoryUI = {
     const endDate = exec.endedAt ? HistoryUI._formatDate(exec.endedAt) : '—';
 
     const resultBlock = exec.result
-      ? `<div class="execution-result" role="region" aria-label="Resultado da execução">${HistoryUI._escapeHtml(exec.result)}</div>`
+      ? `<div class="execution-result" role="region" aria-label="Resultado da execução">${Utils.escapeHtml(exec.result)}</div>`
       : '';
 
     const errorBlock = exec.error
-      ? `<div class="execution-result execution-result--error" role="alert">${HistoryUI._escapeHtml(exec.error)}</div>`
+      ? `<div class="execution-result execution-result--error" role="alert">${Utils.escapeHtml(exec.error)}</div>`
       : '';
 
     return `
       <div class="execution-detail-meta">
         <div class="execution-detail-row">
           <span class="execution-detail-label">Agente</span>
-          <span class="execution-detail-value">${HistoryUI._escapeHtml(exec.agentName || exec.agentId || '—')}</span>
+          <span class="execution-detail-value">${Utils.escapeHtml(exec.agentName || exec.agentId || '—')}</span>
         </div>
         <div class="execution-detail-row">
           <span class="execution-detail-label">Status</span>
@@ -243,7 +242,7 @@ const HistoryUI = {
       ${exec.task ? `
       <div class="execution-detail-section">
         <h3 class="execution-detail-section-title">Tarefa</h3>
-        <p class="execution-detail-task">${HistoryUI._escapeHtml(exec.task)}</p>
+        <p class="execution-detail-task">${Utils.escapeHtml(exec.task)}</p>
       </div>` : ''}
       ${resultBlock ? `
       <div class="execution-detail-section">
@@ -279,7 +278,7 @@ const HistoryUI = {
           <div class="pipeline-step-detail">
             <div class="pipeline-step-header">
               <div class="pipeline-step-identity">
-                <span class="pipeline-step-agent">${HistoryUI._escapeHtml(step.agentName || step.agentId || 'Agente')}</span>
+                <span class="pipeline-step-agent">${Utils.escapeHtml(step.agentName || step.agentId || 'Agente')}</span>
                 ${HistoryUI._statusBadge(step.status)}
               </div>
               <span class="pipeline-step-meta-group">
@@ -297,13 +296,13 @@ const HistoryUI = {
                 Prompt utilizado
               </button>
               <div class="pipeline-step-prompt-body" hidden>
-                <div class="execution-result execution-result--prompt">${HistoryUI._escapeHtml(step.prompt)}</div>
+                <div class="execution-result execution-result--prompt">${Utils.escapeHtml(step.prompt)}</div>
               </div>
             </div>` : ''}
             ${step.result ? `
             <div class="pipeline-step-result">
               <span class="pipeline-step-result-label">Resultado</span>
-              <div class="execution-result">${HistoryUI._escapeHtml(step.result)}</div>
+              <div class="execution-result">${Utils.escapeHtml(step.result)}</div>
             </div>` : ''}
             ${step.status === 'error' ? `
             <div class="execution-result execution-result--error">Passo falhou.</div>` : ''}
@@ -316,7 +315,7 @@ const HistoryUI = {
       <div class="execution-detail-meta">
         <div class="execution-detail-row">
           <span class="execution-detail-label">Pipeline</span>
-          <span class="execution-detail-value">${HistoryUI._escapeHtml(exec.pipelineName || exec.pipelineId || '—')}</span>
+          <span class="execution-detail-value">${Utils.escapeHtml(exec.pipelineName || exec.pipelineId || '—')}</span>
         </div>
         <div class="execution-detail-row">
           <span class="execution-detail-label">Status</span>
@@ -343,7 +342,7 @@ const HistoryUI = {
       ${exec.input ? `
       <div class="execution-detail-section">
         <h3 class="execution-detail-section-title">Input Inicial</h3>
-        <p class="execution-detail-task">${HistoryUI._escapeHtml(exec.input)}</p>
+        <p class="execution-detail-task">${Utils.escapeHtml(exec.input)}</p>
       </div>` : ''}
       ${steps.length > 0 ? `
       <div class="execution-detail-section">
@@ -355,7 +354,7 @@ const HistoryUI = {
       ${exec.error ? `
       <div class="execution-detail-section">
         <h3 class="execution-detail-section-title">Erro</h3>
-        <div class="execution-result execution-result--error">${HistoryUI._escapeHtml(exec.error)}</div>
+        <div class="execution-result execution-result--error">${Utils.escapeHtml(exec.error)}</div>
       </div>` : ''}
     `;
   },
@@ -435,15 +434,6 @@ const HistoryUI = {
     });
   },
 
-  _escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  },
 };
 
 window.HistoryUI = HistoryUI;

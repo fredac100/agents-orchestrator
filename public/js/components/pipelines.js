@@ -83,7 +83,7 @@ const PipelinesUI = {
     const stepCount = steps.length;
 
     const flowHtml = steps.map((step, index) => {
-      const agentName = step.agentName || step.agentId || 'Agente';
+      const agentName = Utils.escapeHtml(step.agentName || step.agentId || 'Agente');
       const isLast = index === steps.length - 1;
       const approvalIcon = step.requiresApproval && index > 0
         ? '<i data-lucide="shield-check" style="width:10px;height:10px;color:var(--warning)"></i> '
@@ -102,12 +102,12 @@ const PipelinesUI = {
         <div class="agent-card-body">
           <div class="agent-card-top">
             <div class="agent-info">
-              <h3 class="agent-name">${pipeline.name || 'Sem nome'}</h3>
+              <h3 class="agent-name">${Utils.escapeHtml(pipeline.name || 'Sem nome')}</h3>
               <span class="badge badge-active">${stepCount} ${stepCount === 1 ? 'passo' : 'passos'}</span>
             </div>
           </div>
 
-          ${pipeline.description ? `<p class="agent-description">${pipeline.description}</p>` : ''}
+          ${pipeline.description ? `<p class="agent-description">${Utils.escapeHtml(pipeline.description)}</p>` : ''}
 
           <div class="pipeline-flow">
             ${flowHtml || '<span class="agent-description">Nenhum passo configurado</span>'}
@@ -192,7 +192,7 @@ const PipelinesUI = {
     }
 
     const agentOptions = PipelinesUI.agents
-      .map((a) => `<option value="${a.id}">${a.agent_name || a.name}</option>`)
+      .map((a) => `<option value="${a.id}">${Utils.escapeHtml(a.agent_name || a.name)}</option>`)
       .join('');
 
     container.innerHTML = PipelinesUI._steps.map((step, index) => {
@@ -225,7 +225,7 @@ const PipelinesUI = {
               placeholder="{{input}} será substituído pelo output anterior"
               data-step-field="inputTemplate"
               data-step-index="${index}"
-            >${step.inputTemplate || ''}</textarea>
+            >${Utils.escapeHtml(step.inputTemplate || '')}</textarea>
             ${approvalHtml}
           </div>
           <div class="pipeline-step-actions">
