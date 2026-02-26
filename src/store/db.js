@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,7 +30,9 @@ function readJson(path, fallback) {
 
 function writeJson(path, data) {
   ensureDir();
-  writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
+  const tmpPath = path + '.tmp';
+  writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf8');
+  renameSync(tmpPath, path);
 }
 
 function clone(v) {
@@ -198,4 +200,5 @@ export const webhooksStore = createStore(`${DATA_DIR}/webhooks.json`);
 export const settingsStore = createSettingsStore(`${DATA_DIR}/settings.json`);
 export const secretsStore = createStore(`${DATA_DIR}/secrets.json`);
 export const notificationsStore = createStore(`${DATA_DIR}/notifications.json`);
+notificationsStore.setMaxSize(200);
 export const agentVersionsStore = createStore(`${DATA_DIR}/agent_versions.json`);

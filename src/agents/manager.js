@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import { agentsStore, schedulesStore, executionsStore } from '../store/db.js';
+import { agentsStore, schedulesStore, executionsStore, notificationsStore } from '../store/db.js';
 import * as executor from './executor.js';
 import * as scheduler from './scheduler.js';
+import { generateAgentReport } from '../reports/generator.js';
 
 const DEFAULT_CONFIG = {
   model: 'claude-sonnet-4-6',
@@ -23,6 +24,14 @@ export function setGlobalBroadcast(fn) {
 
 function getWsCallback(wsCallback) {
   return wsCallback || globalBroadcast || null;
+}
+
+function createNotification(type, title, message, metadata = {}) {
+  notificationsStore.create({
+    type, title, message, metadata,
+    read: false,
+    createdAt: new Date().toISOString(),
+  });
 }
 
 let dailyExecutionCount = 0;
@@ -145,6 +154,7 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
         const endedAt = new Date().toISOString();
         updateExecutionRecord(agentId, execId, { status: 'error', error: err.message, endedAt });
         executionsStore.update(historyRecord.id, { status: 'error', error: err.message, endedAt });
+        createNotification('error', 'Execução falhou', `Agente "${agent.agent_name}" encontrou um erro`, { agentId, executionId: execId });
         if (cb) cb({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
       },
       onComplete: (result, execId) => {
@@ -161,6 +171,14 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
           numTurns: result.numTurns || 0,
           sessionId: result.sessionId || '',
         });
+        createNotification('success', 'Execução concluída', `Agente "${agent.agent_name}" finalizou a tarefa`, { agentId, executionId: execId });
+        try {
+          const updated = executionsStore.getById(historyRecord.id);
+          if (updated) {
+            const report = generateAgentReport(updated);
+            if (cb) cb({ type: 'report_generated', executionId: execId, agentId, reportFile: report.filename });
+          }
+        } catch (e) {}
         if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
       },
     }
@@ -290,6 +308,13 @@ export function continueConversation(agentId, sessionId, message, wsCallback) {
           numTurns: result.numTurns || 0,
           sessionId: result.sessionId || sessionId,
         });
+        try {
+          const updated = executionsStore.getById(historyRecord.id);
+          if (updated) {
+            const report = generateAgentReport(updated);
+            if (cb) cb({ type: 'report_generated', executionId: execId, agentId, reportFile: report.filename });
+          }
+        } catch (e) {}
         if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
       },
     }

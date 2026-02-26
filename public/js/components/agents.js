@@ -48,7 +48,7 @@ const AgentsUI = {
 
     grid.appendChild(fragment);
 
-    if (window.lucide) lucide.createIcons({ nodes: [grid] });
+    Utils.refreshIcons(grid);
   },
 
   filter(searchText, statusFilter) {
@@ -115,6 +115,9 @@ const AgentsUI = {
           <button class="btn btn-ghost btn-sm" data-action="edit" data-id="${agent.id}">
             <i data-lucide="pencil"></i>
             Editar
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm" data-action="duplicate" data-id="${agent.id}" title="Duplicar agente">
+            <i data-lucide="copy"></i>
           </button>
           <button class="btn btn-ghost btn-icon btn-sm" data-action="export" data-id="${agent.id}" title="Exportar agente">
             <i data-lucide="download"></i>
@@ -321,6 +324,16 @@ const AgentsUI = {
   },
 
   _savedTasksCache: [],
+
+  async duplicate(agentId) {
+    try {
+      await API.agents.duplicate(agentId);
+      Toast.success('Agente duplicado com sucesso');
+      await AgentsUI.load();
+    } catch (err) {
+      Toast.error(`Erro ao duplicar agente: ${err.message}`);
+    }
+  },
 
   async export(agentId) {
     try {

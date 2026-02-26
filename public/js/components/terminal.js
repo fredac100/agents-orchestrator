@@ -5,6 +5,9 @@ const Terminal = {
   executionFilter: null,
   _processingInterval: null,
   _chatSession: null,
+  searchMatches: [],
+  searchIndex: -1,
+  _toolbarInitialized: false,
 
   enableChat(agentId, agentName, sessionId) {
     Terminal._chatSession = { agentId, agentName, sessionId };
@@ -83,7 +86,121 @@ const Terminal = {
     if (output) output.scrollTop = output.scrollHeight;
   },
 
+  initToolbar() {
+    if (Terminal._toolbarInitialized) return;
+    Terminal._toolbarInitialized = true;
+
+    const searchToggle = document.getElementById('terminal-search-toggle');
+    const searchBar = document.getElementById('terminal-search-bar');
+    const searchInput = document.getElementById('terminal-search-input');
+    const searchClose = document.getElementById('terminal-search-close');
+    const searchPrev = document.getElementById('terminal-search-prev');
+    const searchNext = document.getElementById('terminal-search-next');
+    const downloadBtn = document.getElementById('terminal-download');
+    const copyBtn = document.getElementById('terminal-copy');
+    const autoScrollCheck = document.getElementById('terminal-autoscroll');
+
+    if (searchToggle && searchBar) {
+      searchToggle.addEventListener('click', () => {
+        searchBar.classList.toggle('hidden');
+        if (!searchBar.classList.contains('hidden') && searchInput) searchInput.focus();
+      });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', () => Terminal.search(searchInput.value));
+    }
+
+    if (searchClose && searchBar) {
+      searchClose.addEventListener('click', () => {
+        searchBar.classList.add('hidden');
+        Terminal.clearSearch();
+      });
+    }
+
+    if (searchPrev) searchPrev.addEventListener('click', () => Terminal.searchPrev());
+    if (searchNext) searchNext.addEventListener('click', () => Terminal.searchNext());
+
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => Terminal.downloadOutput());
+    }
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => Terminal.copyOutput());
+    }
+
+    if (autoScrollCheck) {
+      autoScrollCheck.addEventListener('change', (e) => {
+        Terminal.autoScroll = e.target.checked;
+      });
+    }
+  },
+
+  search(query) {
+    const output = document.getElementById('terminal-output');
+    if (!output || !query) { Terminal.clearSearch(); return; }
+
+    const text = output.textContent;
+    Terminal.searchMatches = [];
+    Terminal.searchIndex = -1;
+
+    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      Terminal.searchMatches.push(match.index);
+    }
+
+    const countEl = document.getElementById('terminal-search-count');
+    if (countEl) countEl.textContent = Terminal.searchMatches.length > 0 ? `0/${Terminal.searchMatches.length}` : '0/0';
+
+    if (Terminal.searchMatches.length > 0) Terminal.searchNext();
+  },
+
+  searchNext() {
+    if (Terminal.searchMatches.length === 0) return;
+    Terminal.searchIndex = (Terminal.searchIndex + 1) % Terminal.searchMatches.length;
+    const countEl = document.getElementById('terminal-search-count');
+    if (countEl) countEl.textContent = `${Terminal.searchIndex + 1}/${Terminal.searchMatches.length}`;
+  },
+
+  searchPrev() {
+    if (Terminal.searchMatches.length === 0) return;
+    Terminal.searchIndex = Terminal.searchIndex <= 0 ? Terminal.searchMatches.length - 1 : Terminal.searchIndex - 1;
+    const countEl = document.getElementById('terminal-search-count');
+    if (countEl) countEl.textContent = `${Terminal.searchIndex + 1}/${Terminal.searchMatches.length}`;
+  },
+
+  clearSearch() {
+    Terminal.searchMatches = [];
+    Terminal.searchIndex = -1;
+    const countEl = document.getElementById('terminal-search-count');
+    if (countEl) countEl.textContent = '0/0';
+  },
+
+  downloadOutput() {
+    const output = document.getElementById('terminal-output');
+    if (!output) return;
+    const text = output.textContent;
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `terminal_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    if (typeof Toast !== 'undefined') Toast.success('Saída baixada');
+  },
+
+  copyOutput() {
+    const output = document.getElementById('terminal-output');
+    if (!output) return;
+    navigator.clipboard.writeText(output.textContent).then(() => {
+      if (typeof Toast !== 'undefined') Toast.success('Saída copiada');
+    });
+  },
+
   render() {
+    Terminal.initToolbar();
     const output = document.getElementById('terminal-output');
     if (!output) return;
 

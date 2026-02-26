@@ -2,6 +2,8 @@
 
 Painel administrativo web para orquestração de agentes [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Crie, configure e execute múltiplos agentes com diferentes personalidades, modelos e diretórios de trabalho — tudo a partir de uma interface visual profissional.
 
+![Dashboard do Agents Orchestrator — visão geral com métricas, gráficos de execuções e custos, distribuição de status, ranking de agentes e taxa de sucesso](docs/dashboard.png)
+
 ## Funcionalidades
 
 ### Gerenciamento de Agentes

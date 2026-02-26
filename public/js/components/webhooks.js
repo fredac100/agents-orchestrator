@@ -44,12 +44,12 @@ const WebhooksUI = {
           <p class="empty-state-desc">Crie webhooks para disparar agentes ou pipelines via HTTP.</p>
         </div>
       `;
-      if (window.lucide) lucide.createIcons({ nodes: [container] });
+      Utils.refreshIcons(container);
       return;
     }
 
     container.innerHTML = webhooks.map((w) => WebhooksUI._renderCard(w)).join('');
-    if (window.lucide) lucide.createIcons({ nodes: [container] });
+    Utils.refreshIcons(container);
   },
 
   _renderCard(webhook) {
@@ -78,6 +78,12 @@ const WebhooksUI = {
           <div class="webhook-card-actions">
             <button class="btn btn-ghost btn-sm btn-icon" data-action="toggle-webhook" data-id="${webhook.id}" title="${webhook.active ? 'Desativar' : 'Ativar'}">
               <i data-lucide="${webhook.active ? 'pause' : 'play'}"></i>
+            </button>
+            <button class="btn btn-ghost btn-sm btn-icon" data-action="edit-webhook" data-id="${webhook.id}" title="Editar">
+              <i data-lucide="pencil"></i>
+            </button>
+            <button class="btn btn-ghost btn-sm btn-icon" data-action="test-webhook" data-id="${webhook.id}" title="Testar">
+              <i data-lucide="zap"></i>
             </button>
             <button class="btn btn-ghost btn-sm btn-icon btn-danger" data-action="delete-webhook" data-id="${webhook.id}" title="Excluir">
               <i data-lucide="trash-2"></i>
@@ -141,7 +147,44 @@ const WebhooksUI = {
       WebhooksUI._updateTargetSelect('agent');
     }
 
+    const submitBtn = document.getElementById('webhook-form-submit');
+    if (submitBtn) submitBtn.dataset.editId = '';
+
     Modal.open('webhook-modal-overlay');
+  },
+
+  openEditModal(webhookId) {
+    const webhook = WebhooksUI.webhooks.find(w => w.id === webhookId);
+    if (!webhook) return;
+
+    const titleEl = document.getElementById('webhook-modal-title');
+    if (titleEl) titleEl.textContent = 'Editar Webhook';
+
+    const nameEl = document.getElementById('webhook-name');
+    if (nameEl) nameEl.value = webhook.name || '';
+
+    const typeEl = document.getElementById('webhook-target-type');
+    if (typeEl) {
+      typeEl.value = webhook.targetType || 'agent';
+      WebhooksUI._updateTargetSelect(webhook.targetType || 'agent');
+    }
+
+    const targetEl = document.getElementById('webhook-target-id');
+    if (targetEl) targetEl.value = webhook.targetId || '';
+
+    const submitBtn = document.getElementById('webhook-form-submit');
+    if (submitBtn) submitBtn.dataset.editId = webhookId;
+
+    Modal.open('webhook-modal-overlay');
+  },
+
+  async test(webhookId) {
+    try {
+      const result = await API.webhooks.test(webhookId);
+      Toast.success(result.message || 'Webhook testado com sucesso');
+    } catch (err) {
+      Toast.error(`Erro ao testar webhook: ${err.message}`);
+    }
   },
 
   _updateTargetSelect(targetType) {
@@ -161,17 +204,25 @@ const WebhooksUI = {
     const name = document.getElementById('webhook-name')?.value.trim();
     const targetType = document.getElementById('webhook-target-type')?.value;
     const targetId = document.getElementById('webhook-target-id')?.value;
+    const submitBtn = document.getElementById('webhook-form-submit');
+    const editId = submitBtn?.dataset.editId || '';
 
     if (!name) { Toast.warning('Nome do webhook é obrigatório'); return; }
     if (!targetId) { Toast.warning('Selecione um destino'); return; }
 
     try {
-      await API.webhooks.create({ name, targetType, targetId });
-      Modal.close('webhook-modal-overlay');
-      Toast.success('Webhook criado com sucesso');
+      if (editId) {
+        await API.webhooks.update(editId, { name, targetType, targetId });
+        Modal.close('webhook-modal-overlay');
+        Toast.success('Webhook atualizado com sucesso');
+      } else {
+        await API.webhooks.create({ name, targetType, targetId });
+        Modal.close('webhook-modal-overlay');
+        Toast.success('Webhook criado com sucesso');
+      }
       await WebhooksUI.load();
     } catch (err) {
-      Toast.error(`Erro ao criar webhook: ${err.message}`);
+      Toast.error(`Erro ao salvar webhook: ${err.message}`);
     }
   },
 

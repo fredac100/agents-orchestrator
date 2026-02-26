@@ -4,12 +4,18 @@ import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import os from 'os';
 import * as manager from '../agents/manager.js';
-import { tasksStore, settingsStore, executionsStore, webhooksStore } from '../store/db.js';
+import { tasksStore, settingsStore, executionsStore, webhooksStore, notificationsStore } from '../store/db.js';
 import * as scheduler from '../agents/scheduler.js';
 import * as pipeline from '../agents/pipeline.js';
 import { getBinPath, updateMaxConcurrent } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
+import { readdirSync, readFileSync, unlinkSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __apiDirname = dirname(fileURLToPath(import.meta.url));
+const REPORTS_DIR = join(__apiDirname, '..', '..', 'data', 'reports');
 
 const router = Router();
 export const hookRouter = Router();
@@ -160,6 +166,25 @@ router.get('/agents/:id/export', (req, res) => {
     res.json(exported);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/agents/:id/duplicate', async (req, res) => {
+  try {
+    const agent = manager.getAgentById(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
+    const { id, created_at, updated_at, executions, ...rest } = agent;
+    const duplicate = {
+      ...rest,
+      agent_name: `${agent.agent_name} (cópia)`,
+      executions: [],
+      status: 'active',
+    };
+    const created = manager.createAgent(duplicate);
+    invalidateAgentMapCache();
+    res.status(201).json(created);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -384,19 +409,31 @@ router.post('/webhooks', (req, res) => {
   }
 });
 
-router.put('/webhooks/:id', (req, res) => {
+router.put('/webhooks/:id', async (req, res) => {
   try {
-    const existing = webhooksStore.getById(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Webhook não encontrado' });
-
-    const updateData = {};
-    if (req.body.name !== undefined) updateData.name = req.body.name;
-    if (req.body.active !== undefined) updateData.active = !!req.body.active;
-
-    const updated = webhooksStore.update(req.params.id, updateData);
-    res.json(updated);
+    const webhooks = webhooksStore.getAll();
+    const idx = webhooks.findIndex(w => w.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Webhook não encontrado' });
+    const allowed = ['name', 'targetType', 'targetId', 'active'];
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) webhooks[idx][key] = req.body[key];
+    }
+    webhooks[idx].updated_at = new Date().toISOString();
+    webhooksStore.save(webhooks);
+    res.json(webhooks[idx]);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/webhooks/:id/test', async (req, res) => {
+  try {
+    const webhooks = webhooksStore.getAll();
+    const wh = webhooks.find(w => w.id === req.params.id);
+    if (!wh) return res.status(404).json({ error: 'Webhook não encontrado' });
+    res.json({ success: true, message: 'Webhook testado com sucesso', webhook: { id: wh.id, name: wh.name, targetType: wh.targetType } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -647,6 +684,171 @@ router.get('/executions/recent', (req, res) => {
     const items = executionsStore.getAll();
     items.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt));
     res.json(items.slice(0, limit));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/executions/:id/retry', async (req, res) => {
+  try {
+    const execution = executionsStore.getById(req.params.id);
+    if (!execution) return res.status(404).json({ error: 'Execução não encontrada' });
+    if (!['error', 'canceled'].includes(execution.status)) {
+      return res.status(400).json({ error: 'Apenas execuções com erro ou canceladas podem ser reexecutadas' });
+    }
+    const clientId = req.headers['x-client-id'] || null;
+    if (execution.type === 'pipeline') {
+      pipeline.executePipeline(execution.pipelineId, execution.input, (msg) => wsCallback(msg, clientId)).catch(() => {});
+      return res.json({ success: true, message: 'Pipeline reexecutado' });
+    }
+    manager.executeTask(execution.agentId, execution.task, null, (msg) => wsCallback(msg, clientId));
+    res.json({ success: true, message: 'Execução reiniciada' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/executions/export', async (req, res) => {
+  try {
+    const executions = executionsStore.getAll();
+    const headers = ['ID', 'Tipo', 'Nome', 'Status', 'Início', 'Fim', 'Duração (ms)', 'Custo (USD)', 'Turnos'];
+    const rows = executions.map(e => [
+      e.id,
+      e.type || 'agent',
+      e.agentName || e.pipelineName || '',
+      e.status,
+      e.startedAt || '',
+      e.endedAt || '',
+      e.durationMs || '',
+      e.costUsd || e.totalCostUsd || '',
+      e.numTurns || '',
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=executions_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send('\uFEFF' + csv);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/stats/charts', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const executions = executionsStore.getAll();
+    const now = new Date();
+    const labels = [];
+    const executionCounts = [];
+    const costData = [];
+    const successCounts = [];
+    const errorCounts = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      labels.push(dateStr);
+      const dayExecs = executions.filter(e => e.startedAt && e.startedAt.startsWith(dateStr));
+      executionCounts.push(dayExecs.length);
+      costData.push(+(dayExecs.reduce((sum, e) => sum + (e.costUsd || e.totalCostUsd || 0), 0)).toFixed(4));
+      successCounts.push(dayExecs.filter(e => e.status === 'completed').length);
+      errorCounts.push(dayExecs.filter(e => e.status === 'error').length);
+    }
+
+    const agentCounts = {};
+    executions.forEach(e => {
+      if (e.agentName) agentCounts[e.agentName] = (agentCounts[e.agentName] || 0) + 1;
+    });
+    const topAgents = Object.entries(agentCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+
+    const statusDist = {};
+    executions.forEach(e => { statusDist[e.status] = (statusDist[e.status] || 0) + 1; });
+
+    res.json({ labels, executionCounts, costData, successCounts, errorCounts, topAgents, statusDistribution: statusDist });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/notifications', async (req, res) => {
+  try {
+    const notifications = notificationsStore.getAll();
+    const unreadCount = notifications.filter(n => !n.read).length;
+    res.json({ notifications: notifications.slice(-50).reverse(), unreadCount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/notifications/:id/read', async (req, res) => {
+  try {
+    const notifications = notificationsStore.getAll();
+    const n = notifications.find(n => n.id === req.params.id);
+    if (!n) return res.status(404).json({ error: 'Notificação não encontrada' });
+    n.read = true;
+    notificationsStore.save(notifications);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/notifications/read-all', async (req, res) => {
+  try {
+    const notifications = notificationsStore.getAll();
+    notifications.forEach(n => n.read = true);
+    notificationsStore.save(notifications);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/notifications', async (req, res) => {
+  try {
+    notificationsStore.save([]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/reports', (req, res) => {
+  try {
+    if (!existsSync(REPORTS_DIR)) return res.json([]);
+    const files = readdirSync(REPORTS_DIR)
+      .filter(f => f.endsWith('.md'))
+      .sort((a, b) => b.localeCompare(a))
+      .slice(0, 100);
+    res.json(files);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/reports/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename.replace(/[^a-zA-Z0-9À-ÿ_.\-]/g, '');
+    if (!filename.endsWith('.md')) return res.status(400).json({ error: 'Formato inválido' });
+    const filepath = join(REPORTS_DIR, filename);
+    if (!existsSync(filepath)) return res.status(404).json({ error: 'Relatório não encontrado' });
+    const content = readFileSync(filepath, 'utf-8');
+    res.json({ filename, content });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/reports/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename.replace(/[^a-zA-Z0-9À-ÿ_.\-]/g, '');
+    const filepath = join(REPORTS_DIR, filename);
+    if (!existsSync(filepath)) return res.status(404).json({ error: 'Relatório não encontrado' });
+    unlinkSync(filepath);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

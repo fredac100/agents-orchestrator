@@ -8,8 +8,17 @@ const SettingsUI = {
 
       SettingsUI.populateForm(settings);
       SettingsUI.populateSystemInfo(info);
+      SettingsUI.updateThemeInfo();
     } catch (err) {
       Toast.error(`Erro ao carregar configurações: ${err.message}`);
+    }
+  },
+
+  updateThemeInfo() {
+    const themeEl = document.getElementById('info-current-theme');
+    if (themeEl) {
+      const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+      themeEl.textContent = theme === 'dark' ? 'Escuro' : 'Claro';
     }
   },
 

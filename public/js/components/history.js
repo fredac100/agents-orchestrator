@@ -7,7 +7,17 @@ const HistoryUI = {
   _currentType: '',
   _currentStatus: '',
 
+  _exportListenerAdded: false,
+
   async load() {
+    if (!HistoryUI._exportListenerAdded) {
+      HistoryUI._exportListenerAdded = true;
+      const exportBtn = document.getElementById('history-export-csv');
+      if (exportBtn) {
+        exportBtn.addEventListener('click', () => API.executions.exportCsv());
+      }
+    }
+
     const params = { limit: HistoryUI.pageSize, offset: HistoryUI.page * HistoryUI.pageSize };
     if (HistoryUI._currentType) params.type = HistoryUI._currentType;
     if (HistoryUI._currentStatus) params.status = HistoryUI._currentStatus;
@@ -38,12 +48,12 @@ const HistoryUI = {
           <p class="empty-state-text">O histórico de execuções aparecerá aqui.</p>
         </div>
       `;
-      if (window.lucide) lucide.createIcons({ nodes: [container] });
+      Utils.refreshIcons(container);
       return;
     }
 
     container.innerHTML = HistoryUI.executions.map((exec) => HistoryUI._renderCard(exec)).join('');
-    if (window.lucide) lucide.createIcons({ nodes: [container] });
+    Utils.refreshIcons(container);
   },
 
   _renderCard(exec) {
@@ -55,9 +65,10 @@ const HistoryUI = {
     const name = exec.type === 'pipeline'
       ? (exec.pipelineName || 'Pipeline')
       : (exec.agentName || 'Agente');
-    const task = exec.type === 'pipeline'
+    const taskRaw = exec.type === 'pipeline'
       ? (exec.input || '')
       : (exec.task || '');
+    const task = taskRaw.length > 150 ? taskRaw.slice(0, 150) + '…' : taskRaw;
     const date = HistoryUI._formatDate(exec.startedAt);
     const duration = HistoryUI._formatDuration(exec.startedAt, exec.endedAt);
     const cost = exec.costUsd || exec.totalCostUsd || 0;
@@ -74,7 +85,7 @@ const HistoryUI = {
             ${statusBadge}
           </div>
         </div>
-        <div class="history-card-task">${Utils.escapeHtml(task)}</div>
+        <div class="history-card-task" title="${Utils.escapeHtml(taskRaw)}">${Utils.escapeHtml(task)}</div>
         <div class="history-card-info">
           <span class="history-card-date">
             <i data-lucide="calendar" aria-hidden="true"></i>
@@ -91,6 +102,10 @@ const HistoryUI = {
             <i data-lucide="eye"></i>
             Ver detalhes
           </button>
+          ${(exec.status === 'error' || exec.status === 'canceled') ? `
+          <button class="btn btn-ghost btn-sm" data-action="retry" data-id="${exec.id}" type="button" title="Reexecutar">
+            <i data-lucide="refresh-cw"></i>
+          </button>` : ''}
           <button class="btn btn-ghost btn-sm btn-danger" data-action="delete-execution" data-id="${exec.id}" type="button" aria-label="Excluir execução">
             <i data-lucide="trash-2"></i>
           </button>
@@ -131,7 +146,7 @@ const HistoryUI = {
       </div>
     `;
 
-    if (window.lucide) lucide.createIcons({ nodes: [container] });
+    Utils.refreshIcons(container);
 
     document.getElementById('history-prev-btn')?.addEventListener('click', () => {
       HistoryUI.page--;
@@ -171,7 +186,7 @@ const HistoryUI = {
         : HistoryUI._renderAgentDetail(exec);
 
       Modal.open('execution-detail-modal-overlay');
-      if (window.lucide) lucide.createIcons({ nodes: [content] });
+      Utils.refreshIcons(content);
 
       content.querySelectorAll('.pipeline-step-prompt-toggle').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -357,6 +372,16 @@ const HistoryUI = {
         <div class="execution-result execution-result--error">${Utils.escapeHtml(exec.error)}</div>
       </div>` : ''}
     `;
+  },
+
+  async retryExecution(id) {
+    try {
+      await API.executions.retry(id);
+      Toast.success('Execução reiniciada');
+      App.navigateTo('terminal');
+    } catch (err) {
+      Toast.error(`Erro ao reexecutar: ${err.message}`);
+    }
   },
 
   async deleteExecution(id) {

@@ -39,7 +39,7 @@ const TasksUI = {
 
     container.appendChild(fragment);
 
-    if (window.lucide) lucide.createIcons({ nodes: [container] });
+    Utils.refreshIcons(container);
   },
 
   filter(searchText, categoryFilter) {

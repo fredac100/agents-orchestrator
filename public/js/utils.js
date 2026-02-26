@@ -27,6 +27,14 @@ const Utils = {
     if (!str) return '';
     return str.length > max ? str.slice(0, max) + '…' : str;
   },
+
+  refreshIcons(container) {
+    if (!window.lucide) return;
+    const target = container || document;
+    const pending = target.querySelectorAll('i[data-lucide]');
+    if (pending.length === 0) return;
+    lucide.createIcons();
+  },
 };
 
 window.Utils = Utils;

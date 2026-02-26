@@ -44,7 +44,7 @@ const PipelinesUI = {
       if (!emptyState) {
         grid.insertAdjacentHTML('beforeend', PipelinesUI.renderEmpty());
       }
-      if (window.lucide) lucide.createIcons({ nodes: [grid] });
+      Utils.refreshIcons(grid);
       return;
     }
 
@@ -59,7 +59,7 @@ const PipelinesUI = {
 
     grid.appendChild(fragment);
 
-    if (window.lucide) lucide.createIcons({ nodes: [grid] });
+    Utils.refreshIcons(grid);
   },
 
   renderEmpty() {
@@ -249,7 +249,7 @@ const PipelinesUI = {
       select.value = PipelinesUI._steps[index].agentId || '';
     });
 
-    if (window.lucide) lucide.createIcons({ nodes: [container] });
+    Utils.refreshIcons(container);
   },
 
   _syncStepsFromDOM() {

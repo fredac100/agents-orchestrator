@@ -43,6 +43,7 @@ const API = {
     continue(id, sessionId, message) { return API.request('POST', `/agents/${id}/continue`, { sessionId, message }); },
     export(id) { return API.request('GET', `/agents/${id}/export`); },
     import(data) { return API.request('POST', '/agents/import', data); },
+    duplicate(id) { return API.request('POST', `/agents/${id}/duplicate`); },
   },
 
   tasks: {
@@ -81,10 +82,19 @@ const API = {
     create(data) { return API.request('POST', '/webhooks', data); },
     update(id, data) { return API.request('PUT', `/webhooks/${id}`, data); },
     delete(id) { return API.request('DELETE', `/webhooks/${id}`); },
+    test(id) { return API.request('POST', `/webhooks/${id}/test`); },
   },
 
   stats: {
     costs(days) { return API.request('GET', `/stats/costs${days ? '?days=' + days : ''}`); },
+    charts(days) { return API.request('GET', `/stats/charts${days ? '?days=' + days : ''}`); },
+  },
+
+  notifications: {
+    list() { return API.request('GET', '/notifications'); },
+    markRead(id) { return API.request('POST', `/notifications/${id}/read`); },
+    markAllRead() { return API.request('POST', '/notifications/read-all'); },
+    clear() { return API.request('DELETE', '/notifications'); },
   },
 
   system: {
@@ -98,6 +108,12 @@ const API = {
     save(data) { return API.request('PUT', '/settings', data); },
   },
 
+  reports: {
+    list() { return API.request('GET', '/reports'); },
+    get(filename) { return API.request('GET', `/reports/${encodeURIComponent(filename)}`); },
+    delete(filename) { return API.request('DELETE', `/reports/${encodeURIComponent(filename)}`); },
+  },
+
   executions: {
     recent(limit = 20) { return API.request('GET', `/executions/recent?limit=${limit}`); },
     history(params = {}) {
@@ -107,6 +123,19 @@ const API = {
     get(id) { return API.request('GET', `/executions/history/${id}`); },
     delete(id) { return API.request('DELETE', `/executions/history/${id}`); },
     clearAll() { return API.request('DELETE', '/executions/history'); },
+    retry(id) { return API.request('POST', `/executions/${id}/retry`); },
+    async exportCsv() {
+      const response = await fetch('/api/executions/export', {
+        headers: { 'X-Client-Id': API.clientId },
+      });
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `execucoes_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
   },
 };
 

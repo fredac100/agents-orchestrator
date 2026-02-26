@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { pipelinesStore, agentsStore, executionsStore } from '../store/db.js';
 import * as executor from './executor.js';
 import { mem } from '../cache/index.js';
+import { generatePipelineReport } from '../reports/generator.js';
 
 const activePipelines = new Map();
 const AGENT_MAP_TTL = 30_000;
@@ -265,8 +266,15 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
       totalCostUsd: totalCost,
     });
 
-    if (!pipelineState.canceled && wsCallback) {
-      wsCallback({ type: 'pipeline_complete', pipelineId, results, totalCostUsd: totalCost });
+    if (!pipelineState.canceled) {
+      try {
+        const updated = executionsStore.getById(historyRecord.id);
+        if (updated) {
+          const report = generatePipelineReport(updated);
+          if (wsCallback) wsCallback({ type: 'report_generated', pipelineId, reportFile: report.filename });
+        }
+      } catch (e) {}
+      if (wsCallback) wsCallback({ type: 'pipeline_complete', pipelineId, results, totalCostUsd: totalCost });
     }
 
     return results;
@@ -300,6 +308,15 @@ export function cancelPipeline(pipelineId) {
   }
   if (state.currentExecutionId) executor.cancel(state.currentExecutionId);
   activePipelines.delete(pipelineId);
+
+  const allExecs = executionsStore.getAll();
+  const idx = allExecs.findIndex(e => e.pipelineId === pipelineId && (e.status === 'running' || e.status === 'awaiting_approval'));
+  if (idx !== -1) {
+    allExecs[idx].status = 'canceled';
+    allExecs[idx].endedAt = new Date().toISOString();
+    executionsStore.save(allExecs);
+  }
+
   return true;
 }
 

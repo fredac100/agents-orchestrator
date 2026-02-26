@@ -1,9 +1,9 @@
 const Toast = {
   iconMap: {
-    success: 'check-circle',
-    error: 'x-circle',
+    success: 'circle-check',
+    error: 'circle-x',
     info: 'info',
-    warning: 'alert-triangle',
+    warning: 'triangle-alert',
   },
 
   colorMap: {
@@ -35,9 +35,7 @@ const Toast = {
 
     container.appendChild(toast);
 
-    if (window.lucide) {
-      lucide.createIcons({ nodes: [toast] });
-    }
+    Utils.refreshIcons(toast);
 
     requestAnimationFrame(() => {
       toast.classList.add('toast-show');

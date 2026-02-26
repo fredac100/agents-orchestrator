@@ -18,18 +18,47 @@ const App = {
     settings: 'Configurações',
   },
 
+  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'settings'],
+
   init() {
     if (App._initialized) return;
     App._initialized = true;
+
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
 
     App.setupNavigation();
     App.setupWebSocket();
     App.setupEventListeners();
     App.setupKeyboardShortcuts();
-    App.navigateTo('dashboard');
+
+    const initialSection = location.hash.replace('#', '') || 'dashboard';
+    App.navigateTo(App.sections.includes(initialSection) ? initialSection : 'dashboard');
     App.startPeriodicRefresh();
 
-    if (window.lucide) lucide.createIcons();
+    window.addEventListener('hashchange', () => {
+      const section = location.hash.replace('#', '') || 'dashboard';
+      if (App.sections.includes(section)) App.navigateTo(section);
+    });
+
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        Utils.refreshIcons();
+      });
+    }
+
+    if (typeof NotificationsUI !== 'undefined') NotificationsUI.init();
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    Utils.refreshIcons();
   },
 
   setupNavigation() {
@@ -47,6 +76,10 @@ const App = {
   },
 
   navigateTo(section) {
+    if (location.hash !== `#${section}`) {
+      history.pushState(null, '', `#${section}`);
+    }
+
     document.querySelectorAll('.section').forEach((el) => {
       const isActive = el.id === section;
       el.classList.toggle('active', isActive);
@@ -174,6 +207,11 @@ const App = {
           }
         }
 
+        if (typeof NotificationsUI !== 'undefined') {
+          NotificationsUI.loadCount();
+          NotificationsUI.showBrowserNotification('Execução concluída', data.agentName || 'Agente');
+        }
+
         Toast.success('Execução concluída');
         App.refreshCurrentSection();
         App._updateActiveBadge();
@@ -183,6 +221,12 @@ const App = {
       case 'execution_error':
         Terminal.stopProcessing();
         Terminal.addLine(data.data?.error || 'Erro na execução', 'error', data.executionId);
+
+        if (typeof NotificationsUI !== 'undefined') {
+          NotificationsUI.loadCount();
+          NotificationsUI.showBrowserNotification('Execução falhou', data.agentName || 'Agente');
+        }
+
         Toast.error(`Erro na execução: ${data.data?.error || 'desconhecido'}`);
         App._updateActiveBadge();
         break;
@@ -241,7 +285,30 @@ const App = {
 
       case 'pipeline_status':
         break;
+
+      case 'report_generated':
+        if (data.reportFile) {
+          Terminal.addLine(`📄 Relatório gerado: ${data.reportFile}`, 'info');
+          App._openReport(data.reportFile);
+        }
+        break;
     }
+  },
+
+  async _openReport(filename) {
+    try {
+      const data = await API.request('GET', `/reports/${encodeURIComponent(filename)}`);
+      if (!data || !data.content) return;
+
+      const modal = document.getElementById('execution-detail-modal-overlay');
+      const title = document.getElementById('execution-detail-title');
+      const content = document.getElementById('execution-detail-content');
+      if (!modal || !title || !content) return;
+
+      title.textContent = 'Relatório de Execução';
+      content.innerHTML = `<div class="report-content"><pre class="report-markdown">${Utils.escapeHtml(data.content)}</pre></div>`;
+      Modal.open('execution-detail-modal-overlay');
+    } catch (e) {}
   },
 
   _showApprovalNotification(pipelineId, stepIndex, agentName) {
@@ -264,7 +331,7 @@ const App = {
     container.hidden = false;
     container.dataset.pipelineId = pipelineId;
 
-    if (window.lucide) lucide.createIcons({ nodes: [container] });
+    Utils.refreshIcons(container);
 
     document.getElementById('approval-approve-btn')?.addEventListener('click', () => {
       App._handleApproval(pipelineId, true);
@@ -538,6 +605,7 @@ const App = {
         case 'edit': AgentsUI.openEditModal(id); break;
         case 'export': AgentsUI.export(id); break;
         case 'delete': AgentsUI.delete(id); break;
+        case 'duplicate': AgentsUI.duplicate(id); break;
       }
     });
 
@@ -598,6 +666,7 @@ const App = {
       switch (action) {
         case 'view-execution': HistoryUI.viewDetail(id); break;
         case 'delete-execution': HistoryUI.deleteExecution(id); break;
+        case 'retry': HistoryUI.retryExecution(id); break;
       }
     });
 
@@ -610,6 +679,8 @@ const App = {
         case 'delete-webhook': WebhooksUI.delete(id); break;
         case 'copy-webhook-url': WebhooksUI.copyUrl(url); break;
         case 'copy-webhook-curl': WebhooksUI.copyCurl(id); break;
+        case 'edit-webhook': WebhooksUI.openEditModal(id); break;
+        case 'test-webhook': WebhooksUI.test(id); break;
       }
     });
 
@@ -768,12 +839,30 @@ const App = {
         return;
       }
 
-      const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-      if (isTyping) return;
+      const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+      if (isInInput) return;
 
       if (e.key === 'n' || e.key === 'N') {
         if (App.currentSection === 'agents') {
           AgentsUI.openCreateModal();
+        }
+      }
+
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        const sectionKeys = {
+          '1': 'dashboard',
+          '2': 'agents',
+          '3': 'tasks',
+          '4': 'schedules',
+          '5': 'pipelines',
+          '6': 'terminal',
+          '7': 'history',
+          '8': 'webhooks',
+          '9': 'settings',
+        };
+        if (sectionKeys[e.key]) {
+          e.preventDefault();
+          App.navigateTo(sectionKeys[e.key]);
         }
       }
     });

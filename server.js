@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 import apiRouter, { setWsBroadcast, setWsBroadcastTo, hookRouter } from './src/routes/api.js';
 import * as manager from './src/agents/manager.js';
 import { setGlobalBroadcast } from './src/agents/manager.js';
@@ -14,8 +15,24 @@ import { flushAllStores } from './src/store/db.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const AUTH_TOKEN = process.env.AUTH_TOKEN || '';
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '';
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
+
+function timingSafeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Limite de requisições excedido. Tente novamente em breve.' },
+});
 
 function verifyWebhookSignature(req, res, next) {
   if (!WEBHOOK_SECRET) return next();
@@ -39,19 +56,34 @@ const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 
 app.use((req, res, next) => {
-  const origin = ALLOWED_ORIGIN || req.headers.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Id, X-Correlation-ID');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+
+app.use((req, res, next) => {
+  req.correlationId = req.headers['x-correlation-id'] || crypto.randomUUID();
+  res.setHeader('X-Correlation-ID', req.correlationId);
+  next();
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+  });
+});
+
+app.use('/api', apiLimiter);
 
 if (AUTH_TOKEN) {
   app.use('/api', (req, res, next) => {
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : req.query.token;
-    if (token !== AUTH_TOKEN) {
+    if (!timingSafeCompare(token, AUTH_TOKEN)) {
       return res.status(401).json({ error: 'Token de autenticação inválido' });
     }
     next();

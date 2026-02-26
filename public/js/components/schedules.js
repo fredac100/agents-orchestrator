@@ -28,7 +28,7 @@ const SchedulesUI = {
           </td>
         </tr>
       `;
-      if (window.lucide) lucide.createIcons({ nodes: [tbody] });
+      Utils.refreshIcons(tbody);
       return;
     }
 
@@ -77,7 +77,7 @@ const SchedulesUI = {
       `;
     }).join('');
 
-    if (window.lucide) lucide.createIcons({ nodes: [tbody] });
+    Utils.refreshIcons(tbody);
   },
 
   filter(searchText, statusFilter) {
@@ -208,7 +208,11 @@ const SchedulesUI = {
     if (!container) return;
 
     if (history.length === 0) {
-      container.innerHTML = '<p class="empty-state-desc">Nenhum disparo registrado</p>';
+      const hasSchedules = SchedulesUI.schedules.length > 0;
+      const msg = hasSchedules
+        ? 'Nenhum disparo registrado ainda. As tarefas agendadas aparecerão aqui após a próxima execução.'
+        : 'Nenhum disparo registrado. Crie um agendamento para começar.';
+      container.innerHTML = `<p class="empty-state-desc">${msg}</p>`;
       return;
     }
 
@@ -256,7 +260,7 @@ const SchedulesUI = {
       </div>
     `;
 
-    if (window.lucide) lucide.createIcons({ nodes: [container] });
+    Utils.refreshIcons(container);
   },
 
   _statusBadge(status) {
