@@ -171,8 +171,18 @@ const App = {
 
       case 'execution_output': {
         Terminal.stopProcessing();
+        const evtType = data.data?.type || 'chunk';
         const content = data.data?.content || '';
-        if (content) {
+        if (!content) break;
+        if (evtType === 'tool') {
+          Terminal.addLine(`▸ ${content}`, 'tool', data.executionId);
+        } else if (evtType === 'turn') {
+          Terminal.addLine(`── ${content} ──`, 'turn', data.executionId);
+        } else if (evtType === 'system') {
+          Terminal.addLine(content, 'system', data.executionId);
+        } else if (evtType === 'stderr') {
+          Terminal.addLine(content, 'stderr', data.executionId);
+        } else {
           Terminal.addLine(content, 'default', data.executionId);
         }
         App._updateActiveBadge();
@@ -233,8 +243,18 @@ const App = {
 
       case 'pipeline_step_output': {
         Terminal.stopProcessing();
+        const stepEvtType = data.data?.type || 'chunk';
         const stepContent = data.data?.content || '';
-        if (stepContent) {
+        if (!stepContent) break;
+        if (stepEvtType === 'tool') {
+          Terminal.addLine(`▸ ${stepContent}`, 'tool', data.executionId);
+        } else if (stepEvtType === 'turn') {
+          Terminal.addLine(`── ${stepContent} ──`, 'turn', data.executionId);
+        } else if (stepEvtType === 'system') {
+          Terminal.addLine(stepContent, 'system', data.executionId);
+        } else if (stepEvtType === 'stderr') {
+          Terminal.addLine(stepContent, 'stderr', data.executionId);
+        } else {
           Terminal.addLine(stepContent, 'default', data.executionId);
         }
         break;

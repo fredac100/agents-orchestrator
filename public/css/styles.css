@@ -1058,6 +1058,24 @@ textarea {
   font-style: italic;
 }
 
+.terminal-line.tool .content {
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.terminal-line.turn .content {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.terminal-line.stderr .content {
+  color: var(--text-muted);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
 .terminal-cursor {
   display: inline-block;
   width: 8px;

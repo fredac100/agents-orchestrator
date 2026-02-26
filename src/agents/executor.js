@@ -111,6 +111,56 @@ function extractText(event) {
   return null;
 }
 
+function extractToolInfo(event) {
+  if (!event) return null;
+
+  if (event.type === 'assistant' && event.message?.content) {
+    const toolBlocks = event.message.content.filter((b) => b.type === 'tool_use');
+    if (toolBlocks.length > 0) {
+      return toolBlocks.map((b) => {
+        const name = b.name || 'unknown';
+        const input = b.input || {};
+        let detail = '';
+        if (input.command) detail = input.command.slice(0, 120);
+        else if (input.file_path) detail = input.file_path;
+        else if (input.pattern) detail = input.pattern;
+        else if (input.query) detail = input.query;
+        else if (input.path) detail = input.path;
+        else if (input.prompt) detail = input.prompt.slice(0, 80);
+        else if (input.description) detail = input.description.slice(0, 80);
+        return { name, detail };
+      });
+    }
+  }
+
+  if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+    return [{ name: event.content_block.name || 'tool', detail: '' }];
+  }
+
+  return null;
+}
+
+function extractSystemInfo(event) {
+  if (!event) return null;
+
+  if (event.type === 'system' && event.message) return event.message;
+  if (event.type === 'error') return event.error?.message || event.message || 'Erro desconhecido';
+
+  if (event.type === 'result') {
+    const parts = [];
+    if (event.num_turns) parts.push(`${event.num_turns} turnos`);
+    if (event.cost_usd) parts.push(`custo: $${event.cost_usd.toFixed(4)}`);
+    if (event.duration_ms) {
+      const s = (event.duration_ms / 1000).toFixed(1);
+      parts.push(`duração: ${s}s`);
+    }
+    if (event.session_id) parts.push(`sessão: ${event.session_id.slice(0, 8)}...`);
+    return parts.length > 0 ? `Resultado: ${parts.join(' | ')}` : null;
+  }
+
+  return null;
+}
+
 export function execute(agentConfig, task, callbacks = {}) {
   if (activeExecutions.size >= maxConcurrent) {
     const err = new Error(`Limite de ${maxConcurrent} execuções simultâneas atingido`);
@@ -156,13 +206,35 @@ export function execute(agentConfig, task, callbacks = {}) {
   let fullText = '';
   let resultMeta = null;
 
+  let turnCount = 0;
+
   function processEvent(parsed) {
     if (!parsed) return;
+
+    const tools = extractToolInfo(parsed);
+    if (tools) {
+      for (const t of tools) {
+        const msg = t.detail ? `${t.name}: ${t.detail}` : t.name;
+        if (onData) onData({ type: 'tool', content: msg, toolName: t.name }, executionId);
+      }
+    }
+
     const text = extractText(parsed);
     if (text) {
       fullText += text;
       if (onData) onData({ type: 'chunk', content: text }, executionId);
     }
+
+    const sysInfo = extractSystemInfo(parsed);
+    if (sysInfo) {
+      if (onData) onData({ type: 'system', content: sysInfo }, executionId);
+    }
+
+    if (parsed.type === 'assistant') {
+      turnCount++;
+      if (onData) onData({ type: 'turn', content: `Turno ${turnCount}`, turn: turnCount }, executionId);
+    }
+
     if (parsed.type === 'result') {
       resultMeta = {
         costUsd: parsed.cost_usd || 0,
@@ -182,7 +254,12 @@ export function execute(agentConfig, task, callbacks = {}) {
   });
 
   child.stderr.on('data', (chunk) => {
-    errorBuffer += chunk.toString();
+    const str = chunk.toString();
+    errorBuffer += str;
+    const lines = str.split('\n').filter(l => l.trim());
+    for (const line of lines) {
+      if (onData) onData({ type: 'stderr', content: line.trim() }, executionId);
+    }
   });
 
   child.on('error', (err) => {
@@ -267,14 +344,35 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
   let errorBuffer = '';
   let fullText = '';
   let resultMeta = null;
+  let turnCount = 0;
 
   function processEvent(parsed) {
     if (!parsed) return;
+
+    const tools = extractToolInfo(parsed);
+    if (tools) {
+      for (const t of tools) {
+        const msg = t.detail ? `${t.name}: ${t.detail}` : t.name;
+        if (onData) onData({ type: 'tool', content: msg, toolName: t.name }, executionId);
+      }
+    }
+
     const text = extractText(parsed);
     if (text) {
       fullText += text;
       if (onData) onData({ type: 'chunk', content: text }, executionId);
     }
+
+    const sysInfo = extractSystemInfo(parsed);
+    if (sysInfo) {
+      if (onData) onData({ type: 'system', content: sysInfo }, executionId);
+    }
+
+    if (parsed.type === 'assistant') {
+      turnCount++;
+      if (onData) onData({ type: 'turn', content: `Turno ${turnCount}`, turn: turnCount }, executionId);
+    }
+
     if (parsed.type === 'result') {
       resultMeta = {
         costUsd: parsed.cost_usd || 0,
@@ -294,7 +392,12 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
   });
 
   child.stderr.on('data', (chunk) => {
-    errorBuffer += chunk.toString();
+    const str = chunk.toString();
+    errorBuffer += str;
+    const lines = str.split('\n').filter(l => l.trim());
+    for (const line of lines) {
+      if (onData) onData({ type: 'stderr', content: line.trim() }, executionId);
+    }
   });
 
   child.on('error', (err) => {
