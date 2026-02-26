@@ -12,6 +12,7 @@ const App = {
     schedules: 'Agendamentos',
     pipelines: 'Pipelines',
     terminal: 'Terminal',
+    history: 'Histórico',
     settings: 'Configurações',
   },
 
@@ -70,6 +71,7 @@ const App = {
         case 'tasks': await TasksUI.load(); break;
         case 'schedules': await SchedulesUI.load(); break;
         case 'pipelines': await PipelinesUI.load(); break;
+        case 'history': await HistoryUI.load(); break;
         case 'settings': await SettingsUI.load(); break;
       }
     } catch (err) {
@@ -363,6 +365,32 @@ const App = {
       PipelinesUI.filter(document.getElementById('pipelines-search')?.value);
     });
 
+    on('history-search', 'input', () => {
+      HistoryUI.filter(
+        document.getElementById('history-search')?.value,
+        document.getElementById('history-filter-type')?.value,
+        document.getElementById('history-filter-status')?.value
+      );
+    });
+
+    on('history-filter-type', 'change', () => {
+      HistoryUI.filter(
+        document.getElementById('history-search')?.value,
+        document.getElementById('history-filter-type')?.value,
+        document.getElementById('history-filter-status')?.value
+      );
+    });
+
+    on('history-filter-status', 'change', () => {
+      HistoryUI.filter(
+        document.getElementById('history-search')?.value,
+        document.getElementById('history-filter-type')?.value,
+        document.getElementById('history-filter-status')?.value
+      );
+    });
+
+    on('history-clear-btn', 'click', () => HistoryUI.clearHistory());
+
     document.getElementById('agents-grid')?.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
@@ -416,6 +444,16 @@ const App = {
         case 'execute-pipeline': PipelinesUI.execute(id); break;
         case 'edit-pipeline': PipelinesUI.openEditModal(id); break;
         case 'delete-pipeline': PipelinesUI.delete(id); break;
+      }
+    });
+
+    document.getElementById('history-list')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const { action, id } = btn.dataset;
+      switch (action) {
+        case 'view-execution': HistoryUI.viewDetail(id); break;
+        case 'delete-execution': HistoryUI.deleteExecution(id); break;
       }
     });
 

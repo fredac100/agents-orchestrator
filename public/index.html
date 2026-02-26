@@ -60,6 +60,12 @@
             </a>
           </li>
           <li class="sidebar-nav-item">
+            <a href="#" class="sidebar-nav-link" data-section="history">
+              <i data-lucide="history"></i>
+              <span>Histórico</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
             <a href="#" class="sidebar-nav-link" data-section="settings">
               <i data-lucide="settings"></i>
               <span>Configurações</span>
@@ -385,6 +391,36 @@
               </div>
             </div>
           </div>
+        </section>
+
+        <section id="history" class="section" aria-label="Histórico de Execuções" hidden>
+          <div class="section-toolbar">
+            <div class="toolbar-filters">
+              <div class="search-field">
+                <i data-lucide="search"></i>
+                <input type="text" placeholder="Buscar..." id="history-search" aria-label="Buscar no histórico" />
+              </div>
+              <select class="select" id="history-filter-type" aria-label="Filtrar por tipo">
+                <option value="">Todos os tipos</option>
+                <option value="agent">Agentes</option>
+                <option value="pipeline">Pipelines</option>
+              </select>
+              <select class="select" id="history-filter-status" aria-label="Filtrar por status">
+                <option value="">Todos os status</option>
+                <option value="completed">Concluído</option>
+                <option value="error">Erro</option>
+                <option value="running">Em execução</option>
+              </select>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn btn-ghost btn-sm btn-danger" id="history-clear-btn" type="button">
+                <i data-lucide="trash-2"></i>
+                Limpar Histórico
+              </button>
+            </div>
+          </div>
+          <div id="history-list"></div>
+          <div id="history-pagination"></div>
         </section>
 
         <section id="settings" class="section" aria-label="Configurações" hidden>
@@ -864,6 +900,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="execution-detail-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="execution-detail-title" hidden>
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="execution-detail-title">Detalhe da Execução</h2>
+        <button class="modal-close" data-modal-close="execution-detail-modal-overlay" aria-label="Fechar" type="button">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="execution-detail-content">
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="confirm-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" hidden>
     <div class="modal modal--sm">
       <div class="modal-header">
@@ -954,6 +1003,7 @@
   <script src="js/components/schedules.js"></script>
   <script src="js/components/pipelines.js"></script>
   <script src="js/components/settings.js"></script>
+  <script src="js/components/history.js"></script>
   <script src="js/app.js"></script>
   <script>
     lucide.createIcons();

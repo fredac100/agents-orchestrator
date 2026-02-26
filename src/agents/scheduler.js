@@ -7,11 +7,12 @@ const schedules = new Map();
 const history = [];
 const emitter = new EventEmitter();
 
+const cronDateCache = new Map();
+const CRON_CACHE_TTL = 60_000;
+
 function addToHistory(entry) {
   history.unshift(entry);
-  if (history.length > HISTORY_LIMIT) {
-    history.splice(HISTORY_LIMIT);
-  }
+  if (history.length > HISTORY_LIMIT) history.splice(HISTORY_LIMIT);
 }
 
 function matchesCronPart(part, value) {
@@ -25,7 +26,7 @@ function matchesCronPart(part, value) {
   return parseInt(part) === value;
 }
 
-function nextCronDate(cronExpr) {
+function computeNextCronDate(cronExpr) {
   const parts = cronExpr.split(' ');
   if (parts.length !== 5) return null;
 
@@ -37,36 +38,33 @@ function nextCronDate(cronExpr) {
   candidate.setMinutes(candidate.getMinutes() + 1);
 
   for (let i = 0; i < 525600; i++) {
-    const m = candidate.getMinutes();
-    const h = candidate.getHours();
-    const dom = candidate.getDate();
-    const mon = candidate.getMonth() + 1;
-    const dow = candidate.getDay();
-
     if (
-      matchesCronPart(minute, m) &&
-      matchesCronPart(hour, h) &&
-      matchesCronPart(dayOfMonth, dom) &&
-      matchesCronPart(month, mon) &&
-      matchesCronPart(dayOfWeek, dow)
+      matchesCronPart(minute, candidate.getMinutes()) &&
+      matchesCronPart(hour, candidate.getHours()) &&
+      matchesCronPart(dayOfMonth, candidate.getDate()) &&
+      matchesCronPart(month, candidate.getMonth() + 1) &&
+      matchesCronPart(dayOfWeek, candidate.getDay())
     ) {
       return candidate.toISOString();
     }
-
     candidate.setMinutes(candidate.getMinutes() + 1);
   }
 
   return null;
 }
 
-export function schedule(taskId, cronExpr, callback, persist = true) {
-  if (schedules.has(taskId)) {
-    unschedule(taskId, false);
-  }
+function nextCronDate(cronExpr) {
+  const now = Date.now();
+  const cached = cronDateCache.get(cronExpr);
+  if (cached && now - cached.at < CRON_CACHE_TTL) return cached.val;
+  const val = computeNextCronDate(cronExpr);
+  cronDateCache.set(cronExpr, { val, at: now });
+  return val;
+}
 
-  if (!cron.validate(cronExpr)) {
-    throw new Error(`Expressão cron inválida: ${cronExpr}`);
-  }
+export function schedule(taskId, cronExpr, callback, persist = true) {
+  if (schedules.has(taskId)) unschedule(taskId, false);
+  if (!cron.validate(cronExpr)) throw new Error(`Expressão cron inválida: ${cronExpr}`);
 
   const task = cron.schedule(
     cronExpr,
@@ -74,47 +72,31 @@ export function schedule(taskId, cronExpr, callback, persist = true) {
       const firedAt = new Date().toISOString();
       addToHistory({ taskId, cronExpr, firedAt });
       emitter.emit('scheduled-task', { taskId, firedAt });
+      cronDateCache.delete(cronExpr);
       if (callback) callback({ taskId, firedAt });
     },
     { scheduled: true }
   );
 
-  schedules.set(taskId, {
-    taskId,
-    cronExpr,
-    task,
-    active: true,
-    createdAt: new Date().toISOString(),
-  });
-
+  schedules.set(taskId, { taskId, cronExpr, task, active: true, createdAt: new Date().toISOString() });
   return { taskId, cronExpr };
 }
 
 export function unschedule(taskId, persist = true) {
   const entry = schedules.get(taskId);
   if (!entry) return false;
-
   entry.task.stop();
   schedules.delete(taskId);
-
-  if (persist) {
-    schedulesStore.delete(taskId);
-  }
-
+  if (persist) schedulesStore.delete(taskId);
   return true;
 }
 
 export function updateSchedule(taskId, cronExpr, callback) {
   const entry = schedules.get(taskId);
   if (!entry) return false;
-
   entry.task.stop();
   schedules.delete(taskId);
-
-  if (!cron.validate(cronExpr)) {
-    throw new Error(`Expressão cron inválida: ${cronExpr}`);
-  }
-
+  if (!cron.validate(cronExpr)) throw new Error(`Expressão cron inválida: ${cronExpr}`);
   schedule(taskId, cronExpr, callback, false);
   return true;
 }
@@ -122,32 +104,23 @@ export function updateSchedule(taskId, cronExpr, callback) {
 export function setActive(taskId, active) {
   const entry = schedules.get(taskId);
   if (!entry) return false;
-
-  if (active) {
-    entry.task.start();
-  } else {
-    entry.task.stop();
-  }
-
+  active ? entry.task.start() : entry.task.stop();
   entry.active = active;
   return true;
 }
 
 export function getSchedules() {
   const stored = schedulesStore.getAll();
-  const result = [];
-
-  for (const s of stored) {
+  return stored.map((s) => {
     const inMemory = schedules.get(s.id);
-    result.push({
+    const cronExpr = s.cronExpression || s.cronExpr || '';
+    return {
       ...s,
-      cronExpr: s.cronExpression || s.cronExpr,
+      cronExpr,
       active: inMemory ? inMemory.active : false,
-      nextRun: nextCronDate(s.cronExpression || s.cronExpr || ''),
-    });
-  }
-
-  return result;
+      nextRun: nextCronDate(cronExpr),
+    };
+  });
 }
 
 export function getHistory() {
@@ -161,20 +134,15 @@ export function restoreSchedules(executeFn) {
   for (const s of stored) {
     if (!s.active) continue;
     const cronExpr = s.cronExpression || s.cronExpr;
-
     try {
-      schedule(s.id, cronExpr, () => {
-        executeFn(s.agentId, s.taskDescription);
-      }, false);
+      schedule(s.id, cronExpr, () => executeFn(s.agentId, s.taskDescription), false);
       restored++;
     } catch (err) {
-      console.log(`[scheduler] Falha ao restaurar agendamento ${s.id}: ${err.message}`);
+      console.log(`[scheduler] Falha ao restaurar ${s.id}: ${err.message}`);
     }
   }
 
-  if (restored > 0) {
-    console.log(`[scheduler] ${restored} agendamento(s) restaurado(s)`);
-  }
+  if (restored > 0) console.log(`[scheduler] ${restored} agendamento(s) restaurado(s)`);
 }
 
 export function on(event, listener) {

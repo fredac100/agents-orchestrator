@@ -2,10 +2,12 @@ import { Router } from 'express';
 import { execSync } from 'child_process';
 import os from 'os';
 import * as manager from '../agents/manager.js';
-import { tasksStore, settingsStore } from '../store/db.js';
+import { tasksStore, settingsStore, executionsStore } from '../store/db.js';
 import * as scheduler from '../agents/scheduler.js';
 import * as pipeline from '../agents/pipeline.js';
-import { getBinPath } from '../agents/executor.js';
+import { getBinPath, updateMaxConcurrent } from '../agents/executor.js';
+import { invalidateAgentMapCache } from '../agents/pipeline.js';
+import { cached } from '../cache/index.js';
 
 const router = Router();
 
@@ -21,11 +23,8 @@ export function setWsBroadcastTo(fn) {
 }
 
 function wsCallback(message, clientId) {
-  if (clientId && wsBroadcastTo) {
-    wsBroadcastTo(clientId, message);
-  } else if (wsbroadcast) {
-    wsbroadcast(message);
-  }
+  if (clientId && wsBroadcastTo) wsBroadcastTo(clientId, message);
+  else if (wsbroadcast) wsbroadcast(message);
 }
 
 router.get('/settings', (req, res) => {
@@ -45,6 +44,7 @@ router.put('/settings', (req, res) => {
     }
     if (data.maxConcurrent !== undefined) {
       data.maxConcurrent = Math.max(1, Math.min(20, parseInt(data.maxConcurrent) || 5));
+      updateMaxConcurrent(data.maxConcurrent);
     }
     const saved = settingsStore.save(data);
     res.json(saved);
@@ -74,6 +74,7 @@ router.get('/agents/:id', (req, res) => {
 router.post('/agents', (req, res) => {
   try {
     const agent = manager.createAgent(req.body);
+    invalidateAgentMapCache();
     res.status(201).json(agent);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -83,6 +84,7 @@ router.post('/agents', (req, res) => {
 router.post('/agents/import', (req, res) => {
   try {
     const agent = manager.importAgent(req.body);
+    invalidateAgentMapCache();
     res.status(201).json(agent);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -93,6 +95,7 @@ router.put('/agents/:id', (req, res) => {
   try {
     const agent = manager.updateAgent(req.params.id, req.body);
     if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
+    invalidateAgentMapCache();
     res.json(agent);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -103,6 +106,7 @@ router.delete('/agents/:id', (req, res) => {
   try {
     const deleted = manager.deleteAgent(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Agente não encontrado' });
+    invalidateAgentMapCache();
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -113,12 +117,8 @@ router.post('/agents/:id/execute', (req, res) => {
   try {
     const { task, instructions } = req.body;
     if (!task) return res.status(400).json({ error: 'task é obrigatório' });
-
     const clientId = req.headers['x-client-id'] || null;
-    const executionId = manager.executeTask(
-      req.params.id, task, instructions,
-      (msg) => wsCallback(msg, clientId)
-    );
+    const executionId = manager.executeTask(req.params.id, task, instructions, (msg) => wsCallback(msg, clientId));
     res.status(202).json({ executionId, status: 'started' });
   } catch (err) {
     const status = err.message.includes('não encontrado') ? 404 : 400;
@@ -157,8 +157,7 @@ router.get('/tasks', (req, res) => {
 router.post('/tasks', (req, res) => {
   try {
     if (!req.body.name) return res.status(400).json({ error: 'name é obrigatório' });
-    const task = tasksStore.create(req.body);
-    res.status(201).json(task);
+    res.status(201).json(tasksStore.create(req.body));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -257,8 +256,7 @@ router.get('/pipelines/:id', (req, res) => {
 
 router.post('/pipelines', (req, res) => {
   try {
-    const created = pipeline.createPipeline(req.body);
-    res.status(201).json(created);
+    res.status(201).json(pipeline.createPipeline(req.body));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -288,7 +286,6 @@ router.post('/pipelines/:id/execute', (req, res) => {
   try {
     const { input } = req.body;
     if (!input) return res.status(400).json({ error: 'input é obrigatório' });
-
     const clientId = req.headers['x-client-id'] || null;
     pipeline.executePipeline(req.params.id, input, (msg) => wsCallback(msg, clientId)).catch(() => {});
     res.status(202).json({ pipelineId: req.params.id, status: 'started' });
@@ -308,54 +305,121 @@ router.post('/pipelines/:id/cancel', (req, res) => {
   }
 });
 
+const SYSTEM_STATUS_TTL = 5_000;
+
 router.get('/system/status', (req, res) => {
   try {
-    const agents = manager.getAllAgents();
-    const activeExecutions = manager.getActiveExecutions();
-    const schedules = scheduler.getSchedules();
-    const pipelines = pipeline.getAllPipelines();
-    const activePipelines = pipeline.getActivePipelines();
+    const status = cached('system:status', SYSTEM_STATUS_TTL, () => {
+      const agents = manager.getAllAgents();
+      const activeExecutions = manager.getActiveExecutions();
+      const schedules = scheduler.getSchedules();
+      const pipelines = pipeline.getAllPipelines();
+      const activePipelines = pipeline.getActivePipelines();
+      return {
+        agents: {
+          total: agents.length,
+          active: agents.filter((a) => a.status === 'active').length,
+          inactive: agents.filter((a) => a.status === 'inactive').length,
+        },
+        executions: {
+          active: activeExecutions.length,
+          today: manager.getDailyExecutionCount(),
+          list: activeExecutions,
+        },
+        schedules: {
+          total: schedules.length,
+          active: schedules.filter((s) => s.active).length,
+        },
+        pipelines: {
+          total: pipelines.length,
+          active: pipelines.filter((p) => p.status === 'active').length,
+          running: activePipelines.length,
+        },
+      };
+    });
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+let claudeVersionCache = null;
+
+router.get('/system/info', (req, res) => {
+  try {
+    if (claudeVersionCache === null) {
+      try {
+        claudeVersionCache = execSync(`${getBinPath()} --version`, { timeout: 5000 }).toString().trim();
+      } catch {
+        claudeVersionCache = 'N/A';
+      }
+    }
     res.json({
-      agents: {
-        total: agents.length,
-        active: agents.filter((a) => a.status === 'active').length,
-        inactive: agents.filter((a) => a.status === 'inactive').length,
-      },
-      executions: {
-        active: activeExecutions.length,
-        today: manager.getDailyExecutionCount(),
-        list: activeExecutions,
-      },
-      schedules: {
-        total: schedules.length,
-        active: schedules.filter((s) => s.active).length,
-      },
-      pipelines: {
-        total: pipelines.length,
-        active: pipelines.filter((p) => p.status === 'active').length,
-        running: activePipelines.length,
-      },
+      serverVersion: '1.0.0',
+      nodeVersion: process.version,
+      claudeVersion: claudeVersionCache,
+      platform: `${os.platform()} ${os.arch()}`,
+      uptime: Math.floor(process.uptime()),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/system/info', (req, res) => {
+router.get('/executions/history', (req, res) => {
   try {
-    let claudeVersion = 'N/A';
-    try {
-      claudeVersion = execSync(`${getBinPath()} --version`, { timeout: 5000 }).toString().trim();
-    } catch {}
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    const typeFilter = req.query.type || '';
+    const statusFilter = req.query.status || '';
+    const search = (req.query.search || '').toLowerCase();
 
-    res.json({
-      serverVersion: '1.0.0',
-      nodeVersion: process.version,
-      claudeVersion,
-      platform: `${os.platform()} ${os.arch()}`,
-      uptime: Math.floor(process.uptime()),
-    });
+    let items = executionsStore.getAll();
+
+    if (typeFilter) items = items.filter((e) => e.type === typeFilter);
+    if (statusFilter) items = items.filter((e) => e.status === statusFilter);
+    if (search) {
+      items = items.filter((e) => {
+        const name = (e.agentName || e.pipelineName || '').toLowerCase();
+        const task = (e.task || e.input || '').toLowerCase();
+        return name.includes(search) || task.includes(search);
+      });
+    }
+
+    items.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt));
+    const total = items.length;
+    const paged = items.slice(offset, offset + limit);
+
+    res.json({ items: paged, total });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/executions/history/:id', (req, res) => {
+  try {
+    const exec = executionsStore.getById(req.params.id);
+    if (!exec) return res.status(404).json({ error: 'Execução não encontrada' });
+    res.json(exec);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/executions/history/:id', (req, res) => {
+  try {
+    const deleted = executionsStore.delete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Execução não encontrada' });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/executions/history', (req, res) => {
+  try {
+    executionsStore.save([]);
+    res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

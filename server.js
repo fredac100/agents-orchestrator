@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import apiRouter, { setWsBroadcast, setWsBroadcastTo } from './src/routes/api.js';
 import * as manager from './src/agents/manager.js';
 import { cancelAllExecutions } from './src/agents/executor.js';
+import { flushAllStores } from './src/store/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -57,35 +58,23 @@ wss.on('connection', (ws, req) => {
   ws.clientId = clientId;
   connectedClients.set(clientId, ws);
 
-  ws.on('close', () => {
-    connectedClients.delete(clientId);
-  });
-
-  ws.on('error', () => {
-    connectedClients.delete(clientId);
-  });
-
+  ws.on('close', () => connectedClients.delete(clientId));
+  ws.on('error', () => connectedClients.delete(clientId));
   ws.send(JSON.stringify({ type: 'connected', clientId }));
 });
 
 function broadcast(message) {
   const payload = JSON.stringify(message);
   for (const [, client] of connectedClients) {
-    if (client.readyState === 1) {
-      client.send(payload);
-    }
+    if (client.readyState === 1) client.send(payload);
   }
 }
 
 function broadcastTo(clientId, message) {
   const payload = JSON.stringify(message);
   const client = connectedClients.get(clientId);
-
-  if (client && client.readyState === 1) {
-    client.send(payload);
-  } else {
-    broadcast(message);
-  }
+  if (client && client.readyState === 1) client.send(payload);
+  else broadcast(message);
 }
 
 setWsBroadcast(broadcast);
@@ -96,6 +85,9 @@ function gracefulShutdown(signal) {
 
   cancelAllExecutions();
   console.log('Execuções ativas canceladas.');
+
+  flushAllStores();
+  console.log('Dados persistidos.');
 
   httpServer.close(() => {
     console.log('Servidor HTTP encerrado.');

@@ -6,20 +6,23 @@ import { settingsStore } from '../store/db.js';
 const CLAUDE_BIN = resolveBin();
 const activeExecutions = new Map();
 
+let maxConcurrent = settingsStore.get().maxConcurrent || 5;
+
+export function updateMaxConcurrent(value) {
+  maxConcurrent = Math.max(1, Math.min(20, parseInt(value) || 5));
+}
+
 function resolveBin() {
   if (process.env.CLAUDE_BIN) return process.env.CLAUDE_BIN;
-
   const home = process.env.HOME || '';
   const candidates = [
     `${home}/.local/bin/claude`,
     '/usr/local/bin/claude',
     '/usr/bin/claude',
   ];
-
   for (const p of candidates) {
     if (existsSync(p)) return p;
   }
-
   return 'claude';
 }
 
@@ -58,7 +61,6 @@ function buildArgs(agentConfig, prompt) {
   }
 
   args.push('--permission-mode', agentConfig.permissionMode || 'bypassPermissions');
-
   return args;
 }
 
@@ -89,13 +91,8 @@ function extractText(event) {
       .join('');
   }
 
-  if (event.type === 'content_block_delta' && event.delta?.text) {
-    return event.delta.text;
-  }
-
-  if (event.type === 'content_block_start' && event.content_block?.text) {
-    return event.content_block.text;
-  }
+  if (event.type === 'content_block_delta' && event.delta?.text) return event.delta.text;
+  if (event.type === 'content_block_start' && event.content_block?.text) return event.content_block.text;
 
   if (event.type === 'result') {
     if (typeof event.result === 'string') return event.result;
@@ -108,17 +105,10 @@ function extractText(event) {
   }
 
   if (event.type === 'text') return event.content || null;
-
   return null;
 }
 
-function getMaxConcurrent() {
-  const s = settingsStore.get();
-  return s.maxConcurrent || 5;
-}
-
 export function execute(agentConfig, task, callbacks = {}) {
-  const maxConcurrent = getMaxConcurrent();
   if (activeExecutions.size >= maxConcurrent) {
     const err = new Error(`Limite de ${maxConcurrent} execuções simultâneas atingido`);
     if (callbacks.onError) callbacks.onError(err, uuidv4());
@@ -145,9 +135,7 @@ export function execute(agentConfig, task, callbacks = {}) {
     spawnOptions.cwd = agentConfig.workingDirectory;
   }
 
-  console.log(`[executor] Iniciando: ${executionId}`);
-  console.log(`[executor] Modelo: ${agentConfig.model || 'claude-sonnet-4-6'}`);
-  console.log(`[executor] cwd: ${spawnOptions.cwd || process.cwd()}`);
+  console.log(`[executor] Iniciando: ${executionId} | Modelo: ${agentConfig.model || 'claude-sonnet-4-6'}`);
 
   const child = spawn(CLAUDE_BIN, args, spawnOptions);
   let hadError = false;
@@ -165,14 +153,12 @@ export function execute(agentConfig, task, callbacks = {}) {
   let fullText = '';
 
   child.stdout.on('data', (chunk) => {
-    const raw = chunk.toString();
-    const lines = (outputBuffer + raw).split('\n');
+    const lines = (outputBuffer + chunk.toString()).split('\n');
     outputBuffer = lines.pop();
 
     for (const line of lines) {
       const parsed = parseStreamLine(line);
       if (!parsed) continue;
-
       const text = extractText(parsed);
       if (text) {
         fullText += text;
@@ -193,7 +179,6 @@ export function execute(agentConfig, task, callbacks = {}) {
   });
 
   child.on('close', (code) => {
-    console.log(`[executor][close] code=${code} hadError=${hadError}`);
     activeExecutions.delete(executionId);
     if (hadError) return;
 
@@ -206,15 +191,7 @@ export function execute(agentConfig, task, callbacks = {}) {
     }
 
     if (onComplete) {
-      onComplete(
-        {
-          executionId,
-          exitCode: code,
-          result: fullText,
-          stderr: errorBuffer,
-        },
-        executionId,
-      );
+      onComplete({ executionId, exitCode: code, result: fullText, stderr: errorBuffer }, executionId);
     }
   });
 
@@ -224,22 +201,19 @@ export function execute(agentConfig, task, callbacks = {}) {
 export function cancel(executionId) {
   const execution = activeExecutions.get(executionId);
   if (!execution) return false;
-
   execution.process.kill('SIGTERM');
   activeExecutions.delete(executionId);
   return true;
 }
 
 export function cancelAllExecutions() {
-  for (const [id, exec] of activeExecutions) {
-    exec.process.kill('SIGTERM');
-  }
+  for (const [, exec] of activeExecutions) exec.process.kill('SIGTERM');
   activeExecutions.clear();
 }
 
 export function getActiveExecutions() {
-  return Array.from(activeExecutions.entries()).map(([id, exec]) => ({
-    executionId: id,
+  return Array.from(activeExecutions.values()).map((exec) => ({
+    executionId: exec.executionId,
     startedAt: exec.startedAt,
     agentConfig: exec.agentConfig,
   }));

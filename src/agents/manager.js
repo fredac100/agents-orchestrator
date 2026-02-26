@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { agentsStore, schedulesStore } from '../store/db.js';
+import { agentsStore, schedulesStore, executionsStore } from '../store/db.js';
 import * as executor from './executor.js';
 import * as scheduler from './scheduler.js';
 
@@ -11,6 +11,9 @@ const DEFAULT_CONFIG = {
   permissionMode: 'bypassPermissions',
   allowedTools: '',
 };
+
+const MAX_RECENT = 200;
+const recentExecBuffer = [];
 
 let dailyExecutionCount = 0;
 let dailyCountDate = new Date().toDateString();
@@ -61,11 +64,8 @@ export function getAgentById(id) {
 
 export function createAgent(data) {
   const errors = validateAgent(data);
-  if (errors.length > 0) {
-    throw new Error(errors.join('; '));
-  }
-
-  const agentData = {
+  if (errors.length > 0) throw new Error(errors.join('; '));
+  return agentsStore.create({
     agent_name: data.agent_name,
     description: data.description || '',
     tags: sanitizeTags(data.tags),
@@ -74,15 +74,12 @@ export function createAgent(data) {
     status: data.status || 'active',
     assigned_host: data.assigned_host || 'localhost',
     executions: [],
-  };
-
-  return agentsStore.create(agentData);
+  });
 }
 
 export function updateAgent(id, data) {
   const existing = agentsStore.getById(id);
   if (!existing) return null;
-
   const updateData = {};
   if (data.agent_name !== undefined) updateData.agent_name = data.agent_name;
   if (data.description !== undefined) updateData.description = data.description;
@@ -90,10 +87,7 @@ export function updateAgent(id, data) {
   if (data.tasks !== undefined) updateData.tasks = data.tasks;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.assigned_host !== undefined) updateData.assigned_host = data.assigned_host;
-  if (data.config !== undefined) {
-    updateData.config = { ...existing.config, ...data.config };
-  }
-
+  if (data.config !== undefined) updateData.config = { ...existing.config, ...data.config };
   return agentsStore.update(id, updateData);
 }
 
@@ -106,12 +100,25 @@ export function executeTask(agentId, task, instructions, wsCallback) {
   if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
   if (agent.status !== 'active') throw new Error(`Agente ${agentId} está inativo`);
 
-  const executionRecord = {
+  const taskText = typeof task === 'string' ? task : task.description;
+  const startedAt = new Date().toISOString();
+
+  const historyRecord = executionsStore.create({
+    type: 'agent',
+    agentId,
+    agentName: agent.agent_name,
+    task: taskText,
+    instructions: instructions || '',
+    status: 'running',
+    startedAt,
+  });
+
+  const execRecord = {
     executionId: null,
     agentId,
     agentName: agent.agent_name,
-    task: typeof task === 'string' ? task : task.description,
-    startedAt: new Date().toISOString(),
+    task: taskText,
+    startedAt,
     status: 'running',
   };
 
@@ -120,66 +127,63 @@ export function executeTask(agentId, task, instructions, wsCallback) {
     { description: task, instructions },
     {
       onData: (parsed, execId) => {
-        if (wsCallback) {
-          wsCallback({
-            type: 'execution_output',
-            executionId: execId,
-            agentId,
-            data: parsed,
-          });
-        }
+        if (wsCallback) wsCallback({ type: 'execution_output', executionId: execId, agentId, data: parsed });
       },
       onError: (err, execId) => {
-        updateAgentExecution(agentId, execId, { status: 'error', error: err.message, endedAt: new Date().toISOString() });
-        if (wsCallback) {
-          wsCallback({
-            type: 'execution_error',
-            executionId: execId,
-            agentId,
-            data: { error: err.message },
-          });
-        }
+        const endedAt = new Date().toISOString();
+        updateExecutionRecord(agentId, execId, { status: 'error', error: err.message, endedAt });
+        executionsStore.update(historyRecord.id, { status: 'error', error: err.message, endedAt });
+        if (wsCallback) wsCallback({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
       },
       onComplete: (result, execId) => {
-        updateAgentExecution(agentId, execId, { status: 'completed', result, endedAt: new Date().toISOString() });
-        if (wsCallback) {
-          wsCallback({
-            type: 'execution_complete',
-            executionId: execId,
-            agentId,
-            data: result,
-          });
-        }
+        const endedAt = new Date().toISOString();
+        updateExecutionRecord(agentId, execId, { status: 'completed', result, endedAt });
+        executionsStore.update(historyRecord.id, {
+          status: 'completed',
+          result: result.result || '',
+          exitCode: result.exitCode,
+          endedAt,
+        });
+        if (wsCallback) wsCallback({ type: 'execution_complete', executionId: execId, agentId, data: result });
       },
     }
   );
 
   if (!executionId) {
+    executionsStore.update(historyRecord.id, { status: 'error', error: 'Limite de execuções simultâneas atingido', endedAt: new Date().toISOString() });
     throw new Error('Limite de execuções simultâneas atingido');
   }
 
-  executionRecord.executionId = executionId;
+  execRecord.executionId = executionId;
+  executionsStore.update(historyRecord.id, { executionId });
   incrementDailyCount();
 
   const updatedAgent = agentsStore.getById(agentId);
-  const executions = [...(updatedAgent.executions || []), executionRecord];
+  const executions = [...(updatedAgent.executions || []), execRecord];
   agentsStore.update(agentId, { executions: executions.slice(-100) });
+
+  recentExecBuffer.unshift({ ...execRecord });
+  if (recentExecBuffer.length > MAX_RECENT) recentExecBuffer.length = MAX_RECENT;
 
   return executionId;
 }
 
-function updateAgentExecution(agentId, executionId, updates) {
+function updateRecentBuffer(executionId, updates) {
+  const entry = recentExecBuffer.find((e) => e.executionId === executionId);
+  if (entry) Object.assign(entry, updates);
+}
+
+function updateExecutionRecord(agentId, executionId, updates) {
   const agent = agentsStore.getById(agentId);
   if (!agent) return;
-
-  const executions = (agent.executions || []).map((exec) => {
-    if (exec.executionId === executionId) {
-      return { ...exec, ...updates };
-    }
-    return exec;
-  });
-
+  const executions = (agent.executions || []).map((exec) =>
+    exec.executionId === executionId ? { ...exec, ...updates } : exec
+  );
   agentsStore.update(agentId, { executions });
+}
+
+export function getRecentExecutions(limit = 20) {
+  return recentExecBuffer.slice(0, Math.min(limit, MAX_RECENT));
 }
 
 export function scheduleTask(agentId, taskDescription, cronExpression, wsCallback) {
@@ -187,7 +191,6 @@ export function scheduleTask(agentId, taskDescription, cronExpression, wsCallbac
   if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
 
   const scheduleId = uuidv4();
-
   const items = schedulesStore.getAll();
   items.push({
     id: scheduleId,
@@ -223,13 +226,7 @@ export function updateScheduleTask(scheduleId, data, wsCallback) {
     executeTask(agentId, taskDescription, null, wsCallback);
   });
 
-  schedulesStore.update(scheduleId, {
-    agentId,
-    agentName: agent.agent_name,
-    taskDescription,
-    cronExpression,
-  });
-
+  schedulesStore.update(scheduleId, { agentId, agentName: agent.agent_name, taskDescription, cronExpression });
   return schedulesStore.getById(scheduleId);
 }
 
@@ -241,23 +238,9 @@ export function getActiveExecutions() {
   return executor.getActiveExecutions();
 }
 
-export function getRecentExecutions(limit = 20) {
-  const agents = agentsStore.getAll();
-  const all = agents.flatMap((a) =>
-    (a.executions || []).map((e) => ({
-      ...e,
-      agentName: a.agent_name,
-      agentId: a.id,
-    }))
-  );
-  all.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt));
-  return all.slice(0, limit);
-}
-
 export function exportAgent(agentId) {
   const agent = agentsStore.getById(agentId);
   if (!agent) return null;
-
   return {
     agent_name: agent.agent_name,
     description: agent.description,
@@ -270,11 +253,8 @@ export function exportAgent(agentId) {
 }
 
 export function importAgent(data) {
-  if (!data.agent_name) {
-    throw new Error('agent_name é obrigatório para importação');
-  }
-
-  const agentData = {
+  if (!data.agent_name) throw new Error('agent_name é obrigatório para importação');
+  return agentsStore.create({
     agent_name: data.agent_name,
     description: data.description || '',
     tags: sanitizeTags(data.tags),
@@ -283,9 +263,7 @@ export function importAgent(data) {
     status: data.status || 'active',
     assigned_host: data.assigned_host || 'localhost',
     executions: [],
-  };
-
-  return agentsStore.create(agentData);
+  });
 }
 
 export function restoreSchedules(wsCallback) {

@@ -1,15 +1,10 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = `${__dirname}/../../data`;
-const AGENTS_FILE = `${DATA_DIR}/agents.json`;
-const TASKS_FILE = `${DATA_DIR}/tasks.json`;
-const PIPELINES_FILE = `${DATA_DIR}/pipelines.json`;
-const SCHEDULES_FILE = `${DATA_DIR}/schedules.json`;
-const SETTINGS_FILE = `${DATA_DIR}/settings.json`;
 
 const DEFAULT_SETTINGS = {
   defaultModel: 'claude-sonnet-4-6',
@@ -17,124 +12,177 @@ const DEFAULT_SETTINGS = {
   maxConcurrent: 5,
 };
 
-const writeLocks = new Map();
-const fileCache = new Map();
+const DEBOUNCE_MS = 300;
+const allStores = [];
 
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true });
-  }
+function ensureDir() {
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 }
 
-function getCacheMtime(filePath) {
-  const cached = fileCache.get(filePath);
-  if (!cached) return null;
-  return cached.mtime;
-}
-
-function loadFile(filePath, defaultValue = []) {
-  ensureDataDir();
-  if (!existsSync(filePath)) {
-    writeFileSync(filePath, JSON.stringify(defaultValue, null, 2), 'utf8');
-    fileCache.set(filePath, { data: defaultValue, mtime: Date.now() });
-    return JSON.parse(JSON.stringify(defaultValue));
-  }
-
+function readJson(path, fallback) {
   try {
-    const stat = statSync(filePath);
-    const mtime = stat.mtimeMs;
-    const cached = fileCache.get(filePath);
-
-    if (cached && cached.mtime === mtime) {
-      return JSON.parse(JSON.stringify(cached.data));
-    }
-
-    const data = JSON.parse(readFileSync(filePath, 'utf8'));
-    fileCache.set(filePath, { data, mtime });
-    return JSON.parse(JSON.stringify(data));
+    if (!existsSync(path)) return fallback;
+    return JSON.parse(readFileSync(path, 'utf8'));
   } catch {
-    return JSON.parse(JSON.stringify(defaultValue));
+    return fallback;
   }
 }
 
-function saveFile(filePath, data) {
-  ensureDataDir();
-  const prev = writeLocks.get(filePath) || Promise.resolve();
-  const next = prev.then(() => {
-    writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-    const stat = statSync(filePath);
-    fileCache.set(filePath, { data: JSON.parse(JSON.stringify(data)), mtime: stat.mtimeMs });
-  }).catch(() => {});
-  writeLocks.set(filePath, next);
-  return next;
+function writeJson(path, data) {
+  ensureDir();
+  writeFileSync(path, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function clone(v) {
+  return structuredClone(v);
 }
 
 function createStore(filePath) {
-  return {
-    load: () => loadFile(filePath),
+  let mem = null;
+  let dirty = false;
+  let timer = null;
 
-    save: (data) => saveFile(filePath, data),
+  function boot() {
+    if (mem !== null) return;
+    ensureDir();
+    mem = readJson(filePath, []);
+  }
 
-    getAll: () => loadFile(filePath),
+  function touch() {
+    dirty = true;
+    if (timer) return;
+    timer = setTimeout(() => {
+      timer = null;
+      if (dirty) {
+        writeJson(filePath, mem);
+        dirty = false;
+      }
+    }, DEBOUNCE_MS);
+  }
 
-    getById: (id) => {
-      const items = loadFile(filePath);
-      return items.find((item) => item.id === id) || null;
+  const store = {
+    getAll() {
+      boot();
+      return clone(mem);
     },
 
-    create: (data) => {
-      const items = loadFile(filePath);
-      const newItem = {
+    getById(id) {
+      boot();
+      const item = mem.find((i) => i.id === id);
+      return item ? clone(item) : null;
+    },
+
+    create(data) {
+      boot();
+      const item = {
         id: uuidv4(),
         ...data,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      items.push(newItem);
-      saveFile(filePath, items);
-      return newItem;
+      mem.push(item);
+      touch();
+      return clone(item);
     },
 
-    update: (id, data) => {
-      const items = loadFile(filePath);
-      const index = items.findIndex((item) => item.id === id);
-      if (index === -1) return null;
-      items[index] = {
-        ...items[index],
-        ...data,
-        id,
-        updated_at: new Date().toISOString(),
-      };
-      saveFile(filePath, items);
-      return items[index];
+    update(id, data) {
+      boot();
+      const i = mem.findIndex((x) => x.id === id);
+      if (i === -1) return null;
+      mem[i] = { ...mem[i], ...data, id, updated_at: new Date().toISOString() };
+      touch();
+      return clone(mem[i]);
     },
 
-    delete: (id) => {
-      const items = loadFile(filePath);
-      const index = items.findIndex((item) => item.id === id);
-      if (index === -1) return false;
-      items.splice(index, 1);
-      saveFile(filePath, items);
+    delete(id) {
+      boot();
+      const i = mem.findIndex((x) => x.id === id);
+      if (i === -1) return false;
+      mem.splice(i, 1);
+      touch();
       return true;
     },
+
+    save(items) {
+      mem = Array.isArray(items) ? items : mem;
+      touch();
+    },
+
+    flush() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (mem !== null && dirty) {
+        writeJson(filePath, mem);
+        dirty = false;
+      }
+    },
   };
+
+  allStores.push(store);
+  return store;
 }
 
 function createSettingsStore(filePath) {
-  return {
-    get: () => loadFile(filePath, DEFAULT_SETTINGS),
+  let mem = null;
+  let dirty = false;
+  let timer = null;
 
-    save: (data) => {
-      const current = loadFile(filePath, DEFAULT_SETTINGS);
-      const merged = { ...current, ...data };
-      saveFile(filePath, merged);
-      return merged;
+  function boot() {
+    if (mem !== null) return;
+    ensureDir();
+    mem = { ...DEFAULT_SETTINGS, ...readJson(filePath, DEFAULT_SETTINGS) };
+  }
+
+  function touch() {
+    dirty = true;
+    if (timer) return;
+    timer = setTimeout(() => {
+      timer = null;
+      if (dirty) {
+        writeJson(filePath, mem);
+        dirty = false;
+      }
+    }, DEBOUNCE_MS);
+  }
+
+  const store = {
+    get() {
+      boot();
+      return clone(mem);
+    },
+
+    save(data) {
+      boot();
+      mem = { ...mem, ...data };
+      touch();
+      return clone(mem);
+    },
+
+    flush() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (mem !== null && dirty) {
+        writeJson(filePath, mem);
+        dirty = false;
+      }
     },
   };
+
+  allStores.push(store);
+  return store;
 }
 
-export const agentsStore = createStore(AGENTS_FILE);
-export const tasksStore = createStore(TASKS_FILE);
-export const pipelinesStore = createStore(PIPELINES_FILE);
-export const schedulesStore = createStore(SCHEDULES_FILE);
-export const settingsStore = createSettingsStore(SETTINGS_FILE);
+export function flushAllStores() {
+  for (const s of allStores) s.flush();
+}
+
+export const agentsStore = createStore(`${DATA_DIR}/agents.json`);
+export const tasksStore = createStore(`${DATA_DIR}/tasks.json`);
+export const pipelinesStore = createStore(`${DATA_DIR}/pipelines.json`);
+export const schedulesStore = createStore(`${DATA_DIR}/schedules.json`);
+export const executionsStore = createStore(`${DATA_DIR}/executions.json`);
+export const settingsStore = createSettingsStore(`${DATA_DIR}/settings.json`);

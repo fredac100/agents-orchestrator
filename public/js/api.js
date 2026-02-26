@@ -82,6 +82,13 @@ const API = {
 
   executions: {
     recent(limit = 20) { return API.request('GET', `/executions/recent?limit=${limit}`); },
+    history(params = {}) {
+      const qs = new URLSearchParams(params).toString();
+      return API.request('GET', `/executions/history${qs ? '?' + qs : ''}`);
+    },
+    get(id) { return API.request('GET', `/executions/history/${id}`); },
+    delete(id) { return API.request('DELETE', `/executions/history/${id}`); },
+    clearAll() { return API.request('DELETE', '/executions/history'); },
   },
 };
 
