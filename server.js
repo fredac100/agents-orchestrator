@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import apiRouter, { setWsBroadcast, setWsBroadcastTo } from './src/routes/api.js';
 import * as manager from './src/agents/manager.js';
+import { setGlobalBroadcast } from './src/agents/manager.js';
 import { cancelAllExecutions } from './src/agents/executor.js';
 import { flushAllStores } from './src/store/db.js';
 
@@ -79,6 +80,7 @@ function broadcastTo(clientId, message) {
 
 setWsBroadcast(broadcast);
 setWsBroadcastTo(broadcastTo);
+setGlobalBroadcast(broadcast);
 
 function gracefulShutdown(signal) {
   console.log(`\nSinal ${signal} recebido. Encerrando servidor...`);
@@ -103,7 +105,7 @@ function gracefulShutdown(signal) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-manager.restoreSchedules(broadcast);
+manager.restoreSchedules();
 
 httpServer.listen(PORT, () => {
   console.log(`Painel administrativo disponível em http://localhost:${PORT}`);

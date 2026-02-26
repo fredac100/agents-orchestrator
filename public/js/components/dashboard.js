@@ -66,19 +66,27 @@ const DashboardUI = {
     list.innerHTML = executions.map((exec) => {
       const statusClass = DashboardUI._statusBadgeClass(exec.status);
       const statusLabel = DashboardUI._statusLabel(exec.status);
+      const name = exec.agentName || exec.pipelineName || exec.agentId || 'Execução';
+      const taskText = exec.task || exec.input || '';
+      const typeBadge = exec.type === 'pipeline'
+        ? '<span class="badge badge--purple" style="font-size:0.6rem;padding:1px 5px;">Pipeline</span> '
+        : '';
       const time = exec.startedAt
-        ? new Date(exec.startedAt).toLocaleTimeString('pt-BR')
+        ? new Date(exec.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
         : '—';
+      const date = exec.startedAt
+        ? new Date(exec.startedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        : '';
 
       return `
         <li class="activity-item">
           <div class="activity-item-info">
-            <span class="activity-item-agent">${exec.agentName || exec.agentId || 'Agente'}</span>
-            <span class="activity-item-task">${exec.task || ''}</span>
+            <span class="activity-item-agent">${typeBadge}${name}</span>
+            <span class="activity-item-task">${taskText.length > 80 ? taskText.slice(0, 80) + '...' : taskText}</span>
           </div>
           <div class="activity-item-meta">
             <span class="badge ${statusClass}">${statusLabel}</span>
-            <span class="activity-item-time">${time}</span>
+            <span class="activity-item-time">${date} ${time}</span>
           </div>
         </li>
       `;

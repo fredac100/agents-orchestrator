@@ -75,6 +75,9 @@ const TasksUI = {
             ${createdAt}
           </span>
           <div class="task-card-actions">
+            <button class="btn btn-primary btn-sm" data-action="execute-task" data-id="${task.id}" title="Executar tarefa">
+              <i data-lucide="play"></i>
+            </button>
             <button class="btn btn--ghost btn--sm" data-action="edit-task" data-id="${task.id}" title="Editar tarefa">
               <i data-lucide="pencil"></i>
             </button>
@@ -206,6 +209,49 @@ const TasksUI = {
       await TasksUI.load();
     } catch (err) {
       Toast.error(`Erro ao excluir tarefa: ${err.message}`);
+    }
+  },
+
+  async execute(taskId) {
+    const task = TasksUI.tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    try {
+      const agents = await API.agents.list();
+      const activeAgents = agents.filter((a) => a.status === 'active');
+
+      if (activeAgents.length === 0) {
+        Toast.warning('Nenhum agente ativo disponível para executar');
+        return;
+      }
+
+      const selectEl = document.getElementById('execute-agent-select');
+      if (selectEl) {
+        selectEl.innerHTML = '<option value="">Selecionar agente...</option>' +
+          activeAgents.map((a) => `<option value="${a.id}">${a.agent_name || a.name}</option>`).join('');
+        selectEl.value = '';
+      }
+
+      const hiddenId = document.getElementById('execute-agent-id');
+      if (hiddenId) hiddenId.value = '';
+
+      const taskEl = document.getElementById('execute-task-desc');
+      if (taskEl) {
+        const parts = [task.name];
+        if (task.description) parts.push(task.description);
+        taskEl.value = parts.join('\n\n');
+      }
+
+      const instructionsEl = document.getElementById('execute-instructions');
+      if (instructionsEl) instructionsEl.value = '';
+
+      await AgentsUI._loadSavedTasks();
+      const savedTaskSelect = document.getElementById('execute-saved-task');
+      if (savedTaskSelect) savedTaskSelect.value = task.id;
+
+      Modal.open('execute-modal-overlay');
+    } catch (err) {
+      Toast.error(`Erro ao abrir execução: ${err.message}`);
     }
   },
 

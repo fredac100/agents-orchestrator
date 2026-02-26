@@ -278,6 +278,19 @@ const App = {
       App._handleExecute();
     });
 
+    on('execute-saved-task', 'change', (e) => {
+      const taskId = e.target.value;
+      if (!taskId) return;
+      const task = (AgentsUI._savedTasksCache || []).find((t) => t.id === taskId);
+      if (!task) return;
+      const taskEl = document.getElementById('execute-task-desc');
+      if (taskEl) {
+        const parts = [task.name];
+        if (task.description) parts.push(task.description);
+        taskEl.value = parts.join('\n\n');
+      }
+    });
+
     on('tasks-new-btn', 'click', () => TasksUI.openCreateModal());
     on('tasks-empty-new-btn', 'click', () => TasksUI.openCreateModal());
 
@@ -412,6 +425,7 @@ const App = {
       const { action, id } = btn.dataset;
 
       switch (action) {
+        case 'execute-task': TasksUI.execute(id); break;
         case 'edit-task': TasksUI.openEditModal(id); break;
         case 'delete-task': TasksUI.delete(id); break;
       }

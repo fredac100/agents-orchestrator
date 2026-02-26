@@ -15,6 +15,16 @@ const DEFAULT_CONFIG = {
 const MAX_RECENT = 200;
 const recentExecBuffer = [];
 
+let globalBroadcast = null;
+
+export function setGlobalBroadcast(fn) {
+  globalBroadcast = fn;
+}
+
+function getWsCallback(wsCallback) {
+  return wsCallback || globalBroadcast || null;
+}
+
 let dailyExecutionCount = 0;
 let dailyCountDate = new Date().toDateString();
 
@@ -100,6 +110,7 @@ export function executeTask(agentId, task, instructions, wsCallback) {
   if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
   if (agent.status !== 'active') throw new Error(`Agente ${agentId} está inativo`);
 
+  const cb = getWsCallback(wsCallback);
   const taskText = typeof task === 'string' ? task : task.description;
   const startedAt = new Date().toISOString();
 
@@ -127,13 +138,13 @@ export function executeTask(agentId, task, instructions, wsCallback) {
     { description: task, instructions },
     {
       onData: (parsed, execId) => {
-        if (wsCallback) wsCallback({ type: 'execution_output', executionId: execId, agentId, data: parsed });
+        if (cb) cb({ type: 'execution_output', executionId: execId, agentId, data: parsed });
       },
       onError: (err, execId) => {
         const endedAt = new Date().toISOString();
         updateExecutionRecord(agentId, execId, { status: 'error', error: err.message, endedAt });
         executionsStore.update(historyRecord.id, { status: 'error', error: err.message, endedAt });
-        if (wsCallback) wsCallback({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
+        if (cb) cb({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
       },
       onComplete: (result, execId) => {
         const endedAt = new Date().toISOString();
@@ -144,7 +155,7 @@ export function executeTask(agentId, task, instructions, wsCallback) {
           exitCode: result.exitCode,
           endedAt,
         });
-        if (wsCallback) wsCallback({ type: 'execution_complete', executionId: execId, agentId, data: result });
+        if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
       },
     }
   );
@@ -205,7 +216,7 @@ export function scheduleTask(agentId, taskDescription, cronExpression, wsCallbac
   schedulesStore.save(items);
 
   scheduler.schedule(scheduleId, cronExpression, () => {
-    executeTask(agentId, taskDescription, null, wsCallback);
+    executeTask(agentId, taskDescription, null, null);
   }, false);
 
   return { scheduleId, agentId, agentName: agent.agent_name, taskDescription, cronExpression };
@@ -223,7 +234,7 @@ export function updateScheduleTask(scheduleId, data, wsCallback) {
   const cronExpression = data.cronExpression || stored.cronExpression;
 
   scheduler.updateSchedule(scheduleId, cronExpression, () => {
-    executeTask(agentId, taskDescription, null, wsCallback);
+    executeTask(agentId, taskDescription, null, null);
   });
 
   schedulesStore.update(scheduleId, { agentId, agentName: agent.agent_name, taskDescription, cronExpression });
@@ -266,10 +277,10 @@ export function importAgent(data) {
   });
 }
 
-export function restoreSchedules(wsCallback) {
+export function restoreSchedules() {
   scheduler.restoreSchedules((agentId, taskDescription) => {
     try {
-      executeTask(agentId, taskDescription, null, wsCallback);
+      executeTask(agentId, taskDescription, null, null);
     } catch (err) {
       console.log(`[manager] Erro ao executar tarefa agendada: ${err.message}`);
     }

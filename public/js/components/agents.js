@@ -294,11 +294,33 @@ const AgentsUI = {
       const instructionsEl = document.getElementById('execute-instructions');
       if (instructionsEl) instructionsEl.value = '';
 
+      AgentsUI._loadSavedTasks();
+
       Modal.open('execute-modal-overlay');
     } catch (err) {
       Toast.error(`Erro ao abrir modal de execução: ${err.message}`);
     }
   },
+
+  async _loadSavedTasks() {
+    const savedTaskSelect = document.getElementById('execute-saved-task');
+    if (!savedTaskSelect) return;
+
+    try {
+      const tasks = await API.tasks.list();
+      savedTaskSelect.innerHTML = '<option value="">Digitar manualmente...</option>' +
+        tasks.map((t) => {
+          const label = t.category ? `[${t.category.toUpperCase()}] ${t.name}` : t.name;
+          return `<option value="${t.id}">${label}</option>`;
+        }).join('');
+      AgentsUI._savedTasksCache = tasks;
+    } catch {
+      savedTaskSelect.innerHTML = '<option value="">Digitar manualmente...</option>';
+      AgentsUI._savedTasksCache = [];
+    }
+  },
+
+  _savedTasksCache: [],
 
   async export(agentId) {
     try {

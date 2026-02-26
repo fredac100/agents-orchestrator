@@ -436,7 +436,9 @@ router.get('/executions/active', (req, res) => {
 router.get('/executions/recent', (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
-    res.json(manager.getRecentExecutions(limit));
+    const items = executionsStore.getAll();
+    items.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt));
+    res.json(items.slice(0, limit));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
