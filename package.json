@@ -1,0 +1,17 @@
+{
+  "name": "agents-orchestrator",
+  "version": "1.0.0",
+  "description": "Painel administrativo para orquestração de agentes Claude Code",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "node-cron": "^3.0.3",
+    "uuid": "^10.0.0"
+  }
+}
