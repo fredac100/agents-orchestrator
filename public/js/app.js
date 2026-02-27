@@ -326,7 +326,33 @@ const App = {
       if (!modal || !title || !content) return;
 
       title.textContent = 'Relatório de Execução';
-      content.innerHTML = `<div class="report-content"><pre class="report-markdown">${Utils.escapeHtml(data.content)}</pre></div>`;
+      content.innerHTML = `
+        <div class="report-actions">
+          <button class="btn btn-ghost btn-sm" id="report-copy-btn">
+            <i data-lucide="copy"></i> Copiar
+          </button>
+          <button class="btn btn-ghost btn-sm" id="report-download-btn">
+            <i data-lucide="download"></i> Download .md
+          </button>
+        </div>
+        <div class="report-content"><pre class="report-markdown">${Utils.escapeHtml(data.content)}</pre></div>`;
+      Utils.refreshIcons(content);
+
+      document.getElementById('report-copy-btn')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(data.content).then(() => Toast.success('Relatório copiado'));
+      });
+
+      document.getElementById('report-download-btn')?.addEventListener('click', () => {
+        const blob = new Blob([data.content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        Toast.success('Download iniciado');
+      });
+
       Modal.open('execution-detail-modal-overlay');
     } catch (e) {}
   },
