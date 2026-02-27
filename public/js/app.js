@@ -241,6 +241,15 @@ const App = {
         App._updateActiveBadge();
         break;
 
+      case 'execution_retry':
+        Terminal.stopProcessing();
+        Terminal.addLine(
+          `Retry ${data.attempt || '?'}/${data.maxRetries || '?'} — próxima tentativa em ${data.nextRetryIn || '?'}s. Motivo: ${data.reason || 'erro na execução'}`,
+          'warning',
+          data.executionId
+        );
+        break;
+
       case 'pipeline_step_output': {
         Terminal.stopProcessing();
         const stepEvtType = data.data?.type || 'chunk';
@@ -652,6 +661,7 @@ const App = {
         case 'export': AgentsUI.export(id); break;
         case 'delete': AgentsUI.delete(id); break;
         case 'duplicate': AgentsUI.duplicate(id); break;
+        case 'versions': AgentsUI.openVersionsModal(id); break;
       }
     });
 

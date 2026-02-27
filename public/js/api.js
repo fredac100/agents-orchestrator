@@ -46,6 +46,17 @@ const API = {
     duplicate(id) { return API.request('POST', `/agents/${id}/duplicate`); },
   },
 
+  secrets: {
+    list(agentId) { return API.request('GET', `/agents/${agentId}/secrets`); },
+    create(agentId, data) { return API.request('POST', `/agents/${agentId}/secrets`, data); },
+    delete(agentId, name) { return API.request('DELETE', `/agents/${agentId}/secrets/${encodeURIComponent(name)}`); },
+  },
+
+  versions: {
+    list(agentId) { return API.request('GET', `/agents/${agentId}/versions`); },
+    restore(agentId, version) { return API.request('POST', `/agents/${agentId}/versions/${version}/restore`); },
+  },
+
   tasks: {
     list() { return API.request('GET', '/tasks'); },
     create(data) { return API.request('POST', '/tasks', data); },

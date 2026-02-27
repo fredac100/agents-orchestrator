@@ -838,6 +838,28 @@
             </div>
           </div>
 
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Retry em caso de falha</label>
+              <div class="toggle-wrapper">
+                <input type="checkbox" class="toggle-input" id="agent-retry-toggle" name="retryOnFailure" role="switch" />
+                <label class="toggle-label" for="agent-retry-toggle">
+                  <span class="toggle-thumb"></span>
+                  <span class="toggle-text-on">Sim</span>
+                  <span class="toggle-text-off">Não</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group" id="agent-retry-max-group" style="display:none;">
+              <label class="form-label" for="agent-retry-max">Máximo de tentativas</label>
+              <select class="select" id="agent-retry-max" name="maxRetries">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+              </select>
+            </div>
+          </div>
+
           <div class="form-group">
             <label class="form-label" for="agent-tags-input">Tags</label>
             <div class="tags-input-wrapper" id="agent-tags-wrapper">
@@ -852,11 +874,46 @@
             </div>
             <input type="hidden" id="agent-tags" name="tags" value="[]" />
           </div>
+
+          <div class="form-divider"></div>
+          <div class="form-section" id="agent-secrets-section" hidden>
+            <h3 class="form-section-title">
+              <i data-lucide="key-round"></i>
+              Variáveis de Ambiente (Secrets)
+            </h3>
+            <p class="form-hint mb-12">Secrets são injetados como variáveis de ambiente na execução. Valores nunca são exibidos após salvos.</p>
+            <div id="agent-secrets-list" class="secrets-list"></div>
+            <div class="secrets-add-form">
+              <input type="text" class="input" id="agent-secret-name" placeholder="NOME_DA_VARIAVEL" autocomplete="off" />
+              <input type="password" class="input" id="agent-secret-value" placeholder="valor secreto" autocomplete="new-password" />
+              <button type="button" class="btn btn--primary btn--sm" id="agent-secret-add-btn">
+                <i data-lucide="plus"></i>
+                Adicionar
+              </button>
+            </div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
         <button class="btn btn--ghost" type="button" data-modal-close="agent-modal-overlay">Cancelar</button>
         <button class="btn btn--primary" type="submit" form="agent-form" id="agent-form-submit">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="agent-versions-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="agent-versions-title" hidden>
+    <div class="modal modal--lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="agent-versions-title">Histórico de Versões</h2>
+        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="agent-versions-modal-overlay">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="agent-versions-content">
+        <div class="empty-state">
+          <i data-lucide="history"></i>
+          <p>Carregando versões...</p>
+        </div>
       </div>
     </div>
   </div>

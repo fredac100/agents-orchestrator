@@ -181,7 +181,10 @@ const WebhooksUI = {
   async test(webhookId) {
     try {
       const result = await API.webhooks.test(webhookId);
-      Toast.success(result.message || 'Webhook testado com sucesso');
+      Toast.success(result.message || 'Webhook disparado com sucesso');
+      if (result.executionId || result.pipelineId) {
+        App.navigateTo('terminal');
+      }
     } catch (err) {
       Toast.error(`Erro ao testar webhook: ${err.message}`);
     }

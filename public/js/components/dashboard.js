@@ -369,6 +369,18 @@ const DashboardUI = {
       wsBadge.textContent = wsConnected ? 'Conectado' : 'Desconectado';
       wsBadge.className = `badge ${wsConnected ? 'badge--green' : 'badge--red'}`;
     }
+
+    const claudeBadge = document.getElementById('system-claude-status-badge');
+    if (claudeBadge) {
+      API.system.info().then((info) => {
+        const available = info.claudeVersion && info.claudeVersion !== 'N/A';
+        claudeBadge.textContent = available ? info.claudeVersion : 'Indisponível';
+        claudeBadge.className = `badge ${available ? 'badge--green' : 'badge--red'}`;
+      }).catch(() => {
+        claudeBadge.textContent = 'Indisponível';
+        claudeBadge.className = 'badge badge--red';
+      });
+    }
   },
 
   _statusBadgeClass(status) {

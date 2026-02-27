@@ -1,17 +1,17 @@
 import { Router } from 'express';
-import { execSync } from 'child_process';
+import { execFile } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import os from 'os';
 import * as manager from '../agents/manager.js';
-import { tasksStore, settingsStore, executionsStore, webhooksStore, notificationsStore } from '../store/db.js';
+import { tasksStore, settingsStore, executionsStore, webhooksStore, notificationsStore, secretsStore, agentVersionsStore } from '../store/db.js';
 import * as scheduler from '../agents/scheduler.js';
 import * as pipeline from '../agents/pipeline.js';
 import { getBinPath, updateMaxConcurrent } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
 import { readdirSync, readFileSync, unlinkSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve as pathResolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __apiDirname = dirname(fileURLToPath(import.meta.url));
@@ -164,6 +164,92 @@ router.get('/agents/:id/export', (req, res) => {
     const exported = manager.exportAgent(req.params.id);
     if (!exported) return res.status(404).json({ error: 'Agente não encontrado' });
     res.json(exported);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/agents/:id/secrets', (req, res) => {
+  try {
+    const agent = manager.getAgentById(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
+    const all = secretsStore.getAll();
+    const agentSecrets = all
+      .filter((s) => s.agentId === req.params.id)
+      .map((s) => ({ name: s.name, created_at: s.created_at }));
+    res.json(agentSecrets);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/agents/:id/secrets', (req, res) => {
+  try {
+    const agent = manager.getAgentById(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
+    const { name, value } = req.body;
+    if (!name || !value) return res.status(400).json({ error: 'name e value são obrigatórios' });
+    const all = secretsStore.getAll();
+    const existing = all.find((s) => s.agentId === req.params.id && s.name === name);
+    if (existing) {
+      secretsStore.update(existing.id, { value });
+      return res.json({ name, updated: true });
+    }
+    secretsStore.create({ agentId: req.params.id, name, value });
+    res.status(201).json({ name, created: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/agents/:id/secrets/:name', (req, res) => {
+  try {
+    const secretName = decodeURIComponent(req.params.name);
+    const all = secretsStore.getAll();
+    const secret = all.find((s) => s.agentId === req.params.id && s.name === secretName);
+    if (!secret) return res.status(404).json({ error: 'Secret não encontrado' });
+    secretsStore.delete(secret.id);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/agents/:id/versions', (req, res) => {
+  try {
+    const agent = manager.getAgentById(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
+    const all = agentVersionsStore.getAll();
+    const versions = all
+      .filter((v) => v.agentId === req.params.id)
+      .sort((a, b) => b.version - a.version);
+    res.json(versions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/agents/:id/versions/:version/restore', (req, res) => {
+  try {
+    const agent = manager.getAgentById(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
+    const versionNum = parseInt(req.params.version);
+    const all = agentVersionsStore.getAll();
+    const target = all.find((v) => v.agentId === req.params.id && v.version === versionNum);
+    if (!target) return res.status(404).json({ error: 'Versão não encontrada' });
+    if (!target.snapshot) return res.status(400).json({ error: 'Snapshot da versão não disponível' });
+    const { id, created_at, updated_at, ...snapshotData } = target.snapshot;
+    const restored = manager.updateAgent(req.params.id, snapshotData);
+    if (!restored) return res.status(500).json({ error: 'Falha ao restaurar versão' });
+    invalidateAgentMapCache();
+    agentVersionsStore.create({
+      agentId: req.params.id,
+      version: Math.max(...all.filter((v) => v.agentId === req.params.id).map((v) => v.version), 0) + 1,
+      changes: ['restore'],
+      changelog: `Restaurado para versão ${versionNum}`,
+      snapshot: structuredClone(restored),
+    });
+    res.json(restored);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -329,17 +415,18 @@ router.delete('/pipelines/:id', (req, res) => {
   }
 });
 
-router.post('/pipelines/:id/execute', (req, res) => {
+router.post('/pipelines/:id/execute', async (req, res) => {
   try {
     const { input, workingDirectory } = req.body;
     if (!input) return res.status(400).json({ error: 'input é obrigatório' });
     const clientId = req.headers['x-client-id'] || null;
     const options = {};
     if (workingDirectory) options.workingDirectory = workingDirectory;
-    pipeline.executePipeline(req.params.id, input, (msg) => wsCallback(msg, clientId), options).catch(() => {});
+    const result = pipeline.executePipeline(req.params.id, input, (msg) => wsCallback(msg, clientId), options);
+    result.catch(() => {});
     res.status(202).json({ pipelineId: req.params.id, status: 'started' });
   } catch (err) {
-    const status = err.message.includes('não encontrado') ? 404 : 400;
+    const status = err.message.includes('não encontrado') || err.message.includes('desativado') ? 400 : 500;
     res.status(status).json({ error: err.message });
   }
 });
@@ -409,18 +496,17 @@ router.post('/webhooks', (req, res) => {
   }
 });
 
-router.put('/webhooks/:id', async (req, res) => {
+router.put('/webhooks/:id', (req, res) => {
   try {
-    const webhooks = webhooksStore.getAll();
-    const idx = webhooks.findIndex(w => w.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Webhook não encontrado' });
+    const existing = webhooksStore.getById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Webhook não encontrado' });
     const allowed = ['name', 'targetType', 'targetId', 'active'];
+    const updateData = {};
     for (const key of allowed) {
-      if (req.body[key] !== undefined) webhooks[idx][key] = req.body[key];
+      if (req.body[key] !== undefined) updateData[key] = req.body[key];
     }
-    webhooks[idx].updated_at = new Date().toISOString();
-    webhooksStore.save(webhooks);
-    res.json(webhooks[idx]);
+    const updated = webhooksStore.update(req.params.id, updateData);
+    res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -428,10 +514,22 @@ router.put('/webhooks/:id', async (req, res) => {
 
 router.post('/webhooks/:id/test', async (req, res) => {
   try {
-    const webhooks = webhooksStore.getAll();
-    const wh = webhooks.find(w => w.id === req.params.id);
+    const wh = webhooksStore.getById(req.params.id);
     if (!wh) return res.status(404).json({ error: 'Webhook não encontrado' });
-    res.json({ success: true, message: 'Webhook testado com sucesso', webhook: { id: wh.id, name: wh.name, targetType: wh.targetType } });
+
+    if (wh.targetType === 'agent') {
+      const executionId = manager.executeTask(wh.targetId, 'Teste de webhook', '', (msg) => {
+        if (wsbroadcast) wsbroadcast(msg);
+      }, { source: 'webhook-test', webhookId: wh.id });
+      res.status(202).json({ success: true, message: 'Webhook disparado com sucesso', executionId });
+    } else if (wh.targetType === 'pipeline') {
+      pipeline.executePipeline(wh.targetId, 'Teste de webhook', (msg) => {
+        if (wsbroadcast) wsbroadcast(msg);
+      }).catch(() => {});
+      res.status(202).json({ success: true, message: 'Pipeline disparada com sucesso', pipelineId: wh.targetId });
+    } else {
+      return res.status(400).json({ error: `targetType inválido: ${wh.targetType}` });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -471,12 +569,12 @@ hookRouter.post('/:token', (req, res) => {
       res.status(202).json({ executionId, status: 'started', webhook: webhook.name });
     } else if (webhook.targetType === 'pipeline') {
       const input = payload.input || payload.task || payload.message || 'Webhook trigger';
-      const options = {};
-      if (payload.workingDirectory) options.workingDirectory = payload.workingDirectory;
       pipeline.executePipeline(webhook.targetId, input, (msg) => {
         if (wsbroadcast) wsbroadcast(msg);
-      }, options).catch(() => {});
+      }).catch(() => {});
       res.status(202).json({ pipelineId: webhook.targetId, status: 'started', webhook: webhook.name });
+    } else {
+      return res.status(400).json({ error: `targetType inválido: ${webhook.targetType}` });
     }
   } catch (err) {
     const status = err.message.includes('não encontrado') ? 404 : 500;
@@ -590,11 +688,16 @@ router.get('/system/status', (req, res) => {
 
 let claudeVersionCache = null;
 
-router.get('/system/info', (req, res) => {
+router.get('/system/info', async (req, res) => {
   try {
     if (claudeVersionCache === null) {
       try {
-        claudeVersionCache = execSync(`${getBinPath()} --version`, { timeout: 5000 }).toString().trim();
+        claudeVersionCache = await new Promise((resolve, reject) => {
+          execFile(getBinPath(), ['--version'], { timeout: 5000 }, (err, stdout) => {
+            if (err) reject(err);
+            else resolve(stdout.toString().trim());
+          });
+        });
       } catch {
         claudeVersionCache = 'N/A';
       }
@@ -783,24 +886,22 @@ router.get('/notifications', async (req, res) => {
   }
 });
 
-router.post('/notifications/:id/read', async (req, res) => {
+router.post('/notifications/:id/read', (req, res) => {
   try {
-    const notifications = notificationsStore.getAll();
-    const n = notifications.find(n => n.id === req.params.id);
-    if (!n) return res.status(404).json({ error: 'Notificação não encontrada' });
-    n.read = true;
-    notificationsStore.save(notifications);
+    const updated = notificationsStore.update(req.params.id, { read: true });
+    if (!updated) return res.status(404).json({ error: 'Notificação não encontrada' });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.post('/notifications/read-all', async (req, res) => {
+router.post('/notifications/read-all', (req, res) => {
   try {
     const notifications = notificationsStore.getAll();
-    notifications.forEach(n => n.read = true);
-    notificationsStore.save(notifications);
+    for (const n of notifications) {
+      if (!n.read) notificationsStore.update(n.id, { read: true });
+    }
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -834,6 +935,10 @@ router.get('/reports/:filename', (req, res) => {
     const filename = req.params.filename.replace(/[^a-zA-Z0-9À-ÿ_.\-]/g, '');
     if (!filename.endsWith('.md')) return res.status(400).json({ error: 'Formato inválido' });
     const filepath = join(REPORTS_DIR, filename);
+    const resolved = pathResolve(filepath);
+    if (!resolved.startsWith(pathResolve(REPORTS_DIR))) {
+      return res.status(400).json({ error: 'Caminho inválido' });
+    }
     if (!existsSync(filepath)) return res.status(404).json({ error: 'Relatório não encontrado' });
     const content = readFileSync(filepath, 'utf-8');
     res.json({ filename, content });
@@ -846,6 +951,10 @@ router.delete('/reports/:filename', (req, res) => {
   try {
     const filename = req.params.filename.replace(/[^a-zA-Z0-9À-ÿ_.\-]/g, '');
     const filepath = join(REPORTS_DIR, filename);
+    const resolved = pathResolve(filepath);
+    if (!resolved.startsWith(pathResolve(REPORTS_DIR))) {
+      return res.status(400).json({ error: 'Caminho inválido' });
+    }
     if (!existsSync(filepath)) return res.status(404).json({ error: 'Relatório não encontrado' });
     unlinkSync(filepath);
     res.json({ success: true });

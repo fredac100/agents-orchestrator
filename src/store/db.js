@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from 'fs';
+import { writeFile, rename } from 'fs/promises';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,6 +36,13 @@ function writeJson(path, data) {
   renameSync(tmpPath, path);
 }
 
+async function writeJsonAsync(path, data) {
+  ensureDir();
+  const tmpPath = path + '.tmp';
+  await writeFile(tmpPath, JSON.stringify(data, null, 2), 'utf8');
+  await rename(tmpPath, path);
+}
+
 function clone(v) {
   return structuredClone(v);
 }
@@ -57,7 +65,7 @@ function createStore(filePath) {
     timer = setTimeout(() => {
       timer = null;
       if (dirty) {
-        writeJson(filePath, mem);
+        writeJsonAsync(filePath, mem).catch((e) => console.error(`[db] Erro ao salvar ${filePath}:`, e.message));
         dirty = false;
       }
     }, DEBOUNCE_MS);
@@ -73,6 +81,20 @@ function createStore(filePath) {
       boot();
       const item = mem.find((i) => i.id === id);
       return item ? clone(item) : null;
+    },
+
+    findById(id) {
+      return store.getById(id);
+    },
+
+    count() {
+      boot();
+      return mem.length;
+    },
+
+    filter(predicate) {
+      boot();
+      return mem.filter(predicate).map((item) => clone(item));
     },
 
     create(data) {
@@ -110,7 +132,8 @@ function createStore(filePath) {
     },
 
     save(items) {
-      mem = Array.isArray(items) ? items : mem;
+      if (!Array.isArray(items)) return;
+      mem = items;
       touch();
     },
 
@@ -184,6 +207,21 @@ function createSettingsStore(filePath) {
 
   allStores.push(store);
   return store;
+}
+
+const locks = new Map();
+
+export async function withLock(key, fn) {
+  while (locks.has(key)) await locks.get(key);
+  let resolve;
+  const promise = new Promise((r) => { resolve = r; });
+  locks.set(key, promise);
+  try {
+    return await fn();
+  } finally {
+    locks.delete(key);
+    resolve();
+  }
 }
 
 export function flushAllStores() {

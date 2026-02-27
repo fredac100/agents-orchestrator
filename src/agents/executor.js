@@ -1,15 +1,25 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
+import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { settingsStore } from '../store/db.js';
 
 const CLAUDE_BIN = resolveBin();
 const activeExecutions = new Map();
+const MAX_OUTPUT_SIZE = 512 * 1024;
+const MAX_ERROR_SIZE = 100 * 1024;
+const ALLOWED_DIRECTORIES = (process.env.ALLOWED_DIRECTORIES || '').split(',').map(d => d.trim()).filter(Boolean);
 
 let maxConcurrent = settingsStore.get().maxConcurrent || 5;
 
 export function updateMaxConcurrent(value) {
   maxConcurrent = Math.max(1, Math.min(20, parseInt(value) || 5));
+}
+
+function isDirectoryAllowed(dir) {
+  if (ALLOWED_DIRECTORIES.length === 0) return true;
+  const resolved = path.resolve(dir);
+  return ALLOWED_DIRECTORIES.some(allowed => resolved.startsWith(path.resolve(allowed)));
 }
 
 function resolveBin() {
@@ -34,12 +44,15 @@ function sanitizeText(str) {
     .slice(0, 50000);
 }
 
-function cleanEnv() {
+function cleanEnv(agentSecrets) {
   const env = { ...process.env };
   delete env.CLAUDECODE;
   delete env.ANTHROPIC_API_KEY;
   if (!env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
     env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = '128000';
+  }
+  if (agentSecrets && typeof agentSecrets === 'object') {
+    Object.assign(env, agentSecrets);
   }
   return env;
 }
@@ -161,52 +174,21 @@ function extractSystemInfo(event) {
   return null;
 }
 
-export function execute(agentConfig, task, callbacks = {}) {
-  if (activeExecutions.size >= maxConcurrent) {
-    const err = new Error(`Limite de ${maxConcurrent} execuções simultâneas atingido`);
-    if (callbacks.onError) callbacks.onError(err, uuidv4());
-    return null;
-  }
-
-  const executionId = uuidv4();
+function processChildOutput(child, executionId, callbacks, options = {}) {
   const { onData, onError, onComplete } = callbacks;
-
-  const prompt = buildPrompt(task.description || task, task.instructions);
-  const args = buildArgs(agentConfig, prompt);
-
-  const spawnOptions = {
-    env: cleanEnv(),
-    stdio: ['ignore', 'pipe', 'pipe'],
-  };
-
-  if (agentConfig.workingDirectory && agentConfig.workingDirectory.trim()) {
-    if (!existsSync(agentConfig.workingDirectory)) {
-      const err = new Error(`Diretório de trabalho não encontrado: ${agentConfig.workingDirectory}`);
-      if (onError) onError(err, executionId);
-      return executionId;
-    }
-    spawnOptions.cwd = agentConfig.workingDirectory;
-  }
-
-  console.log(`[executor] Iniciando: ${executionId} | Modelo: ${agentConfig.model || 'claude-sonnet-4-6'}`);
-
-  const child = spawn(CLAUDE_BIN, args, spawnOptions);
-  let hadError = false;
-
-  activeExecutions.set(executionId, {
-    process: child,
-    agentConfig,
-    task,
-    startedAt: new Date().toISOString(),
-    executionId,
-  });
-
+  const timeoutMs = options.timeout || 1800000;
+  const sessionIdOverride = options.sessionIdOverride || null;
   let outputBuffer = '';
   let errorBuffer = '';
   let fullText = '';
   let resultMeta = null;
-
   let turnCount = 0;
+  let hadError = false;
+
+  const timeout = setTimeout(() => {
+    child.kill('SIGTERM');
+    setTimeout(() => { if (!child.killed) child.kill('SIGKILL'); }, 5000);
+  }, timeoutMs);
 
   function processEvent(parsed) {
     if (!parsed) return;
@@ -221,7 +203,9 @@ export function execute(agentConfig, task, callbacks = {}) {
 
     const text = extractText(parsed);
     if (text) {
-      fullText += text;
+      if (fullText.length < MAX_OUTPUT_SIZE) {
+        fullText += text;
+      }
       if (onData) onData({ type: 'chunk', content: text }, executionId);
     }
 
@@ -242,7 +226,7 @@ export function execute(agentConfig, task, callbacks = {}) {
         durationMs: parsed.duration_ms || 0,
         durationApiMs: parsed.duration_api_ms || 0,
         numTurns: parsed.num_turns || 0,
-        sessionId: parsed.session_id || '',
+        sessionId: parsed.session_id || sessionIdOverride || '',
       };
     }
   }
@@ -255,7 +239,9 @@ export function execute(agentConfig, task, callbacks = {}) {
 
   child.stderr.on('data', (chunk) => {
     const str = chunk.toString();
-    errorBuffer += str;
+    if (errorBuffer.length < MAX_ERROR_SIZE) {
+      errorBuffer += str;
+    }
     const lines = str.split('\n').filter(l => l.trim());
     for (const line of lines) {
       if (onData) onData({ type: 'stderr', content: line.trim() }, executionId);
@@ -263,6 +249,7 @@ export function execute(agentConfig, task, callbacks = {}) {
   });
 
   child.on('error', (err) => {
+    clearTimeout(timeout);
     console.log(`[executor][error] ${err.message}`);
     hadError = true;
     activeExecutions.delete(executionId);
@@ -270,20 +257,80 @@ export function execute(agentConfig, task, callbacks = {}) {
   });
 
   child.on('close', (code) => {
+    clearTimeout(timeout);
+    const wasCanceled = activeExecutions.get(executionId)?.canceled || false;
     activeExecutions.delete(executionId);
     if (hadError) return;
-
     if (outputBuffer.trim()) processEvent(parseStreamLine(outputBuffer));
-
     if (onComplete) {
       onComplete({
         executionId,
         exitCode: code,
         result: fullText,
         stderr: errorBuffer,
+        canceled: wasCanceled,
         ...(resultMeta || {}),
       }, executionId);
     }
+  });
+}
+
+function validateWorkingDirectory(agentConfig, executionId, onError) {
+  if (!agentConfig.workingDirectory || !agentConfig.workingDirectory.trim()) return true;
+
+  if (!isDirectoryAllowed(agentConfig.workingDirectory)) {
+    const err = new Error(`Diretório de trabalho não permitido: ${agentConfig.workingDirectory}`);
+    if (onError) onError(err, executionId);
+    return false;
+  }
+
+  if (!existsSync(agentConfig.workingDirectory)) {
+    const err = new Error(`Diretório de trabalho não encontrado: ${agentConfig.workingDirectory}`);
+    if (onError) onError(err, executionId);
+    return false;
+  }
+
+  return true;
+}
+
+export function execute(agentConfig, task, callbacks = {}, secrets = null) {
+  if (activeExecutions.size >= maxConcurrent) {
+    const err = new Error(`Limite de ${maxConcurrent} execuções simultâneas atingido`);
+    if (callbacks.onError) callbacks.onError(err, uuidv4());
+    return null;
+  }
+
+  const executionId = uuidv4();
+  const { onData, onError, onComplete } = callbacks;
+
+  if (!validateWorkingDirectory(agentConfig, executionId, onError)) return null;
+
+  const prompt = buildPrompt(task.description || task, task.instructions);
+  const args = buildArgs(agentConfig, prompt);
+
+  const spawnOptions = {
+    env: cleanEnv(secrets),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  };
+
+  if (agentConfig.workingDirectory && agentConfig.workingDirectory.trim()) {
+    spawnOptions.cwd = agentConfig.workingDirectory;
+  }
+
+  console.log(`[executor] Iniciando: ${executionId} | Modelo: ${agentConfig.model || 'claude-sonnet-4-6'}`);
+
+  const child = spawn(CLAUDE_BIN, args, spawnOptions);
+
+  activeExecutions.set(executionId, {
+    process: child,
+    agentConfig,
+    task,
+    startedAt: new Date().toISOString(),
+    executionId,
+  });
+
+  processChildOutput(child, executionId, { onData, onError, onComplete }, {
+    timeout: agentConfig.timeout || 1800000,
   });
 
   return executionId;
@@ -298,6 +345,8 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
 
   const executionId = uuidv4();
   const { onData, onError, onComplete } = callbacks;
+
+  if (!validateWorkingDirectory(agentConfig, executionId, onError)) return null;
 
   const model = agentConfig.model || 'claude-sonnet-4-6';
   const args = [
@@ -319,18 +368,12 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
   };
 
   if (agentConfig.workingDirectory && agentConfig.workingDirectory.trim()) {
-    if (!existsSync(agentConfig.workingDirectory)) {
-      const err = new Error(`Diretório de trabalho não encontrado: ${agentConfig.workingDirectory}`);
-      if (onError) onError(err, executionId);
-      return executionId;
-    }
     spawnOptions.cwd = agentConfig.workingDirectory;
   }
 
   console.log(`[executor] Resumindo sessão: ${sessionId} | Execução: ${executionId}`);
 
   const child = spawn(CLAUDE_BIN, args, spawnOptions);
-  let hadError = false;
 
   activeExecutions.set(executionId, {
     process: child,
@@ -340,86 +383,9 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
     executionId,
   });
 
-  let outputBuffer = '';
-  let errorBuffer = '';
-  let fullText = '';
-  let resultMeta = null;
-  let turnCount = 0;
-
-  function processEvent(parsed) {
-    if (!parsed) return;
-
-    const tools = extractToolInfo(parsed);
-    if (tools) {
-      for (const t of tools) {
-        const msg = t.detail ? `${t.name}: ${t.detail}` : t.name;
-        if (onData) onData({ type: 'tool', content: msg, toolName: t.name }, executionId);
-      }
-    }
-
-    const text = extractText(parsed);
-    if (text) {
-      fullText += text;
-      if (onData) onData({ type: 'chunk', content: text }, executionId);
-    }
-
-    const sysInfo = extractSystemInfo(parsed);
-    if (sysInfo) {
-      if (onData) onData({ type: 'system', content: sysInfo }, executionId);
-    }
-
-    if (parsed.type === 'assistant') {
-      turnCount++;
-      if (onData) onData({ type: 'turn', content: `Turno ${turnCount}`, turn: turnCount }, executionId);
-    }
-
-    if (parsed.type === 'result') {
-      resultMeta = {
-        costUsd: parsed.cost_usd || 0,
-        totalCostUsd: parsed.total_cost_usd || 0,
-        durationMs: parsed.duration_ms || 0,
-        durationApiMs: parsed.duration_api_ms || 0,
-        numTurns: parsed.num_turns || 0,
-        sessionId: parsed.session_id || sessionId,
-      };
-    }
-  }
-
-  child.stdout.on('data', (chunk) => {
-    const lines = (outputBuffer + chunk.toString()).split('\n');
-    outputBuffer = lines.pop();
-    for (const line of lines) processEvent(parseStreamLine(line));
-  });
-
-  child.stderr.on('data', (chunk) => {
-    const str = chunk.toString();
-    errorBuffer += str;
-    const lines = str.split('\n').filter(l => l.trim());
-    for (const line of lines) {
-      if (onData) onData({ type: 'stderr', content: line.trim() }, executionId);
-    }
-  });
-
-  child.on('error', (err) => {
-    console.log(`[executor][error] ${err.message}`);
-    hadError = true;
-    activeExecutions.delete(executionId);
-    if (onError) onError(err, executionId);
-  });
-
-  child.on('close', (code) => {
-    activeExecutions.delete(executionId);
-    if (hadError) return;
-    if (outputBuffer.trim()) processEvent(parseStreamLine(outputBuffer));
-    if (onComplete) {
-      onComplete({
-        executionId,
-        exitCode: code,
-        result: fullText,
-        stderr: errorBuffer,
-        ...(resultMeta || {}),
-      }, executionId);
-    }
+  processChildOutput(child, executionId, { onData, onError, onComplete }, {
+    timeout: agentConfig.timeout || 1800000,
+    sessionIdOverride: sessionId,
   });
 
   return executionId;
@@ -428,8 +394,8 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
 export function cancel(executionId) {
   const execution = activeExecutions.get(executionId);
   if (!execution) return false;
+  execution.canceled = true;
   execution.process.kill('SIGTERM');
-  activeExecutions.delete(executionId);
   return true;
 }
 

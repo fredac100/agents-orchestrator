@@ -119,13 +119,14 @@ const PipelinesUI = {
             <i data-lucide="play"></i>
             Executar
           </button>
-          <button class="btn btn-ghost btn-sm" data-action="edit-pipeline" data-id="${pipeline.id}">
-            <i data-lucide="pencil"></i>
-            Editar
-          </button>
-          <button class="btn btn-ghost btn-icon btn-sm btn-danger" data-action="delete-pipeline" data-id="${pipeline.id}" title="Excluir pipeline">
-            <i data-lucide="trash-2"></i>
-          </button>
+          <div class="agent-actions-icons">
+            <button class="btn btn-ghost btn-icon btn-sm" data-action="edit-pipeline" data-id="${pipeline.id}" title="Editar pipeline">
+              <i data-lucide="pencil"></i>
+            </button>
+            <button class="btn btn-ghost btn-icon btn-sm btn-danger" data-action="delete-pipeline" data-id="${pipeline.id}" title="Excluir pipeline">
+              <i data-lucide="trash-2"></i>
+            </button>
+          </div>
         </div>
       </div>
     `;

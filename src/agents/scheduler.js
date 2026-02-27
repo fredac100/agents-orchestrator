@@ -17,7 +17,11 @@ function addToHistory(entry) {
 
 function matchesCronPart(part, value) {
   if (part === '*') return true;
-  if (part.startsWith('*/')) return value % parseInt(part.slice(2)) === 0;
+  if (part.startsWith('*/')) {
+    const divisor = parseInt(part.slice(2));
+    if (!divisor || divisor <= 0) return false;
+    return value % divisor === 0;
+  }
   if (part.includes(',')) return part.split(',').map(Number).includes(value);
   if (part.includes('-')) {
     const [start, end] = part.split('-').map(Number);
@@ -65,6 +69,17 @@ function nextCronDate(cronExpr) {
 export function schedule(taskId, cronExpr, callback, persist = true) {
   if (schedules.has(taskId)) unschedule(taskId, false);
   if (!cron.validate(cronExpr)) throw new Error(`Expressão cron inválida: ${cronExpr}`);
+
+  const MIN_INTERVAL_PARTS = cronExpr.split(' ');
+  if (MIN_INTERVAL_PARTS[0] === '*' && MIN_INTERVAL_PARTS[1] === '*') {
+    throw new Error('Intervalo mínimo de agendamento é 5 minutos. Use */5 ou maior.');
+  }
+  if (MIN_INTERVAL_PARTS[0].startsWith('*/')) {
+    const interval = parseInt(MIN_INTERVAL_PARTS[0].slice(2));
+    if (interval < 5 && MIN_INTERVAL_PARTS[1] === '*') {
+      throw new Error(`Intervalo mínimo de agendamento é 5 minutos. Recebido: ${cronExpr}`);
+    }
+  }
 
   const task = cron.schedule(
     cronExpr,

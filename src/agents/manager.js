@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { agentsStore, schedulesStore, executionsStore, notificationsStore } from '../store/db.js';
+import cron from 'node-cron';
+import { agentsStore, schedulesStore, executionsStore, notificationsStore, secretsStore, agentVersionsStore, withLock } from '../store/db.js';
 import * as executor from './executor.js';
 import * as scheduler from './scheduler.js';
 import { generateAgentReport } from '../reports/generator.js';
@@ -99,6 +100,13 @@ export function createAgent(data) {
 export function updateAgent(id, data) {
   const existing = agentsStore.getById(id);
   if (!existing) return null;
+
+  agentVersionsStore.create({
+    agentId: id,
+    version: existing,
+    changedFields: Object.keys(data).filter(k => k !== 'id'),
+  });
+
   const updateData = {};
   if (data.agent_name !== undefined) updateData.agent_name = data.agent_name;
   if (data.description !== undefined) updateData.description = data.description;
@@ -114,25 +122,44 @@ export function deleteAgent(id) {
   return agentsStore.delete(id);
 }
 
+function loadAgentSecrets(agentId) {
+  const all = secretsStore.getAll();
+  const agentSecrets = all.filter(s => s.agentId === agentId);
+  if (agentSecrets.length === 0) return null;
+  const env = {};
+  for (const s of agentSecrets) env[s.name] = s.value;
+  return env;
+}
+
 export function executeTask(agentId, task, instructions, wsCallback, metadata = {}) {
   const agent = agentsStore.getById(agentId);
   if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
   if (agent.status !== 'active') throw new Error(`Agente ${agentId} está inativo`);
 
+  const retryEnabled = agent.config?.retryOnFailure === true;
+  const maxRetries = Math.min(Math.max(parseInt(agent.config?.maxRetries) || 1, 1), 3);
+  const attempt = metadata._retryAttempt || 1;
+
   const cb = getWsCallback(wsCallback);
   const taskText = typeof task === 'string' ? task : task.description;
   const startedAt = new Date().toISOString();
 
-  const historyRecord = executionsStore.create({
-    type: 'agent',
-    ...metadata,
-    agentId,
-    agentName: agent.agent_name,
-    task: taskText,
-    instructions: instructions || '',
-    status: 'running',
-    startedAt,
-  });
+  const historyRecord = metadata._historyRecordId
+    ? { id: metadata._historyRecordId }
+    : executionsStore.create({
+        type: 'agent',
+        ...metadata,
+        agentId,
+        agentName: agent.agent_name,
+        task: taskText,
+        instructions: instructions || '',
+        status: 'running',
+        startedAt,
+      });
+
+  if (metadata._retryAttempt) {
+    executionsStore.update(historyRecord.id, { status: 'running', error: null });
+  }
 
   const execRecord = {
     executionId: null,
@@ -142,6 +169,8 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
     startedAt,
     status: 'running',
   };
+
+  const agentSecrets = loadAgentSecrets(agentId);
 
   const executionId = executor.execute(
     agent.config,
@@ -153,6 +182,31 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
       onError: (err, execId) => {
         const endedAt = new Date().toISOString();
         updateExecutionRecord(agentId, execId, { status: 'error', error: err.message, endedAt });
+
+        if (retryEnabled && attempt < maxRetries) {
+          const delayMs = attempt * 5000;
+          executionsStore.update(historyRecord.id, { status: 'retrying', error: err.message, attempt, endedAt });
+          if (cb) cb({
+            type: 'execution_retry',
+            executionId: execId,
+            agentId,
+            data: { attempt, maxRetries, nextRetryIn: delayMs / 1000, reason: err.message },
+          });
+          setTimeout(() => {
+            try {
+              executeTask(agentId, task, instructions, wsCallback, {
+                ...metadata,
+                _retryAttempt: attempt + 1,
+                _historyRecordId: historyRecord.id,
+              });
+            } catch (retryErr) {
+              executionsStore.update(historyRecord.id, { status: 'error', error: retryErr.message, endedAt: new Date().toISOString() });
+              if (cb) cb({ type: 'execution_error', executionId: execId, agentId, data: { error: retryErr.message } });
+            }
+          }, delayMs);
+          return;
+        }
+
         executionsStore.update(historyRecord.id, { status: 'error', error: err.message, endedAt });
         createNotification('error', 'Execução falhou', `Agente "${agent.agent_name}" encontrou um erro`, { agentId, executionId: execId });
         if (cb) cb({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
@@ -178,10 +232,11 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
             const report = generateAgentReport(updated);
             if (cb) cb({ type: 'report_generated', executionId: execId, agentId, reportFile: report.filename });
           }
-        } catch (e) {}
+        } catch (e) { console.error('[manager] Erro ao gerar relatório:', e.message); }
         if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
       },
-    }
+    },
+    agentSecrets
   );
 
   if (!executionId) {
@@ -203,18 +258,15 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
   return executionId;
 }
 
-function updateRecentBuffer(executionId, updates) {
-  const entry = recentExecBuffer.find((e) => e.executionId === executionId);
-  if (entry) Object.assign(entry, updates);
-}
-
-function updateExecutionRecord(agentId, executionId, updates) {
-  const agent = agentsStore.getById(agentId);
-  if (!agent) return;
-  const executions = (agent.executions || []).map((exec) =>
-    exec.executionId === executionId ? { ...exec, ...updates } : exec
-  );
-  agentsStore.update(agentId, { executions });
+async function updateExecutionRecord(agentId, executionId, updates) {
+  await withLock(`agent:${agentId}`, () => {
+    const agent = agentsStore.getById(agentId);
+    if (!agent) return;
+    const executions = (agent.executions || []).map((exec) =>
+      exec.executionId === executionId ? { ...exec, ...updates } : exec
+    );
+    agentsStore.update(agentId, { executions });
+  });
 }
 
 export function getRecentExecutions(limit = 20) {
@@ -224,6 +276,10 @@ export function getRecentExecutions(limit = 20) {
 export function scheduleTask(agentId, taskDescription, cronExpression, wsCallback) {
   const agent = agentsStore.getById(agentId);
   if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
+
+  if (!cron.validate(cronExpression)) {
+    throw new Error(`Expressão cron inválida: ${cronExpression}`);
+  }
 
   const scheduleId = uuidv4();
   const items = schedulesStore.getAll();
@@ -314,7 +370,7 @@ export function continueConversation(agentId, sessionId, message, wsCallback) {
             const report = generateAgentReport(updated);
             if (cb) cb({ type: 'report_generated', executionId: execId, agentId, reportFile: report.filename });
           }
-        } catch (e) {}
+        } catch (e) { console.error('[manager] Erro ao gerar relatório:', e.message); }
         if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
       },
     }

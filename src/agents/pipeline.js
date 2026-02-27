@@ -100,9 +100,9 @@ function executeStepAsPromise(agentConfig, prompt, pipelineState, wsCallback, pi
   });
 }
 
-function waitForApproval(pipelineId, stepIndex, previousOutput, agentName, wsCallback) {
+function waitForApproval(executionId, pipelineId, stepIndex, previousOutput, agentName, wsCallback) {
   return new Promise((resolve) => {
-    const state = activePipelines.get(pipelineId);
+    const state = activePipelines.get(executionId);
     if (!state) { resolve(false); return; }
 
     state.pendingApproval = {
@@ -116,6 +116,7 @@ function waitForApproval(pipelineId, stepIndex, previousOutput, agentName, wsCal
       wsCallback({
         type: 'pipeline_approval_required',
         pipelineId,
+        executionId,
         stepIndex,
         agentName,
         previousOutput: previousOutput.slice(0, 3000),
@@ -124,8 +125,16 @@ function waitForApproval(pipelineId, stepIndex, previousOutput, agentName, wsCal
   });
 }
 
-export function approvePipelineStep(pipelineId) {
-  const state = activePipelines.get(pipelineId);
+function findPipelineState(idOrExecId) {
+  if (activePipelines.has(idOrExecId)) return activePipelines.get(idOrExecId);
+  for (const [, state] of activePipelines) {
+    if (state.pipelineId === idOrExecId) return state;
+  }
+  return null;
+}
+
+export function approvePipelineStep(id) {
+  const state = findPipelineState(id);
   if (!state?.pendingApproval) return false;
   const { resolve } = state.pendingApproval;
   state.pendingApproval = null;
@@ -133,8 +142,8 @@ export function approvePipelineStep(pipelineId) {
   return true;
 }
 
-export function rejectPipelineStep(pipelineId) {
-  const state = activePipelines.get(pipelineId);
+export function rejectPipelineStep(id) {
+  const state = findPipelineState(id);
   if (!state?.pendingApproval) return false;
   const { resolve } = state.pendingApproval;
   state.pendingApproval = null;
@@ -145,9 +154,11 @@ export function rejectPipelineStep(pipelineId) {
 export async function executePipeline(pipelineId, initialInput, wsCallback, options = {}) {
   const pl = pipelinesStore.getById(pipelineId);
   if (!pl) throw new Error(`Pipeline ${pipelineId} não encontrado`);
+  if (pl.status !== 'active') throw new Error(`Pipeline "${pl.name}" está desativado`);
 
-  const pipelineState = { currentExecutionId: null, currentStep: 0, canceled: false, pendingApproval: null };
-  activePipelines.set(pipelineId, pipelineState);
+  const executionId = uuidv4();
+  const pipelineState = { pipelineId, currentExecutionId: null, currentStep: 0, canceled: false, pendingApproval: null };
+  activePipelines.set(executionId, pipelineState);
 
   const historyRecord = executionsStore.create({
     type: 'pipeline',
@@ -181,7 +192,7 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
           wsCallback({ type: 'pipeline_status', pipelineId, status: 'awaiting_approval', stepIndex: i });
         }
 
-        const approved = await waitForApproval(pipelineId, i, currentInput, prevAgentName, wsCallback);
+        const approved = await waitForApproval(executionId, pipelineId, i, currentInput, prevAgentName, wsCallback);
 
         if (!approved) {
           pipelineState.canceled = true;
@@ -257,7 +268,7 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
       }
     }
 
-    activePipelines.delete(pipelineId);
+    activePipelines.delete(executionId);
 
     const finalStatus = pipelineState.canceled ? 'canceled' : 'completed';
     executionsStore.update(historyRecord.id, {
@@ -273,13 +284,13 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
           const report = generatePipelineReport(updated);
           if (wsCallback) wsCallback({ type: 'report_generated', pipelineId, reportFile: report.filename });
         }
-      } catch (e) {}
-      if (wsCallback) wsCallback({ type: 'pipeline_complete', pipelineId, results, totalCostUsd: totalCost });
+      } catch (e) { console.error('[pipeline] Erro ao gerar relatório:', e.message); }
+      if (wsCallback) wsCallback({ type: 'pipeline_complete', pipelineId, executionId, results, totalCostUsd: totalCost });
     }
 
-    return results;
+    return { executionId, results };
   } catch (err) {
-    activePipelines.delete(pipelineId);
+    activePipelines.delete(executionId);
     executionsStore.update(historyRecord.id, {
       status: 'error',
       error: err.message,
@@ -298,8 +309,14 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
   }
 }
 
-export function cancelPipeline(pipelineId) {
-  const state = activePipelines.get(pipelineId);
+export function cancelPipeline(id) {
+  let executionId = id;
+  let state = activePipelines.get(id);
+  if (!state) {
+    for (const [execId, s] of activePipelines) {
+      if (s.pipelineId === id) { state = s; executionId = execId; break; }
+    }
+  }
   if (!state) return false;
   state.canceled = true;
   if (state.pendingApproval) {
@@ -307,14 +324,12 @@ export function cancelPipeline(pipelineId) {
     state.pendingApproval = null;
   }
   if (state.currentExecutionId) executor.cancel(state.currentExecutionId);
-  activePipelines.delete(pipelineId);
+  activePipelines.delete(executionId);
 
   const allExecs = executionsStore.getAll();
-  const idx = allExecs.findIndex(e => e.pipelineId === pipelineId && (e.status === 'running' || e.status === 'awaiting_approval'));
-  if (idx !== -1) {
-    allExecs[idx].status = 'canceled';
-    allExecs[idx].endedAt = new Date().toISOString();
-    executionsStore.save(allExecs);
+  const exec = allExecs.find(e => e.pipelineId === state.pipelineId && (e.status === 'running' || e.status === 'awaiting_approval'));
+  if (exec) {
+    executionsStore.update(exec.id, { status: 'canceled', endedAt: new Date().toISOString() });
   }
 
   return true;
@@ -322,7 +337,8 @@ export function cancelPipeline(pipelineId) {
 
 export function getActivePipelines() {
   return Array.from(activePipelines.entries()).map(([id, state]) => ({
-    pipelineId: id,
+    executionId: id,
+    pipelineId: state.pipelineId,
     currentStep: state.currentStep,
     currentExecutionId: state.currentExecutionId,
     pendingApproval: !!state.pendingApproval,
