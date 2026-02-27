@@ -370,6 +370,8 @@ const PipelinesUI = {
     const workdirEl = document.getElementById('pipeline-execute-workdir');
     if (workdirEl) workdirEl.value = '';
 
+    if (App._pipelineDropzone) App._pipelineDropzone.reset();
+
     Modal.open('pipeline-execute-modal-overlay');
   },
 
@@ -384,7 +386,16 @@ const PipelinesUI = {
     }
 
     try {
-      await API.pipelines.execute(pipelineId, input, workingDirectory);
+      let contextFiles = null;
+      const dropzone = App._pipelineDropzone;
+      if (dropzone && dropzone.getFiles().length > 0) {
+        Toast.info('Fazendo upload dos arquivos...');
+        const uploadResult = await API.uploads.send(dropzone.getFiles());
+        contextFiles = uploadResult.files;
+      }
+
+      await API.pipelines.execute(pipelineId, input, workingDirectory, contextFiles);
+      if (dropzone) dropzone.reset();
       Modal.close('pipeline-execute-modal-overlay');
       App.navigateTo('terminal');
       Toast.info('Pipeline iniciado');

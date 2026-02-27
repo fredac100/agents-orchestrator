@@ -38,7 +38,11 @@ const API = {
     create(data) { return API.request('POST', '/agents', data); },
     update(id, data) { return API.request('PUT', `/agents/${id}`, data); },
     delete(id) { return API.request('DELETE', `/agents/${id}`); },
-    execute(id, task, instructions) { return API.request('POST', `/agents/${id}/execute`, { task, instructions }); },
+    execute(id, task, instructions, contextFiles) {
+      const body = { task, instructions };
+      if (contextFiles && contextFiles.length > 0) body.contextFiles = contextFiles;
+      return API.request('POST', `/agents/${id}/execute`, body);
+    },
     cancel(id, executionId) { return API.request('POST', `/agents/${id}/cancel/${executionId}`); },
     continue(id, sessionId, message) { return API.request('POST', `/agents/${id}/continue`, { sessionId, message }); },
     export(id) { return API.request('GET', `/agents/${id}/export`); },
@@ -78,9 +82,10 @@ const API = {
     create(data) { return API.request('POST', '/pipelines', data); },
     update(id, data) { return API.request('PUT', `/pipelines/${id}`, data); },
     delete(id) { return API.request('DELETE', `/pipelines/${id}`); },
-    execute(id, input, workingDirectory) {
+    execute(id, input, workingDirectory, contextFiles) {
       const body = { input };
       if (workingDirectory) body.workingDirectory = workingDirectory;
+      if (contextFiles && contextFiles.length > 0) body.contextFiles = contextFiles;
       return API.request('POST', `/pipelines/${id}/execute`, body);
     },
     cancel(id) { return API.request('POST', `/pipelines/${id}/cancel`); },
@@ -117,6 +122,21 @@ const API = {
   settings: {
     get() { return API.request('GET', '/settings'); },
     save(data) { return API.request('PUT', '/settings', data); },
+  },
+
+  uploads: {
+    async send(files) {
+      const form = new FormData();
+      for (const f of files) form.append('files', f);
+      const response = await fetch('/api/uploads', {
+        method: 'POST',
+        headers: { 'X-Client-Id': API.clientId },
+        body: form,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro no upload');
+      return data;
+    },
   },
 
   reports: {

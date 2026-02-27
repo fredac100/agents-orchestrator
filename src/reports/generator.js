@@ -4,9 +4,11 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPORTS_DIR = join(__dirname, '..', '..', 'data', 'reports');
+const EXTERNAL_REPORTS_DIR = process.env.AGENT_REPORTS_DIR || join(process.env.HOME || '/home/fred', 'agent_reports');
 
 function ensureDir() {
   if (!existsSync(REPORTS_DIR)) mkdirSync(REPORTS_DIR, { recursive: true });
+  if (!existsSync(EXTERNAL_REPORTS_DIR)) mkdirSync(EXTERNAL_REPORTS_DIR, { recursive: true });
 }
 
 function sanitizeFilename(name) {
@@ -83,7 +85,9 @@ export function generateAgentReport(execution) {
 
   lines.push('', '---', '', `_Relatório gerado automaticamente em ${formatDate(new Date().toISOString())}_`);
 
-  writeFileSync(filepath, lines.join('\n'), 'utf-8');
+  const content = lines.join('\n');
+  writeFileSync(filepath, content, 'utf-8');
+  try { writeFileSync(join(EXTERNAL_REPORTS_DIR, filename), content, 'utf-8'); } catch {}
   return { filename, filepath };
 }
 
@@ -183,6 +187,8 @@ export function generatePipelineReport(execution) {
 
   lines.push('---', '', `_Relatório gerado automaticamente em ${formatDate(new Date().toISOString())}_`);
 
-  writeFileSync(filepath, lines.join('\n'), 'utf-8');
+  const content = lines.join('\n');
+  writeFileSync(filepath, content, 'utf-8');
+  try { writeFileSync(join(EXTERNAL_REPORTS_DIR, filename), content, 'utf-8'); } catch {}
   return { filename, filepath };
 }

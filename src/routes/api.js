@@ -3,6 +3,7 @@ import { execFile } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import os from 'os';
+import multer from 'multer';
 import * as manager from '../agents/manager.js';
 import { tasksStore, settingsStore, executionsStore, webhooksStore, notificationsStore, secretsStore, agentVersionsStore } from '../store/db.js';
 import * as scheduler from '../agents/scheduler.js';
@@ -10,12 +11,30 @@ import * as pipeline from '../agents/pipeline.js';
 import { getBinPath, updateMaxConcurrent } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
-import { readdirSync, readFileSync, unlinkSync, existsSync } from 'fs';
-import { join, dirname, resolve as pathResolve } from 'path';
+import { readdirSync, readFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
+import { join, dirname, resolve as pathResolve, extname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __apiDirname = dirname(fileURLToPath(import.meta.url));
 const REPORTS_DIR = join(__apiDirname, '..', '..', 'data', 'reports');
+const UPLOADS_DIR = join(__apiDirname, '..', '..', 'data', 'uploads');
+
+if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const sessionDir = join(UPLOADS_DIR, req.uploadSessionId || 'tmp');
+      if (!existsSync(sessionDir)) mkdirSync(sessionDir, { recursive: true });
+      cb(null, sessionDir);
+    },
+    filename: (req, file, cb) => {
+      const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200);
+      cb(null, `${Date.now()}-${safe}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024, files: 20 },
+});
 
 const router = Router();
 export const hookRouter = Router();
@@ -122,12 +141,36 @@ router.delete('/agents/:id', (req, res) => {
   }
 });
 
+router.post('/uploads', (req, res, next) => {
+  req.uploadSessionId = uuidv4();
+  next();
+}, upload.array('files', 20), (req, res) => {
+  try {
+    const files = (req.files || []).map(f => ({
+      originalName: f.originalname,
+      path: f.path,
+      size: f.size,
+    }));
+    res.json({ sessionId: req.uploadSessionId, files });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function buildContextFilesPrompt(contextFiles) {
+  if (!Array.isArray(contextFiles) || contextFiles.length === 0) return '';
+  const lines = contextFiles.map(f => `- ${f.path} (${f.originalName})`);
+  return `\n\nArquivos de contexto anexados (leia cada um deles antes de iniciar):\n${lines.join('\n')}`;
+}
+
 router.post('/agents/:id/execute', (req, res) => {
   try {
-    const { task, instructions } = req.body;
+    const { task, instructions, contextFiles } = req.body;
     if (!task) return res.status(400).json({ error: 'task é obrigatório' });
     const clientId = req.headers['x-client-id'] || null;
-    const executionId = manager.executeTask(req.params.id, task, instructions, (msg) => wsCallback(msg, clientId));
+    const filesPrompt = buildContextFilesPrompt(contextFiles);
+    const fullTask = task + filesPrompt;
+    const executionId = manager.executeTask(req.params.id, fullTask, instructions, (msg) => wsCallback(msg, clientId));
     res.status(202).json({ executionId, status: 'started' });
   } catch (err) {
     const status = err.message.includes('não encontrado') ? 404 : 400;
@@ -417,12 +460,14 @@ router.delete('/pipelines/:id', (req, res) => {
 
 router.post('/pipelines/:id/execute', async (req, res) => {
   try {
-    const { input, workingDirectory } = req.body;
+    const { input, workingDirectory, contextFiles } = req.body;
     if (!input) return res.status(400).json({ error: 'input é obrigatório' });
     const clientId = req.headers['x-client-id'] || null;
     const options = {};
     if (workingDirectory) options.workingDirectory = workingDirectory;
-    const result = pipeline.executePipeline(req.params.id, input, (msg) => wsCallback(msg, clientId), options);
+    const filesPrompt = buildContextFilesPrompt(contextFiles);
+    const fullInput = input + filesPrompt;
+    const result = pipeline.executePipeline(req.params.id, fullInput, (msg) => wsCallback(msg, clientId), options);
     result.catch(() => {});
     res.status(202).json({ pipelineId: req.params.id, status: 'started' });
   } catch (err) {

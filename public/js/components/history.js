@@ -188,6 +188,10 @@ const HistoryUI = {
       Modal.open('execution-detail-modal-overlay');
       Utils.refreshIcons(content);
 
+      content.querySelector('[data-action="download-result-md"]')?.addEventListener('click', () => {
+        HistoryUI._downloadResultMd(exec);
+      });
+
       content.querySelectorAll('.pipeline-step-prompt-toggle').forEach((btn) => {
         btn.addEventListener('click', () => {
           const stepCard = btn.closest('.pipeline-step-detail');
@@ -217,6 +221,12 @@ const HistoryUI = {
       : '';
 
     return `
+      ${exec.result ? `
+      <div class="report-actions">
+        <button class="btn btn-ghost btn-sm" data-action="download-result-md" type="button">
+          <i data-lucide="download"></i> Download .md
+        </button>
+      </div>` : ''}
       <div class="execution-detail-meta">
         <div class="execution-detail-row">
           <span class="execution-detail-label">Agente</span>
@@ -326,7 +336,14 @@ const HistoryUI = {
       `;
     }).join('');
 
+    const hasResults = steps.some(s => s.result);
     return `
+      ${hasResults ? `
+      <div class="report-actions">
+        <button class="btn btn-ghost btn-sm" data-action="download-result-md" type="button">
+          <i data-lucide="download"></i> Download .md
+        </button>
+      </div>` : ''}
       <div class="execution-detail-meta">
         <div class="execution-detail-row">
           <span class="execution-detail-label">Pipeline</span>
@@ -372,6 +389,36 @@ const HistoryUI = {
         <div class="execution-result execution-result--error">${Utils.escapeHtml(exec.error)}</div>
       </div>` : ''}
     `;
+  },
+
+  _downloadResultMd(exec) {
+    let md = '';
+    const name = exec.type === 'pipeline'
+      ? (exec.pipelineName || 'Pipeline')
+      : (exec.agentName || 'Agente');
+
+    if (exec.type === 'pipeline') {
+      md += `# ${name}\n\n`;
+      const steps = Array.isArray(exec.steps) ? exec.steps : [];
+      steps.forEach((step, i) => {
+        md += `## Passo ${i + 1} — ${step.agentName || 'Agente'}\n\n`;
+        if (step.result) md += `${step.result}\n\n`;
+      });
+    } else {
+      md += exec.result || '';
+    }
+
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const filename = `${slug}-${new Date(exec.startedAt || Date.now()).toISOString().slice(0, 10)}.md`;
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    Toast.success('Download iniciado');
   },
 
   async retryExecution(id) {

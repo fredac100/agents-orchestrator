@@ -13,6 +13,7 @@
     "express": "^4.21.0",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
+    "multer": "^2.0.2",
     "node-cron": "^3.0.3",
     "uuid": "^10.0.0",
     "ws": "^8.18.0"

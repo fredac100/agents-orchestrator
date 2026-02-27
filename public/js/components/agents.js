@@ -335,6 +335,8 @@ const AgentsUI = {
       const instructionsEl = document.getElementById('execute-instructions');
       if (instructionsEl) instructionsEl.value = '';
 
+      if (App._executeDropzone) App._executeDropzone.reset();
+
       AgentsUI._loadSavedTasks();
 
       Modal.open('execute-modal-overlay');

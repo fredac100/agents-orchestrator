@@ -974,6 +974,19 @@
             ></textarea>
           </div>
 
+          <div class="form-group">
+            <label class="form-label">Arquivos de Contexto</label>
+            <div class="dropzone" id="execute-dropzone">
+              <input type="file" id="execute-files" multiple hidden />
+              <div class="dropzone-content">
+                <i data-lucide="upload-cloud"></i>
+                <p>Arraste arquivos aqui ou <button type="button" class="dropzone-browse">selecione</button></p>
+                <span class="dropzone-hint">Até 20 arquivos, 10MB cada</span>
+              </div>
+              <ul class="dropzone-list" id="execute-file-list"></ul>
+            </div>
+          </div>
+
           <div class="quick-templates">
             <p class="quick-templates-label">Templates rápidos</p>
             <div class="quick-templates-grid">
@@ -1173,6 +1186,18 @@
             <span class="form-required" aria-hidden="true">*</span>
           </label>
           <textarea class="textarea" id="pipeline-execute-input" rows="4" placeholder="Descreva a tarefa inicial para o pipeline..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Arquivos de Contexto</label>
+          <div class="dropzone" id="pipeline-execute-dropzone">
+            <input type="file" id="pipeline-execute-files" multiple hidden />
+            <div class="dropzone-content">
+              <i data-lucide="upload-cloud"></i>
+              <p>Arraste arquivos aqui ou <button type="button" class="dropzone-browse">selecione</button></p>
+              <span class="dropzone-hint">Até 20 arquivos, 10MB cada</span>
+            </div>
+            <ul class="dropzone-list" id="pipeline-execute-file-list"></ul>
+          </div>
         </div>
       </div>
       <div class="modal-footer">

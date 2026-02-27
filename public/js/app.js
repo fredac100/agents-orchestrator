@@ -5,6 +5,8 @@ const App = {
   wsReconnectTimer: null,
   _initialized: false,
   _lastAgentName: '',
+  _executeDropzone: null,
+  _pipelineDropzone: null,
 
   sectionTitles: {
     dashboard: 'Dashboard',
@@ -31,6 +33,9 @@ const App = {
     App.setupWebSocket();
     App.setupEventListeners();
     App.setupKeyboardShortcuts();
+
+    App._executeDropzone = Utils.initDropzone('execute-dropzone', 'execute-files', 'execute-file-list');
+    App._pipelineDropzone = Utils.initDropzone('pipeline-execute-dropzone', 'pipeline-execute-files', 'pipeline-execute-file-list');
 
     const initialSection = location.hash.replace('#', '') || 'dashboard';
     App.navigateTo(App.sections.includes(initialSection) ? initialSection : 'dashboard');
@@ -841,11 +846,20 @@ const App = {
       const selectEl = document.getElementById('execute-agent-select');
       const agentName = selectEl?.selectedOptions[0]?.text || 'Agente';
 
+      let contextFiles = null;
+      const dropzone = App._executeDropzone;
+      if (dropzone && dropzone.getFiles().length > 0) {
+        Toast.info('Fazendo upload dos arquivos...');
+        const uploadResult = await API.uploads.send(dropzone.getFiles());
+        contextFiles = uploadResult.files;
+      }
+
       Terminal.disableChat();
       App._lastAgentName = agentName;
 
-      await API.agents.execute(agentId, task, instructions);
+      await API.agents.execute(agentId, task, instructions, contextFiles);
 
+      if (dropzone) dropzone.reset();
       Modal.close('execute-modal-overlay');
       App.navigateTo('terminal');
       Toast.info('Execução iniciada');
