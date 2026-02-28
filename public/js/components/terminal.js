@@ -8,9 +8,60 @@ const Terminal = {
   searchMatches: [],
   searchIndex: -1,
   _toolbarInitialized: false,
+  _storageKey: 'terminal_lines',
+  _chatStorageKey: 'terminal_chat',
+  _timerInterval: null,
+  _timerStart: null,
+  _timerStorageKey: 'terminal_timer_start',
+
+  _saveToStorage() {
+    try {
+      const data = JSON.stringify(Terminal.lines.slice(-Terminal.maxLines));
+      sessionStorage.setItem(Terminal._storageKey, data);
+    } catch {}
+  },
+
+  _restoreFromStorage() {
+    try {
+      const data = sessionStorage.getItem(Terminal._storageKey);
+      if (data) {
+        Terminal.lines = JSON.parse(data);
+        return true;
+      }
+    } catch {}
+    return false;
+  },
+
+  _clearStorage() {
+    try {
+      sessionStorage.removeItem(Terminal._storageKey);
+      sessionStorage.removeItem(Terminal._chatStorageKey);
+    } catch {}
+  },
+
+  async restoreIfActive() {
+    try {
+      const active = await API.system.activeExecutions();
+      const hasActive = Array.isArray(active) && active.length > 0;
+      if (hasActive && Terminal._restoreFromStorage()) {
+        Terminal.render();
+        const savedStart = sessionStorage.getItem(Terminal._timerStorageKey);
+        Terminal._startTimer(savedStart ? Number(savedStart) : null);
+        Terminal.startProcessing(active[0].agentConfig?.agent_name || 'Agente');
+        try {
+          const chatData = sessionStorage.getItem(Terminal._chatStorageKey);
+          if (chatData) Terminal._chatSession = JSON.parse(chatData);
+        } catch {}
+      } else if (!hasActive) {
+        Terminal._clearStorage();
+        Terminal._hideTimer();
+      }
+    } catch {}
+  },
 
   enableChat(agentId, agentName, sessionId) {
     Terminal._chatSession = { agentId, agentName, sessionId };
+    try { sessionStorage.setItem(Terminal._chatStorageKey, JSON.stringify(Terminal._chatSession)); } catch {}
     const bar = document.getElementById('terminal-input-bar');
     const ctx = document.getElementById('terminal-input-context');
     const input = document.getElementById('terminal-input');
@@ -21,6 +72,7 @@ const Terminal = {
 
   disableChat() {
     Terminal._chatSession = null;
+    try { sessionStorage.removeItem(Terminal._chatStorageKey); } catch {}
     const bar = document.getElementById('terminal-input-bar');
     if (bar) bar.hidden = true;
   },
@@ -43,12 +95,54 @@ const Terminal = {
       Terminal.lines.shift();
     }
 
+    Terminal._saveToStorage();
     Terminal.render();
+  },
+
+  _startTimer(fromTimestamp) {
+    Terminal._stopTimer();
+    Terminal._timerStart = fromTimestamp || Date.now();
+    try { sessionStorage.setItem(Terminal._timerStorageKey, String(Terminal._timerStart)); } catch {}
+
+    const timerEl = document.getElementById('terminal-timer');
+    const valueEl = document.getElementById('terminal-timer-value');
+    if (timerEl) timerEl.hidden = false;
+
+    const tick = () => {
+      if (!valueEl) return;
+      const elapsed = Math.floor((Date.now() - Terminal._timerStart) / 1000);
+      const h = Math.floor(elapsed / 3600);
+      const m = Math.floor((elapsed % 3600) / 60);
+      const s = elapsed % 60;
+      valueEl.textContent = h > 0
+        ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+        : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    };
+    tick();
+    Terminal._timerInterval = setInterval(tick, 1000);
+  },
+
+  _stopTimer() {
+    if (Terminal._timerInterval) {
+      clearInterval(Terminal._timerInterval);
+      Terminal._timerInterval = null;
+    }
+    try { sessionStorage.removeItem(Terminal._timerStorageKey); } catch {}
+  },
+
+  _hideTimer() {
+    Terminal._stopTimer();
+    const timerEl = document.getElementById('terminal-timer');
+    if (timerEl) timerEl.hidden = true;
   },
 
   startProcessing(agentName) {
     Terminal.stopProcessing();
     Terminal.addLine(`Agente "${agentName}" processando tarefa...`, 'system');
+
+    if (!Terminal._timerInterval) {
+      Terminal._startTimer();
+    }
 
     let dots = 0;
     Terminal._processingInterval = setInterval(() => {
@@ -71,8 +165,10 @@ const Terminal = {
 
   clear() {
     Terminal.stopProcessing();
+    Terminal._hideTimer();
     Terminal.lines = [];
     Terminal.executionFilter = null;
+    Terminal._clearStorage();
     Terminal.render();
   },
 

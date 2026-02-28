@@ -40,6 +40,8 @@ const App = {
     App._pipelineDropzone = Utils.initDropzone('pipeline-execute-dropzone', 'pipeline-execute-files', 'pipeline-execute-file-list');
     App._initRepoSelectors();
 
+    Terminal.restoreIfActive();
+
     const initialSection = location.hash.replace('#', '') || 'dashboard';
     App.navigateTo(App.sections.includes(initialSection) ? initialSection : 'dashboard');
     App.startPeriodicRefresh();
@@ -235,6 +237,7 @@ const App = {
         Toast.success('Execução concluída');
         App.refreshCurrentSection();
         App._updateActiveBadge();
+        App._checkStopTimer();
         break;
       }
 
@@ -249,6 +252,7 @@ const App = {
 
         Toast.error(`Erro na execução: ${data.data?.error || 'desconhecido'}`);
         App._updateActiveBadge();
+        App._checkStopTimer();
         break;
 
       case 'execution_retry':
@@ -294,6 +298,7 @@ const App = {
 
       case 'pipeline_complete':
         Terminal.stopProcessing();
+        Terminal._hideTimer();
         Terminal.addLine('Pipeline concluído com sucesso.', 'success');
         if (data.lastSessionId && data.lastAgentId) {
           Terminal.enableChat(data.lastAgentId, data.lastAgentName || 'Agente', data.lastSessionId);
@@ -304,6 +309,7 @@ const App = {
 
       case 'pipeline_error':
         Terminal.stopProcessing();
+        Terminal._hideTimer();
         Terminal.addLine(`Erro no passo ${data.stepIndex + 1}: ${data.error}`, 'error');
         Toast.error('Erro no pipeline');
         break;
@@ -1072,6 +1078,15 @@ const App = {
     } catch {
       //
     }
+  },
+
+  async _checkStopTimer() {
+    try {
+      const active = await API.system.activeExecutions();
+      if (!Array.isArray(active) || active.length === 0) {
+        Terminal._hideTimer();
+      }
+    } catch {}
   },
 
   startPeriodicRefresh() {
