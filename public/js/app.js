@@ -17,10 +17,11 @@ const App = {
     webhooks: 'Webhooks',
     terminal: 'Terminal',
     history: 'Histórico',
+    files: 'Projetos',
     settings: 'Configurações',
   },
 
-  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'settings'],
+  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'files', 'settings'],
 
   init() {
     if (App._initialized) return;
@@ -113,6 +114,7 @@ const App = {
         case 'pipelines': await PipelinesUI.load(); break;
         case 'webhooks': await WebhooksUI.load(); break;
         case 'history': await HistoryUI.load(); break;
+        case 'files': await FilesUI.load(); break;
         case 'settings': await SettingsUI.load(); break;
       }
     } catch (err) {
@@ -760,6 +762,18 @@ const App = {
         case 'copy-webhook-curl': WebhooksUI.copyCurl(id); break;
         case 'edit-webhook': WebhooksUI.openEditModal(id); break;
         case 'test-webhook': WebhooksUI.test(id); break;
+      }
+    });
+
+    document.getElementById('files-container')?.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-action]');
+      if (!el) return;
+      e.preventDefault();
+      const { action, path } = el.dataset;
+      switch (action) {
+        case 'navigate-files': FilesUI.navigate(path || ''); break;
+        case 'download-file': FilesUI.downloadFile(path); break;
+        case 'download-folder': FilesUI.downloadFolder(path); break;
       }
     });
 

@@ -73,6 +73,12 @@
             </a>
           </li>
           <li class="sidebar-nav-item">
+            <a href="#" class="sidebar-nav-link" data-section="files">
+              <i data-lucide="folder-open"></i>
+              <span>Projetos</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
             <a href="#" class="sidebar-nav-link" data-section="settings">
               <i data-lucide="settings"></i>
               <span>Configurações</span>
@@ -576,6 +582,10 @@
           </div>
           <div id="history-list"></div>
           <div id="history-pagination"></div>
+        </section>
+
+        <section id="files" class="section" aria-label="Projetos" hidden>
+          <div id="files-container"></div>
         </section>
 
         <section id="settings" class="section" aria-label="Configurações" hidden>
@@ -1377,6 +1387,7 @@
   <script src="js/components/history.js"></script>
   <script src="js/components/webhooks.js"></script>
   <script src="js/components/notifications.js"></script>
+  <script src="js/components/files.js"></script>
   <script src="js/app.js"></script>
   <script>
     Utils.refreshIcons();

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { execFile } from 'child_process';
+import { execFile, spawn as spawnProcess } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import os from 'os';
@@ -11,8 +11,10 @@ import * as pipeline from '../agents/pipeline.js';
 import { getBinPath, updateMaxConcurrent, cancelAllExecutions, getActiveExecutions } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
-import { readdirSync, readFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname, resolve as pathResolve, extname } from 'path';
+import { readdirSync, readFileSync, unlinkSync, existsSync, mkdirSync, statSync, createReadStream } from 'fs';
+import { join, dirname, resolve as pathResolve, extname, basename, relative } from 'path';
+import { createGzip } from 'zlib';
+import { Readable } from 'stream';
 import { fileURLToPath } from 'url';
 
 const __apiDirname = dirname(fileURLToPath(import.meta.url));
@@ -1032,6 +1034,105 @@ router.delete('/reports/:filename', (req, res) => {
     if (!existsSync(filepath)) return res.status(404).json({ error: 'Relatório não encontrado' });
     unlinkSync(filepath);
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PROJECTS_DIR = '/home/projetos';
+
+function resolveProjectPath(requestedPath) {
+  const decoded = decodeURIComponent(requestedPath || '');
+  const resolved = pathResolve(PROJECTS_DIR, decoded);
+  if (!resolved.startsWith(PROJECTS_DIR)) return null;
+  return resolved;
+}
+
+router.get('/files', (req, res) => {
+  try {
+    const targetPath = resolveProjectPath(req.query.path || '');
+    if (!targetPath) return res.status(400).json({ error: 'Caminho inválido' });
+    if (!existsSync(targetPath)) return res.status(404).json({ error: 'Diretório não encontrado' });
+
+    const stat = statSync(targetPath);
+    if (!stat.isDirectory()) return res.status(400).json({ error: 'Caminho não é um diretório' });
+
+    const entries = readdirSync(targetPath, { withFileTypes: true })
+      .filter(e => !e.name.startsWith('.'))
+      .map(entry => {
+        const fullPath = join(targetPath, entry.name);
+        try {
+          const s = statSync(fullPath);
+          return {
+            name: entry.name,
+            type: entry.isDirectory() ? 'directory' : 'file',
+            size: entry.isDirectory() ? null : s.size,
+            modified: s.mtime.toISOString(),
+            extension: entry.isDirectory() ? null : extname(entry.name).slice(1).toLowerCase(),
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+
+    const relativePath = relative(PROJECTS_DIR, targetPath) || '';
+
+    res.json({
+      path: relativePath,
+      parent: relativePath ? dirname(relativePath) : null,
+      entries,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/files/download', (req, res) => {
+  try {
+    const targetPath = resolveProjectPath(req.query.path || '');
+    if (!targetPath) return res.status(400).json({ error: 'Caminho inválido' });
+    if (!existsSync(targetPath)) return res.status(404).json({ error: 'Arquivo não encontrado' });
+
+    const stat = statSync(targetPath);
+    if (!stat.isFile()) return res.status(400).json({ error: 'Caminho não é um arquivo' });
+
+    const filename = basename(targetPath);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.setHeader('Content-Length', stat.size);
+    createReadStream(targetPath).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/files/download-folder', (req, res) => {
+  try {
+    const targetPath = resolveProjectPath(req.query.path || '');
+    if (!targetPath) return res.status(400).json({ error: 'Caminho inválido' });
+    if (!existsSync(targetPath)) return res.status(404).json({ error: 'Pasta não encontrada' });
+
+    const stat = statSync(targetPath);
+    if (!stat.isDirectory()) return res.status(400).json({ error: 'Caminho não é uma pasta' });
+
+    const folderName = basename(targetPath) || 'projetos';
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(folderName)}.tar.gz"`);
+    res.setHeader('Content-Type', 'application/gzip');
+
+    const parentDir = dirname(targetPath);
+    const dirName = basename(targetPath);
+    const tar = spawnProcess('tar', ['-czf', '-', '-C', parentDir, dirName]);
+    tar.stdout.pipe(res);
+    tar.stderr.on('data', () => {});
+    tar.on('error', (err) => {
+      if (!res.headersSent) res.status(500).json({ error: err.message });
+    });
+
+    req.on('close', () => { try { tar.kill(); } catch {} });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

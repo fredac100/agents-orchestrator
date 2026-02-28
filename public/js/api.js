@@ -141,6 +141,10 @@ const API = {
     },
   },
 
+  files: {
+    list(path) { return API.request('GET', `/files${path ? '?path=' + encodeURIComponent(path) : ''}`); },
+  },
+
   reports: {
     list() { return API.request('GET', '/reports'); },
     get(filename) { return API.request('GET', `/reports/${encodeURIComponent(filename)}`); },
