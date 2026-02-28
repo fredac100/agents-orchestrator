@@ -4,6 +4,14 @@ Painel administrativo web para orquestração de agentes [Claude Code](https://d
 
 ![Dashboard do Agents Orchestrator — visão geral com métricas, gráficos de execuções e custos, distribuição de status, ranking de agentes e taxa de sucesso](docs/dashboard.png)
 
+## Acesso
+
+| Recurso | URL |
+|---------|-----|
+| **Aplicação** | https://agents.nitro-cloud.duckdns.org |
+| **Repositório** | https://git.nitro-cloud.duckdns.org/fred/agents-orchestrator |
+| **Portal Nitro Cloud** | https://nitro-cloud.duckdns.org |
+
 ## Funcionalidades
 
 ### Gerenciamento de Agentes
@@ -75,38 +83,44 @@ Painel administrativo web para orquestração de agentes [Claude Code](https://d
 | `N` | Novo agente |
 | `Esc` | Fechar modal |
 
-## Pré-requisitos
+## Deploy
 
-- **Node.js** 18+
-- **Claude Code CLI** instalado e autenticado (`claude` disponível no PATH)
+A aplicação roda em container Docker na infraestrutura Nitro Cloud com HTTPS automático via Caddy + Let's Encrypt.
 
-## Instalação
-
-```bash
-git clone <repo-url>
-cd agents-orchestrator
-npm install
-```
-
-## Uso
+### Atualizar o sistema em produção
 
 ```bash
-# Produção
-npm start
+# 1. Push das alterações para o Gitea
+git push nitro main
 
-# Desenvolvimento (hot reload)
-npm run dev
+# 2. Conectar no servidor
+ssh -p 2222 fred@192.168.1.151
+
+# 3. Atualizar código e rebuild do container
+cd ~/vps/apps/agents-orchestrator && git pull
+cd ~/vps && docker compose up -d --build agents-orchestrator
 ```
 
-Acesse **http://localhost:3000** no navegador. A porta pode ser alterada via variável de ambiente `PORT`.
+### Verificar status
+
+```bash
+ssh -p 2222 fred@192.168.1.151 "docker logs agents-orchestrator --tail 20"
+```
+
+### Reiniciar
+
+```bash
+ssh -p 2222 fred@192.168.1.151 "cd ~/vps && docker compose restart agents-orchestrator"
+```
 
 ## Variáveis de Ambiente
 
 | Variável | Descrição | Padrão |
 |----------|-----------|--------|
 | `PORT` | Porta do servidor | `3000` |
+| `HOST` | Endereço de bind | `0.0.0.0` |
 | `AUTH_TOKEN` | Token Bearer para autenticação da API | _(desabilitado)_ |
-| `ALLOWED_ORIGIN` | Origin permitida para CORS | `http://localhost:3000` |
+| `ALLOWED_ORIGIN` | Origin permitida para CORS | `https://agents.nitro-cloud.duckdns.org` |
 | `WEBHOOK_SECRET` | Segredo HMAC para assinatura de webhooks | _(desabilitado)_ |
 | `CLAUDE_BIN` | Caminho para o binário do Claude CLI | _(auto-detectado)_ |
 | `REDIS_URL` | URL do Redis para cache L2 (opcional) | _(somente memória)_ |
@@ -115,9 +129,10 @@ Acesse **http://localhost:3000** no navegador. A porta pode ser alterada via var
 
 ### Criando um agente
 
-1. Clique em **Novo Agente** no header ou na seção Agentes
-2. Configure nome, system prompt, modelo e diretório de trabalho
-3. Salve — o agente aparecerá como card na listagem
+1. Acesse https://agents.nitro-cloud.duckdns.org
+2. Clique em **Novo Agente** no header ou na seção Agentes
+3. Configure nome, system prompt, modelo e diretório de trabalho
+4. Salve — o agente aparecerá como card na listagem
 
 ### Executando uma tarefa
 
@@ -140,7 +155,22 @@ Acesse **http://localhost:3000** no navegador. A porta pode ser alterada via var
 2. Selecione o agente, descreva a tarefa e defina a expressão cron
 3. A tarefa será executada automaticamente nos horários configurados
 
-## Arquitetura
+## Infraestrutura
+
+```
+Cliente (navegador)
+    │
+    ▼ HTTPS (porta 443)
+  Caddy (reverse proxy + SSL automático)
+    │
+    ▼ agents.nitro-cloud.duckdns.org
+  Container Docker (agents-orchestrator)
+    │
+    ├── Express (HTTP API + arquivos estáticos)
+    └── WebSocket (streaming em tempo real)
+```
+
+### Arquitetura Interna
 
 ```
 server.js                     Express + WebSocket + rate limiting + auth
@@ -283,6 +313,7 @@ O servidor envia eventos tipados via WebSocket que o frontend renderiza no termi
 
 ## Segurança
 
+- **HTTPS** via Caddy com certificado Let's Encrypt automático
 - **Autenticação** via Bearer token (variável `AUTH_TOKEN`)
 - **Rate limiting** — 100 requisições por minuto por IP
 - **CORS** restrito à origin configurada
@@ -301,6 +332,7 @@ O servidor envia eventos tipados via WebSocket que o frontend renderiza no termi
 - **Fontes**: Inter (UI), JetBrains Mono (código/terminal)
 - **Persistência**: Arquivos JSON em disco com escrita atômica
 - **Cache**: In-memory com suporte opcional a Redis (ioredis)
+- **Infraestrutura**: Docker + Caddy + DuckDNS + Let's Encrypt
 
 ## Licença
 
