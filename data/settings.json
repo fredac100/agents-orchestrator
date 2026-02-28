@@ -1,0 +1,5 @@
+{
+  "defaultModel": "claude-sonnet-4-6",
+  "defaultWorkdir": "/home/fred/projetos",
+  "maxConcurrent": 5
+}

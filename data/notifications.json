@@ -1,0 +1,296 @@
+[
+  {
+    "id": "9f80ba16-4325-4129-9d35-9716ac68164a",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Arquiteto de Software\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "f356e42a-73db-4b04-bca2-1fb022f373b7",
+      "executionId": "4863452b-259e-48ec-abf1-f41f0e4bf0c4"
+    },
+    "read": false,
+    "createdAt": "2026-02-26T23:56:33.927Z",
+    "created_at": "2026-02-26T23:56:33.927Z",
+    "updated_at": "2026-02-26T23:56:33.927Z"
+  },
+  {
+    "id": "ded8580c-f49c-4a9a-8855-43163afd68b9",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Arquiteto de Software\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "f356e42a-73db-4b04-bca2-1fb022f373b7",
+      "executionId": "a4e88ba3-7d72-4069-848c-c98dbed801b1"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T00:00:56.197Z",
+    "created_at": "2026-02-27T00:00:56.197Z",
+    "updated_at": "2026-02-27T00:00:56.197Z"
+  },
+  {
+    "id": "008a6514-5ae4-4c62-8c61-2024520395af",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "4bffa6ef-1d64-4788-aec1-d5a596ea287f"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T01:34:32.561Z",
+    "created_at": "2026-02-27T01:34:32.561Z",
+    "updated_at": "2026-02-27T01:34:32.561Z"
+  },
+  {
+    "id": "a9b4e347-9bb2-416b-aa86-11b59b6e2346",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "ddd17e8a-9a37-4179-9499-f28df598d4b1"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T01:34:37.970Z",
+    "created_at": "2026-02-27T01:34:37.970Z",
+    "updated_at": "2026-02-27T01:34:37.970Z"
+  },
+  {
+    "id": "b4fe795a-09ce-4978-901f-e0d2609c0adf",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "124e658b-a947-4c41-bac9-790c093c9754"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T01:35:06.418Z",
+    "created_at": "2026-02-27T01:35:06.418Z",
+    "updated_at": "2026-02-27T01:35:06.418Z"
+  },
+  {
+    "id": "940de39e-e62b-4580-821c-9ae2a613c570",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "526e060f-5ea2-4302-a7d0-d2107959e395"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T01:36:23.692Z",
+    "created_at": "2026-02-27T01:36:23.692Z",
+    "updated_at": "2026-02-27T01:36:23.692Z"
+  },
+  {
+    "id": "8db380ef-6329-46c8-a740-aad07c001b8d",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "53b75799-e74e-41e8-a8aa-f0af83a82693"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T01:42:15.698Z",
+    "created_at": "2026-02-27T01:42:15.698Z",
+    "updated_at": "2026-02-27T01:42:15.698Z"
+  },
+  {
+    "id": "931fa597-5af3-47c3-8f71-2d56a2c9bf0f",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "91454df6-acc7-44d3-b3dc-4418fa7a093a"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T01:52:49.615Z",
+    "created_at": "2026-02-27T01:52:49.615Z",
+    "updated_at": "2026-02-27T01:52:49.615Z"
+  },
+  {
+    "id": "69426884-a8f8-4efe-a37d-80d8a524133d",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Arquiteto de Software\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "f356e42a-73db-4b04-bca2-1fb022f373b7",
+      "executionId": "97e3f81a-f04d-48dd-9f9b-23b19f91fd00"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T05:00:32.024Z",
+    "created_at": "2026-02-27T05:00:32.024Z",
+    "updated_at": "2026-02-27T05:00:32.024Z"
+  },
+  {
+    "id": "c4419676-b592-4a29-8590-2b70b60dc04c",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "ec7c2602-56d2-40fc-8b0f-cb434aa6910e"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T06:24:58.009Z",
+    "created_at": "2026-02-27T06:24:58.009Z",
+    "updated_at": "2026-02-27T06:24:58.009Z"
+  },
+  {
+    "id": "f5f04515-85e8-4e3b-9bd5-2197eb7aa719",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analisador de Armazenamento\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "07cfd2ae-e6a4-4254-891b-0989ff472381",
+      "executionId": "9e80e8d2-43e1-4430-9f89-91a370dd22e1"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T06:37:17.326Z",
+    "created_at": "2026-02-27T06:37:17.326Z",
+    "updated_at": "2026-02-27T06:37:17.326Z"
+  },
+  {
+    "id": "84ae7db5-9617-43f7-a441-2d5783ebc826",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analisador de Armazenamento\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "07cfd2ae-e6a4-4254-891b-0989ff472381",
+      "executionId": "ec5e8f78-fc81-4537-b26b-f923e0ab142c"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T06:43:46.776Z",
+    "created_at": "2026-02-27T06:43:46.776Z",
+    "updated_at": "2026-02-27T06:43:46.776Z"
+  },
+  {
+    "id": "1a7ab6a0-252c-453e-a1aa-2bc39bd284ef",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "1d15c272-e953-4087-aea3-a46c8e12aa17"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T16:05:54.704Z",
+    "created_at": "2026-02-27T16:05:54.704Z",
+    "updated_at": "2026-02-27T16:05:54.704Z"
+  },
+  {
+    "id": "16198936-ad6f-4af4-bc06-0f2e40e4e4ca",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analisador de Armazenamento\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "07cfd2ae-e6a4-4254-891b-0989ff472381",
+      "executionId": "46f2afb4-5827-4db8-a1c4-db67ac9dd538"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T16:23:06.763Z",
+    "created_at": "2026-02-27T16:23:06.763Z",
+    "updated_at": "2026-02-27T16:23:06.763Z"
+  },
+  {
+    "id": "b62a6ae6-7f6b-4475-bdae-48557269573b",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Analista de Segurança do Sistema\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+      "executionId": "23edd584-0ddc-41a7-b135-b8880685fecb"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T16:30:33.854Z",
+    "created_at": "2026-02-27T16:30:33.854Z",
+    "updated_at": "2026-02-27T16:30:33.854Z"
+  },
+  {
+    "id": "f4fadf97-a587-4844-ba46-c7ea5362e100",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Monitor SAE\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "a53e89a1-2f82-4188-91b8-142705f94f47",
+      "executionId": "2c502232-7486-42ed-975c-8a7ef1628914"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T17:04:57.155Z",
+    "created_at": "2026-02-27T17:04:57.155Z",
+    "updated_at": "2026-02-27T17:04:57.155Z"
+  },
+  {
+    "id": "54a03f66-494a-4572-98b7-77919aa133ea",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Monitor CONSPRE\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "c954e0cd-48ab-4c6c-bc38-2d360bf417ae",
+      "executionId": "2fb1397d-ad04-42d3-bc9d-324500a8c11f"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T17:20:03.623Z",
+    "created_at": "2026-02-27T17:20:03.623Z",
+    "updated_at": "2026-02-27T17:20:03.623Z"
+  },
+  {
+    "id": "a8d697a2-344c-4015-aa00-65532f5dce3b",
+    "type": "error",
+    "title": "Execução falhou",
+    "message": "Agente \"Monitor AtuaCAPES\" encontrou um erro",
+    "metadata": {
+      "agentId": "1568189e-92c5-4139-8f18-035eca8e3753",
+      "executionId": "261418b2-04ae-4889-a12b-e37b2e11adcc"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T17:40:05.390Z",
+    "created_at": "2026-02-27T17:40:05.390Z",
+    "updated_at": "2026-02-27T17:40:05.390Z"
+  },
+  {
+    "id": "989ebce7-5805-48e0-baf8-092bffe8d8ea",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Monitor Consolidado CAPES\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "d5ca1c47-872c-47cc-8d80-5ae5491f8207",
+      "executionId": "c2b3c2c2-061a-4e86-a214-0ec1211864df"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T18:03:21.985Z",
+    "created_at": "2026-02-27T18:03:21.985Z",
+    "updated_at": "2026-02-27T18:03:21.985Z"
+  },
+  {
+    "id": "a71c0471-c452-449b-80ac-4fb2882b57ec",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Tech Lead\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "ea485e4f-b4b7-47ab-bb9b-e9faebcb3921",
+      "executionId": "1b95b14c-092a-406e-906b-acadbc4e391a"
+    },
+    "read": false,
+    "createdAt": "2026-02-27T18:07:52.369Z",
+    "created_at": "2026-02-27T18:07:52.369Z",
+    "updated_at": "2026-02-27T18:07:52.369Z"
+  },
+  {
+    "id": "082b2e45-24c3-4de3-8020-0a34d6a35288",
+    "type": "success",
+    "title": "Execução concluída",
+    "message": "Agente \"Code Reviewer\" finalizou a tarefa",
+    "metadata": {
+      "agentId": "3f1a5442-ffe9-461c-a8e1-2f7239a8f025",
+      "executionId": "51908dd9-1759-4cd1-856d-7650321e4f7f"
+    },
+    "read": false,
+    "createdAt": "2026-02-28T07:42:13.938Z",
+    "created_at": "2026-02-28T07:42:13.938Z",
+    "updated_at": "2026-02-28T07:42:13.938Z"
+  }
+]

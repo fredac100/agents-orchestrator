@@ -1,0 +1,62 @@
+[
+  {
+    "id": "8e84dadd-ef88-4188-bb6e-8bf9fee9d2af",
+    "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+    "agentName": "Analista de Segurança do Sistema",
+    "taskDescription": "Execute uma auditoria completa de segurança do sistema operacional. Siga estas etapas:\n\n1. **Identificação do Sistema**: Colete informações sobre o kernel, distribuição, hostname e uptime.\n\n2. **Atualizações de Segurança**: Verifique pacotes desatualizados com `apt list --upgradable 2>/dev/null || dnf check-update 2>/dev/null`. Identifique quais possuem patches de segurança pendentes.\n\n3. **Portas e Serviços Expostos**: Execute `ss -tlnp` para listar todas as portas TCP em escuta. Avalie se cada serviço exposto é necessário e se está configurado de forma segura.\n\n4. **Análise de Usuários e Acessos**:\n   - Verifique contas com UID 0 além do root\n   - Identifique usuários sem senha ou com shells interativos desnecessários\n   - Analise o histórico de logins com `last` e tentativas falhadas com `lastb` ou logs em /var/log/auth.log\n\n5. **Permissões Perigosas**:\n   - Busque binários SUID/SGID com `find / -perm -4000 -type f 2>/dev/null`\n   - Identifique arquivos world-writable em diretórios críticos\n   - Verifique permissões de /etc/passwd, /etc/shadow, /etc/sudoers\n\n6. **Firewall**: Verifique as regras ativas com `iptables -L -n` ou `ufw status verbose`. Reporte se o firewall está inativo.\n\n7. **Configuração SSH**: Analise /etc/ssh/sshd_config verificando: PermitRootLogin, PasswordAuthentication, PermitEmptyPasswords, MaxAuthTries, AllowUsers/AllowGroups.\n\n8. **Processos e Cron Jobs**: Liste processos ativos com `ps aux` e tarefas agendadas com `crontab -l` e `ls -la /etc/cron.*`. Identifique qualquer processo ou tarefa suspeita.\n\n9. **Uso de Disco e Logs**: Verifique espaço em disco com `df -h` e o crescimento dos logs. Alerte se alguma partição estiver acima de 85%.\n\n10. **Comparação com Auditoria Anterior**: Se existirem relatórios anteriores em /home/fred/security-reports/, compare os resultados e destaque novos achados ou problemas que persistem.\n\nSalve o relatório completo em /home/fred/security-reports/audit-$(date +%Y%m%d-%H%M).md com resumo executivo, nota de segurança (0-10), achados por severidade e as 5 correções mais urgentes.\n\nIMPORTANTE: Apenas diagnostique e reporte. NÃO faça nenhuma alteração no sistema. Crie o diretório /home/fred/security-reports/ se ele não existir.",
+    "cronExpression": "0 13 * * *",
+    "active": true,
+    "created_at": "2026-02-26T04:05:08.137Z",
+    "updated_at": "2026-02-27T07:10:14.897Z"
+  },
+  {
+    "id": "ee6ebdb2-8fc5-4fa8-b55b-f0a2167ce5c8",
+    "agentId": "07cfd2ae-e6a4-4254-891b-0989ff472381",
+    "agentName": "Analisador de Armazenamento",
+    "taskDescription": "Faça uma análise completa do armazenamento do sistema e gere o relatório detalhado conforme suas instruções.",
+    "cronExpression": "20 13 * * *",
+    "active": true,
+    "created_at": "2026-02-26T06:34:31.668Z",
+    "updated_at": "2026-02-27T07:10:37.766Z"
+  },
+  {
+    "id": "7686b73f-61b9-4971-b1f1-8fede183165e",
+    "agentId": "a53e89a1-2f82-4188-91b8-142705f94f47",
+    "agentName": "Monitor SAE",
+    "taskDescription": "Executar análise diária do sistema SAE no AMBIENTE REMOTO DHT (NÃO na máquina local).\n\nREGRAS DO AMBIENTE:\n- O DHT é um ambiente remoto de homologação da CAPES. NÃO roda em Docker/containers.\n- NÃO faça nenhuma modificação. Apenas leitura e diagnóstico.\n- Use o MCP (tools de consulta Oracle via unified-db ou consulta-refactor) para inspecionar os bancos de dados.\n- Alternativamente, use SQLPlus com as credenciais disponíveis no .env do projeto.\n- Os schemas Oracle relevantes para o SAE incluem: SAE, CORPORATIVO, FINANCEIRO, SEGURANCA, PARAMETRO.\n\nO QUE INSPECIONAR:\n1. Verificar namespaces e schemas dos bancos Oracle — listar tabelas principais do schema SAE e verificar se estão acessíveis.\n2. Consultar logs de erro das últimas 24h via Graylog (streams do SAE).\n3. Verificar execução dos cron jobs CADIN — consultar as tabelas de CADIN no schema SAE para ver se houve processamento recente.\n4. Verificar estatísticas de registros nas tabelas principais (PESSOA_EVENTO, EVENTO, etc.) — comparar contagens com dias anteriores se possível.\n5. Consultar health check geral via MCP (health_check()).\n\nGerar relatório diagnóstico em Markdown. Salvar em /home/fred/agent_reports/.",
+    "cronExpression": "0 14 * * *",
+    "active": true,
+    "created_at": "2026-02-27T06:58:51.495Z",
+    "updated_at": "2026-02-27T07:08:47.070Z"
+  },
+  {
+    "id": "6406456d-837a-46da-b5d8-a3cce648a5e9",
+    "agentId": "c954e0cd-48ab-4c6c-bc38-2d360bf417ae",
+    "agentName": "Monitor CONSPRE",
+    "taskDescription": "Executar análise diária do sistema CONSPRE no AMBIENTE REMOTO DHT (NÃO na máquina local).\n\nREGRAS DO AMBIENTE:\n- O DHT é um ambiente remoto de homologação da CAPES. NÃO roda em Docker/containers.\n- NÃO faça nenhuma modificação. Apenas leitura e diagnóstico.\n- Use o MCP (tools de consulta Oracle via unified-db ou consulta-refactor) para inspecionar os bancos de dados.\n- Alternativamente, use SQLPlus com as credenciais disponíveis no .env do projeto.\n- O schema Oracle relevante é CONSPRE. As coleções SODA estão em SODA_CONSPRE (CERTIFICADOS, INSCRICOES, INSCRICOES_2, ORCID).\n\nO QUE INSPECIONAR:\n1. PRIORIDADE: Verificar se a carga diária SODA (03:15) executou com sucesso — consultar as coleções SODA_CONSPRE e verificar registros recentes (últimas 24h).\n2. Verificar namespaces e schemas dos bancos Oracle — listar tabelas do schema CONSPRE e verificar acessibilidade.\n3. Consultar logs de erro das últimas 24h via Graylog (streams do CONSPRE).\n4. Verificar contagens de registros nas coleções SODA e tabelas principais — detectar anomalias.\n5. Consultar health check geral via MCP (health_check()).\n\nGerar relatório diagnóstico em Markdown. Salvar em /home/fred/agent_reports/.",
+    "cronExpression": "20 14 * * *",
+    "active": true,
+    "created_at": "2026-02-27T06:58:51.561Z",
+    "updated_at": "2026-02-27T07:09:07.156Z"
+  },
+  {
+    "id": "7287ee31-9bb2-4f3a-8da4-b08085c9e9b6",
+    "agentId": "1568189e-92c5-4139-8f18-035eca8e3753",
+    "agentName": "Monitor AtuaCAPES",
+    "taskDescription": "Executar análise diária do sistema AtuaCAPES no AMBIENTE REMOTO DHT (NÃO na máquina local).\n\nREGRAS DO AMBIENTE:\n- O DHT é um ambiente remoto de homologação da CAPES. NÃO roda em Docker/containers.\n- NÃO faça nenhuma modificação. Apenas leitura e diagnóstico.\n- Use o MCP (tools de consulta Elasticsearch via unified-db ou consulta-refactor) para inspecionar o cluster.\n- Alternativamente, use SQLPlus com as credenciais disponíveis no .env do projeto para consultas Oracle auxiliares.\n- O Elasticsearch é o data store principal do AtuaCAPES (índice ATUACAPES com campos nested: atuacoes, bolsas).\n\nO QUE INSPECIONAR:\n1. PRIORIDADE: Verificar saúde do cluster Elasticsearch — usar get_es_mapping() e search_elasticsearch com query de health.\n2. Verificar distribuição de tipos de atuação (Projeto, Docência, Inscrição Prêmio, Emprego, Evento, Consultor) — comparar volumes com referência.\n3. Consultar logs de erro das últimas 24h via Graylog (streams do AtuaCAPES).\n4. Verificar se existem schemas Oracle auxiliares acessíveis — usar health_check().\n5. Verificar contagem total de documentos no índice e detectar anomalias de volume.\n\nGerar relatório diagnóstico em Markdown. Salvar em /home/fred/agent_reports/.",
+    "cronExpression": "40 14 * * *",
+    "active": true,
+    "created_at": "2026-02-27T06:58:51.660Z",
+    "updated_at": "2026-02-27T07:09:30.438Z"
+  },
+  {
+    "id": "2d92f8d0-0f82-4c29-9b48-9799f42e64d8",
+    "agentId": "d5ca1c47-872c-47cc-8d80-5ae5491f8207",
+    "agentName": "Monitor Consolidado CAPES",
+    "taskDescription": "Executar análise CONSOLIDADA de todos os 3 sistemas CAPES no AMBIENTE REMOTO DHT (NÃO na máquina local).\n\nREGRAS DO AMBIENTE:\n- O DHT é um ambiente remoto de homologação da CAPES. NÃO roda em Docker/containers.\n- NÃO faça nenhuma modificação. Apenas leitura e diagnóstico.\n- Use o MCP (tools de consulta Oracle/Graylog/Elasticsearch via unified-db ou consulta-refactor).\n- Alternativamente, use SQLPlus com as credenciais disponíveis no .env.\n- Comece com health_check() para visão geral de todos os serviços.\n\nSISTEMAS PARA INSPECIONAR:\n1. SAE: schemas Oracle (SAE, CORPORATIVO, FINANCEIRO, SEGURANCA, PARAMETRO). Verificar tabelas principais, cron CADIN, logs Graylog.\n2. CONSPRE: schema Oracle CONSPRE + coleções SODA (SODA_CONSPRE). Verificar carga diária SODA, registros recentes, logs Graylog.\n3. AtuaCAPES: cluster Elasticsearch (índice ATUACAPES, campos nested). Verificar saúde do cluster, volumes, logs Graylog.\n\nPARA CADA SISTEMA:\n- Verificar namespaces e acessibilidade dos schemas/índices\n- Consultar logs de erro das últimas 24h via Graylog\n- Verificar contagens e detectar anomalias de volume\n\nComparar com relatórios anteriores em /home/fred/agent_reports/ se existirem. Gerar relatório executivo unificado em Markdown com nota de saúde (0-10) para cada sistema. Salvar em /home/fred/agent_reports/.",
+    "cronExpression": "0 15 * * *",
+    "active": true,
+    "created_at": "2026-02-27T06:58:51.758Z",
+    "updated_at": "2026-02-27T07:09:45.715Z"
+  }
+]

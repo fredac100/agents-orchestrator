@@ -1,0 +1,14 @@
+[
+  {
+    "id": "b5b42ba4-e811-4f34-b399-a47267b60b31",
+    "name": "Web Hook de Segurança",
+    "targetType": "agent",
+    "targetId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+    "token": "069e296d1b756b99003d69e0cc9a48ec051f7f0f2b901e4d",
+    "active": true,
+    "lastTriggeredAt": "2026-02-27T01:48:07.754Z",
+    "triggerCount": 2,
+    "created_at": "2026-02-27T01:29:21.901Z",
+    "updated_at": "2026-02-27T01:48:07.754Z"
+  }
+]

@@ -1,0 +1,218 @@
+[
+  {
+    "id": "55e69e93-0923-4131-8216-fff07b48116d",
+    "name": "Análise de Arquitetura do Sistema",
+    "category": "code-review",
+    "description": "Analisar a arquitetura atual do sistema, identificar pontos de melhoria, gargalos de escalabilidade e propor refatorações arquiteturais. Gerar relatório com diagramas C4 e recomendações priorizadas.",
+    "created_at": "2026-02-26T03:28:01.818Z",
+    "updated_at": "2026-02-26T03:28:01.818Z"
+  },
+  {
+    "id": "da1372c4-8420-4377-8981-b3a113da09d4",
+    "name": "Criar API REST de Autenticação",
+    "category": "code-review",
+    "description": "Desenvolver endpoints de autenticação completos: registro, login, refresh token, logout, recuperação de senha. Implementar JWT com refresh tokens, rate limiting e validação de entrada.",
+    "created_at": "2026-02-26T03:28:01.821Z",
+    "updated_at": "2026-02-26T03:28:01.821Z"
+  },
+  {
+    "id": "dd4bcce5-4948-459b-ba2c-9a7cec2dd5df",
+    "name": "Desenvolver Dashboard de Monitoramento",
+    "category": "code-review",
+    "description": "Criar interface de dashboard responsiva com gráficos em tempo real, KPIs principais, filtros dinâmicos e exportação de dados. Utilizar React, TypeScript e bibliotecas de gráficos como Recharts.",
+    "created_at": "2026-02-26T03:28:01.828Z",
+    "updated_at": "2026-02-26T03:28:01.828Z"
+  },
+  {
+    "id": "596361ac-78f1-436a-9270-bf8302f6a4a6",
+    "name": "Criar Plano de Testes E2E",
+    "category": "tests",
+    "description": "Elaborar plano completo de testes end-to-end cobrindo todos os fluxos críticos do sistema. Implementar testes automatizados com Playwright, incluindo testes de regressão, smoke tests e testes de performance.",
+    "created_at": "2026-02-26T03:28:01.832Z",
+    "updated_at": "2026-02-26T03:28:01.832Z"
+  },
+  {
+    "id": "b98993fb-a4ab-4333-aa1a-3e2273074685",
+    "name": "Configurar Pipeline CI/CD",
+    "category": "code-review",
+    "description": "Configurar pipeline completo de CI/CD com GitHub Actions: build, lint, testes unitários, testes de integração, análise estática, build de Docker, deploy em staging e produção com aprovação manual.",
+    "created_at": "2026-02-26T03:28:01.834Z",
+    "updated_at": "2026-02-26T03:28:01.834Z"
+  },
+  {
+    "id": "bb45f1af-965c-49ba-8d0f-fc3da89e8b36",
+    "name": "Auditoria de Segurança do Código",
+    "category": "security",
+    "description": "Realizar auditoria completa de segurança no código-fonte: análise de vulnerabilidades OWASP Top 10, verificação de dependências (SCA), análise de secrets expostos, revisão de autenticação/autorização e compliance LGPD.",
+    "created_at": "2026-02-26T03:28:01.837Z",
+    "updated_at": "2026-02-26T03:28:01.837Z"
+  },
+  {
+    "id": "29f4e223-2e82-415a-8487-6a7cde118298",
+    "name": "Otimização de Queries SQL",
+    "category": "performance",
+    "description": "Analisar e otimizar queries SQL lentas identificadas no monitoramento. Usar EXPLAIN ANALYZE, criar índices estratégicos, reescrever queries N+1 e implementar estratégias de caching com Redis.",
+    "created_at": "2026-02-26T03:28:01.839Z",
+    "updated_at": "2026-02-26T03:28:01.839Z"
+  },
+  {
+    "id": "14535b01-855e-4f2a-92b6-84bef154f8cb",
+    "name": "Refatorar Módulo de Pagamentos",
+    "category": "refactor",
+    "description": "Refatorar o módulo de pagamentos aplicando Clean Architecture, separando camadas de domínio, aplicação e infraestrutura. Implementar Strategy Pattern para múltiplos gateways e adicionar circuit breaker.",
+    "created_at": "2026-02-26T03:28:01.841Z",
+    "updated_at": "2026-02-26T03:28:01.841Z"
+  },
+  {
+    "id": "c324a8dc-cf81-4e31-9b96-5e2c17af2047",
+    "name": "Documentar API com OpenAPI/Swagger",
+    "category": "docs",
+    "description": "Criar documentação completa da API usando especificação OpenAPI 3.0. Incluir descrições detalhadas de endpoints, schemas de request/response, exemplos, autenticação e códigos de erro.",
+    "created_at": "2026-02-26T03:28:01.845Z",
+    "updated_at": "2026-02-26T03:28:01.845Z"
+  },
+  {
+    "id": "020ac1a7-11db-44e6-99d5-6892cd7ee4c7",
+    "name": "Testes de Carga e Performance",
+    "category": "performance",
+    "description": "Executar testes de carga com K6 simulando cenários realistas: carga normal, pico, stress test e soak test. Gerar relatório com métricas de latência (p50, p95, p99), throughput e identificar bottlenecks.",
+    "created_at": "2026-02-26T03:28:01.847Z",
+    "updated_at": "2026-02-26T03:28:01.847Z"
+  },
+  {
+    "id": "4cfdbae6-84bd-40a8-afd6-cb660c3bc450",
+    "name": "Implementar Sistema de Cache",
+    "category": "performance",
+    "description": "Projetar e implementar estratégia de caching em múltiplas camadas: cache de aplicação (in-memory), Redis para cache distribuído, CDN para assets estáticos. Definir políticas de invalidação e TTL.",
+    "created_at": "2026-02-26T03:28:01.849Z",
+    "updated_at": "2026-02-26T03:28:01.849Z"
+  },
+  {
+    "id": "6daefc78-6d0b-40e0-997a-6f9f5e02690c",
+    "name": "Criar Componentes de Design System",
+    "category": "code-review",
+    "description": "Desenvolver biblioteca de componentes reutilizáveis seguindo Design System: Button, Input, Modal, Table, Card, Toast, Dropdown. Com variantes, acessibilidade WCAG AA, testes e documentação Storybook.",
+    "created_at": "2026-02-26T03:28:01.852Z",
+    "updated_at": "2026-02-26T03:28:01.852Z"
+  },
+  {
+    "id": "a66caa2f-d8d3-4846-ab76-2bf74c199340",
+    "name": "Migração de Banco de Dados",
+    "category": "refactor",
+    "description": "Planejar e executar migração de banco de dados com zero downtime. Criar scripts de migração, rollback, validação de dados e estratégia de blue-green deployment para o banco.",
+    "created_at": "2026-02-26T03:28:01.855Z",
+    "updated_at": "2026-02-26T03:28:01.855Z"
+  },
+  {
+    "id": "8d4b625a-4b3b-4b3d-8347-26cff931ee5a",
+    "name": "Implementar Observabilidade",
+    "category": "code-review",
+    "description": "Configurar stack completa de observabilidade: logs estruturados (Winston/Pino), métricas (Prometheus), tracing distribuído (OpenTelemetry), dashboards (Grafana) e alertas inteligentes.",
+    "created_at": "2026-02-26T03:28:01.858Z",
+    "updated_at": "2026-02-26T03:28:01.858Z"
+  },
+  {
+    "id": "58b015e9-65d9-4fe9-848d-5bc888ef6c3d",
+    "name": "Code Review de Pull Request",
+    "category": "code-review",
+    "description": "Realizar revisão detalhada de código em pull requests: verificar qualidade, padrões, segurança, performance, testes, documentação e aderência à arquitetura definida. Fornecer feedback construtivo.",
+    "created_at": "2026-02-26T03:28:01.860Z",
+    "updated_at": "2026-02-26T03:28:01.860Z"
+  },
+  {
+    "id": "fa012b57-55a8-487f-962d-2cfc6fd9ce9d",
+    "name": "Geração de CRUD Completo a partir de Schema de Entidade",
+    "category": "automation",
+    "description": "Receber um schema de entidade (JSON ou YAML) e gerar automaticamente a stack completa: model com validações, repository com queries otimizadas, service com regras de negócio, controller REST com tratamento de erros, rotas com middleware de autenticação, validação de entrada com Zod/Joi, testes unitários e de integração para cada camada, e migration de banco de dados. O output deve seguir rigorosamente a arquitetura e convenções do projeto-alvo, incluindo nomenclatura de arquivos, padrão de imports e estrutura de diretórios.",
+    "created_at": "2026-02-28T03:38:20.972Z",
+    "updated_at": "2026-02-28T03:38:20.972Z"
+  },
+  {
+    "id": "c327e65b-f217-492a-801c-efa1991ecf54",
+    "name": "Análise de Débito Técnico e Backlog Priorizado",
+    "category": "code-review",
+    "description": "Varrer o codebase completo utilizando métricas objetivas para identificar: code smells (funções longas, parâmetros excessivos, acoplamento alto), complexidade ciclomática acima do threshold, código duplicado com percentual de similaridade, dependências desatualizadas com CVEs conhecidos, TODO/FIXME/HACK abandonados há mais de 30 dias, módulos sem cobertura de testes, e violações de padrões arquiteturais. Gerar relatório estruturado com score de saúde do projeto (0-100), heatmap de áreas problemáticas, e backlog priorizado por matriz impacto × esforço com estimativas em story points.",
+    "created_at": "2026-02-28T03:38:21.032Z",
+    "updated_at": "2026-02-28T03:38:21.032Z"
+  },
+  {
+    "id": "6b90b793-7666-4d8d-b81f-d21e1a2ab25f",
+    "name": "Geração de Testes para Módulos Sem Cobertura",
+    "category": "tests",
+    "description": "Identificar automaticamente todos os módulos com cobertura de testes abaixo de 80%, analisar o código-fonte para compreender comportamento esperado, e gerar suíte de testes abrangente cobrindo: cenários de sucesso (happy path), edge cases e valores limítrofes, tratamento de erros e exceções, mocks/stubs de dependências externas (APIs, banco, filesystem), e testes de contrato para interfaces públicas. Usar o framework de testes do projeto (Jest/Vitest), seguir padrão AAA (Arrange-Act-Assert), e garantir que cada teste seja independente e determinístico. Output inclui os arquivos de teste e relatório de cobertura antes/depois.",
+    "created_at": "2026-02-28T03:38:21.092Z",
+    "updated_at": "2026-02-28T03:38:21.093Z"
+  },
+  {
+    "id": "35222595-5e4d-4c6e-9ed0-12a577987480",
+    "name": "Scaffolding de Microsserviço Production-Ready",
+    "category": "automation",
+    "description": "Gerar estrutura completa de um novo microsserviço pronto para produção, incluindo: Dockerfile multi-stage otimizado (build + runtime), docker-compose com dependências (banco, cache, message broker), endpoint /health com readiness e liveness checks, graceful shutdown com drain de conexões, logging estruturado em JSON (correlationId, requestId, userId), middleware global de tratamento de erros com códigos padronizados, autenticação via JWT com validação de roles, configuração 12-factor via variáveis de ambiente com validação no startup, Makefile com comandos de desenvolvimento, e README com instruções detalhadas de setup local, testes e deploy. O serviço deve seguir o template e stack tecnológica padrão da organização.",
+    "created_at": "2026-02-28T03:38:21.150Z",
+    "updated_at": "2026-02-28T03:38:21.150Z"
+  },
+  {
+    "id": "0e076cef-b19e-42a1-9c82-592fa496ac11",
+    "name": "Migração Incremental de JavaScript para TypeScript",
+    "category": "migration",
+    "description": "Executar migração incremental de módulos JavaScript para TypeScript com zero breaking changes: analisar o codebase para mapear dependências entre módulos, inferir tipos a partir de uso real e JSDoc existente, criar interfaces e types para DTOs e payloads de API, tipar parâmetros de funções e retornos com generics onde apropriado, configurar tsconfig.json com strict mode progressivo (começar permissivo e apertar gradualmente), resolver todos os erros de compilação, configurar path aliases, e atualizar scripts de build. Priorizar módulos core e compartilhados primeiro (utils, models, services), depois controllers e rotas. Cada módulo migrado deve compilar sem erros e manter 100% de compatibilidade com os consumidores existentes.",
+    "created_at": "2026-02-28T03:38:21.211Z",
+    "updated_at": "2026-02-28T03:38:21.211Z"
+  },
+  {
+    "id": "4f1ca1ff-098c-400f-8989-797ef7e6a73c",
+    "name": "Relatório de Compliance LGPD no Código-Fonte",
+    "category": "compliance",
+    "description": "Realizar varredura completa do codebase para mapear o ciclo de vida de dados pessoais: identificar campos PII (CPF, email, telefone, endereço, dados biométricos) em models, DTOs e schemas de banco; rastrear pontos de coleta (formulários, APIs, webhooks); verificar mecanismos de consentimento e base legal para cada tratamento; auditar logs e rastreamentos que possam conter dados sensíveis; verificar criptografia em trânsito (TLS) e em repouso; identificar compartilhamento com terceiros (APIs externas, analytics, SDKs); validar implementação do direito de exclusão e portabilidade. Gerar relatório RIPD (Relatório de Impacto à Proteção de Dados) com gaps identificados, classificação de risco (alto/médio/baixo), e plano de remediação priorizado com prazos sugeridos.",
+    "created_at": "2026-02-28T03:38:21.272Z",
+    "updated_at": "2026-02-28T03:38:21.272Z"
+  },
+  {
+    "id": "297e370a-9b96-471f-8d4a-082e2d795305",
+    "name": "Documentação de Onboarding para Novos Desenvolvedores",
+    "category": "docs",
+    "description": "Analisar o projeto completo e gerar documentação abrangente de onboarding: guia passo-a-passo de setup do ambiente local (dependências, variáveis de ambiente, banco de dados, serviços externos), mapa da arquitetura com diagramas C4 (contexto, container, componente), glossário de termos de domínio/negócio com exemplos, walkthrough comentado dos 5 fluxos mais críticos do sistema (da requisição HTTP até a persistência), catálogo de padrões e convenções do projeto (nomenclatura, estrutura de pastas, patterns utilizados), guia de troubleshooting com os 10 problemas mais comuns e suas soluções, e checklist de primeira semana com tarefas progressivas para o novo desenvolvedor ganhar confiança no codebase.",
+    "created_at": "2026-02-28T03:38:21.343Z",
+    "updated_at": "2026-02-28T03:38:21.343Z"
+  },
+  {
+    "id": "7813b9df-a1e7-4d60-b2c3-61a224d4629c",
+    "name": "Changelog Automatizado e Release Notes para Stakeholders",
+    "category": "automation",
+    "description": "Analisar todos os commits e PRs mergeados desde a última tag de release, classificar automaticamente por tipo (feature, bugfix, refactor, performance, docs, breaking change) usando Conventional Commits, extrair descrições significativas de cada mudança, identificar breaking changes com guia de migração, listar contribuidores e PRs associados. Gerar dois outputs: (1) CHANGELOG.md técnico seguindo o padrão Keep a Changelog com seções Added/Changed/Fixed/Removed/Security, e (2) Release Notes em linguagem acessível para stakeholders não-técnicos, destacando novas funcionalidades visíveis ao usuário, melhorias de performance com métricas quando disponíveis, e bugs corrigidos que impactavam a experiência do usuário. Incluir resumo executivo de 3-5 linhas no topo.",
+    "created_at": "2026-02-28T03:38:21.405Z",
+    "updated_at": "2026-02-28T03:38:21.405Z"
+  },
+  {
+    "id": "82b9aec1-9853-4819-ae2a-3a8bbf97032c",
+    "name": "Auditoria de Dependências e Plano de Atualização Segura",
+    "category": "maintenance",
+    "description": "Executar auditoria completa de todas as dependências diretas e transitivas do projeto: identificar vulnerabilidades conhecidas (CVEs) com severidade CVSS, pacotes deprecated ou abandonados (sem commits há 12+ meses), licenças incompatíveis com uso comercial, dependências com major versions defasadas (2+ majors atrás), pacotes duplicados em versões diferentes na árvore de dependências, e dependências com alternativas mais leves/mantidas. Gerar relatório com: inventário completo de dependências com versão atual vs mais recente, matriz de risco (probabilidade × impacto), breaking changes documentados entre versões, e plano de atualização faseado ordenado por criticidade — atualizações de segurança primeiro, depois minor/patch seguras, e por último majors com breaking changes. Cada atualização deve incluir o changelog relevante e testes de regressão sugeridos.",
+    "created_at": "2026-02-28T03:38:21.467Z",
+    "updated_at": "2026-02-28T03:38:21.467Z"
+  },
+  {
+    "id": "483e22eb-aa2b-4d08-8377-af50ec02037a",
+    "name": "Implementar API de Webhooks com Retry e Monitoramento",
+    "category": "code-generation",
+    "description": "Projetar e implementar sistema completo de webhooks outbound: endpoint de registro de webhooks com validação de URL (SSRF prevention) e secret para assinatura HMAC-SHA256, sistema de dispatch assíncrono com fila (Bull/BullMQ ou similar), política de retry com backoff exponencial (1s, 5s, 30s, 2min, 15min) e max 5 tentativas, circuit breaker por destino para evitar sobrecarga em endpoints instáveis, payload padronizado com envelope (event_type, timestamp, delivery_id, data), verificação de assinatura documentada para consumidores, endpoint de logs de entrega com status (pending, delivered, failed, exhausted) e latência, dashboard de monitoramento com taxa de sucesso por webhook e alertas para falhas recorrentes. Incluir testes de integração simulando cenários de falha (timeout, 5xx, rede) e documentação da API para integradores externos.",
+    "created_at": "2026-02-28T03:38:21.530Z",
+    "updated_at": "2026-02-28T03:38:21.530Z"
+  },
+  {
+    "id": "b98c3d99-1e05-4c3e-b392-49e047b1789a",
+    "name": "Implementar Feature Flags com Rollout Gradual",
+    "category": "automation",
+    "description": "Projetar e implementar sistema de feature flags completo para deploys seguros: criar módulo server-side com avaliação de flags por contexto (usuário, ambiente, percentual, segmento), SDK client-side leve (<5KB) com cache local e fallback offline, estratégias de rollout configuráveis (canary 1%→5%→25%→100%, por tenant, por região, por role), toggle kill-switch para desabilitar features instantaneamente sem redeploy, persistência de configurações em banco com versionamento e audit log de alterações, API REST para gestão das flags com controle de acesso, e integração com stack de observabilidade para correlacionar métricas de negócio com ativação de flags. Incluir testes para cada estratégia de rollout e documentação com exemplos de uso para a equipe.",
+    "created_at": "2026-02-28T03:38:40.215Z",
+    "updated_at": "2026-02-28T03:38:40.215Z"
+  },
+  {
+    "id": "92fafb45-d568-47e8-85da-f7f14a930a9c",
+    "name": "Revisão e Hardening de Configurações de Infraestrutura",
+    "category": "security",
+    "description": "Auditar e fortalecer todas as configurações de infraestrutura como código (IaC) do projeto: analisar Dockerfiles verificando imagem base (não usar latest, preferir Alpine/distroless), usuário não-root, multi-stage build, .dockerignore adequado, e scan de vulnerabilidades na imagem; revisar docker-compose validando rede isolada, limites de recursos (CPU/memória), volumes com permissões mínimas, e secrets não hardcoded; auditar CI/CD pipelines verificando permissões de tokens (princípio do menor privilégio), secrets management, pinning de actions/versões, e SAST/DAST integrados; verificar variáveis de ambiente sensíveis (senhas, tokens, chaves de API) garantindo que não estejam em código, logs ou imagens; e validar configurações de CORS, CSP, HSTS e demais headers de segurança. Gerar relatório com findings categorizados por severidade (crítico/alto/médio/baixo), evidência do problema, impacto potencial, e fix sugerido com código.",
+    "created_at": "2026-02-28T03:38:40.288Z",
+    "updated_at": "2026-02-28T03:38:40.288Z"
+  }
+]

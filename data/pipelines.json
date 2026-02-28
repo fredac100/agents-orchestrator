@@ -1,0 +1,355 @@
+[
+  {
+    "id": "652065ba-a996-44e9-8c14-75b6ad76d280",
+    "name": "Pipeline de Desenvolvimento de Feature",
+    "description": "Pipeline completo para desenvolvimento de uma nova feature: desde a análise arquitetural, passando pelo desenvolvimento backend e frontend, testes, revisão de segurança e preparação para deploy.",
+    "steps": [
+      {
+        "id": "7efde1d7-b844-4a48-8d5f-3ca58fe32159",
+        "agentId": "f356e42a-73db-4b04-bca2-1fb022f373b7",
+        "order": 0,
+        "inputTemplate": "Analise os requisitos da feature a seguir e crie um design arquitetural detalhado. Defina as entidades, endpoints de API, estrutura de banco de dados e componentes de frontend necessários. Considere escalabilidade, segurança e manutenibilidade. Feature: {{input}}",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "b4d5030c-a67f-4fac-a464-d3b3bba17b52",
+        "agentId": "4212b6b0-f519-41dc-891d-0c8b4a8f6843",
+        "order": 1,
+        "inputTemplate": "Com base no design arquitetural abaixo, implemente os endpoints de API, models, services e repositories necessários. Use TypeScript com NestJS, Prisma ORM e PostgreSQL. Inclua validações, tratamento de erros e testes unitários. Design: {{input}}",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "e4662771-ed2f-48e5-9121-aff85e2433a7",
+        "agentId": "a763246a-f411-4895-aa0d-8324af490d2e",
+        "order": 2,
+        "inputTemplate": "Com base na implementação backend abaixo, desenvolva os componentes React/TypeScript necessários para a interface. Crie componentes reutilizáveis, hooks customizados, integração com a API usando React Query, formulários com validação e testes com Testing Library. Implementação Backend: {{input}}",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "940b975e-7109-4d16-ab9b-df4e9f4f585f",
+        "agentId": "aacbde57-6952-407d-8388-a62230b06c0b",
+        "order": 3,
+        "inputTemplate": "Revise todo o código implementado (backend e frontend) abaixo. Crie testes E2E com Playwright cobrindo os fluxos críticos, verifique a cobertura de testes unitários, identifique bugs potenciais e sugira melhorias de qualidade. Código para revisão: {{input}}",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "a4adea8c-e1a2-4996-902a-2538cfe92db3",
+        "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+        "order": 4,
+        "inputTemplate": "Realize uma auditoria de segurança completa no código e testes abaixo. Verifique vulnerabilidades OWASP Top 10, validação de entrada, autenticação/autorização, exposição de dados sensíveis e compliance. Forneça um relatório de segurança com severidade e correções. Código e testes: {{input}}",
+        "description": "",
+        "requiresApproval": false
+      }
+    ],
+    "status": "active",
+    "created_at": "2026-02-26T03:31:18.048Z",
+    "updated_at": "2026-02-26T22:33:45.869Z"
+  },
+  {
+    "id": "21d4ad2c-6337-4389-b766-e0806ecf696e",
+    "name": "Pipeline de Code Review Completo",
+    "description": "Pipeline para revisão completa de código: análise arquitetural, revisão de qualidade, verificação de segurança e validação de performance. Garante que todo código atenda aos padrões da equipe.",
+    "steps": [
+      {
+        "id": "dcda608f-da88-48d6-8ab5-ff9410de6c68",
+        "agentId": "f356e42a-73db-4b04-bca2-1fb022f373b7",
+        "order": 0,
+        "inputTemplate": "Revise a arquitetura e padrões de design do código abaixo. Verifique aderência a Clean Architecture, SOLID, e identifique acoplamentos indesejados ou violações de camadas. Código: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "1d8d819c-474b-4bd0-823b-ff14a6cb4b25",
+        "agentId": "4212b6b0-f519-41dc-891d-0c8b4a8f6843",
+        "order": 1,
+        "inputTemplate": "Com base na revisão arquitetural, analise a qualidade do código backend: legibilidade, tratamento de erros, tipagem, testes, performance de queries e boas práticas. Sugira refatorações específicas. Revisão anterior e código: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "7b0fe629-8c92-4d09-bc18-bd65a1289acc",
+        "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+        "order": 2,
+        "inputTemplate": "Realize análise de segurança no código revisado. Verifique: SQL injection, XSS, CSRF, exposição de dados, autenticação/autorização, validação de input e dependências vulneráveis. Código e revisões: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "3c8da665-0f70-4374-8507-bd9e74081d7a",
+        "agentId": "aacbde57-6952-407d-8388-a62230b06c0b",
+        "order": 3,
+        "inputTemplate": "Com base em todas as revisões anteriores, compile um relatório final de qualidade. Liste: bugs encontrados, melhorias sugeridas, cobertura de testes necessária e um checklist de aprovação para merge. Revisões: {{input}}",
+        "description": ""
+      }
+    ],
+    "status": "active",
+    "created_at": "2026-02-26T03:32:06.846Z",
+    "updated_at": "2026-02-26T03:32:06.846Z"
+  },
+  {
+    "id": "675a2293-a77b-4953-9cf7-168d8671afb2",
+    "name": "Pipeline de Correção de Bug",
+    "description": "Pipeline para análise, correção e validação de bugs reportados. Inclui diagnóstico, implementação da correção, testes de regressão e verificação de segurança.",
+    "steps": [
+      {
+        "id": "49f3f0ba-230b-4349-9e6d-b0845f8737d2",
+        "agentId": "4212b6b0-f519-41dc-891d-0c8b4a8f6843",
+        "order": 0,
+        "inputTemplate": "Analise o bug reportado abaixo. Identifique a causa raiz, o impacto no sistema e proponha uma correção com código. Inclua análise de possíveis efeitos colaterais da correção. Bug: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "d65f086f-d5de-4b9c-abe1-834ce96fd1d2",
+        "agentId": "aacbde57-6952-407d-8388-a62230b06c0b",
+        "order": 1,
+        "inputTemplate": "Com base na correção proposta abaixo, crie testes de regressão que cubram o cenário do bug e cenários relacionados. Verifique se a correção não introduz novos problemas. Correção: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "44fc4194-fc4b-481e-8b22-38ec9bbb9ecf",
+        "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+        "order": 2,
+        "inputTemplate": "Verifique se a correção de bug e os testes abaixo não introduzem vulnerabilidades de segurança. Analise se o bug original tinha implicações de segurança. Correção e testes: {{input}}",
+        "description": ""
+      }
+    ],
+    "status": "active",
+    "created_at": "2026-02-26T03:32:06.849Z",
+    "updated_at": "2026-02-26T03:32:06.849Z"
+  },
+  {
+    "id": "ce04edc0-64e7-460c-964e-9a06e3954d59",
+    "name": "Pipeline de Otimização de Performance",
+    "description": "Pipeline para identificar e resolver problemas de performance: análise de banco de dados, otimização de código backend e frontend, caching e monitoramento.",
+    "steps": [
+      {
+        "id": "107b4ac9-c600-4dbf-aeda-530c78dac864",
+        "agentId": "7a9b05ab-3f87-4e70-9394-14fda4136d59",
+        "order": 0,
+        "inputTemplate": "Analise as queries e o schema do banco de dados relacionados ao problema de performance abaixo. Identifique queries lentas, índices faltantes, N+1 problems e sugira otimizações com EXPLAIN ANALYZE. Problema: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "01c0a13b-8c2f-4b16-adb3-71f2d53ef497",
+        "agentId": "4212b6b0-f519-41dc-891d-0c8b4a8f6843",
+        "order": 1,
+        "inputTemplate": "Com base nas otimizações de banco sugeridas, otimize o código backend: implemente caching com Redis, otimize algoritmos, reduza chamadas de rede e melhore o uso de recursos. Otimizações DB: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "89459a69-6b09-4bef-b422-647472b42dbb",
+        "agentId": "a763246a-f411-4895-aa0d-8324af490d2e",
+        "order": 2,
+        "inputTemplate": "Otimize o frontend para melhor performance: implemente lazy loading, code splitting, memoização, virtualização de listas longas e otimize re-renders. Analise o bundle size. Contexto: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "7e65b80f-e652-4ad3-a1fd-0971950c64a3",
+        "agentId": "7075eeef-1f11-441b-9a18-e5a715f28099",
+        "order": 3,
+        "inputTemplate": "Configure monitoramento de performance para as otimizações implementadas: dashboards no Grafana, alertas de latência, métricas de throughput e configuração de auto-scaling. Otimizações realizadas: {{input}}",
+        "description": ""
+      }
+    ],
+    "status": "active",
+    "created_at": "2026-02-26T03:32:06.852Z",
+    "updated_at": "2026-02-26T03:32:06.852Z"
+  },
+  {
+    "id": "6e698339-f089-4b5d-aedb-8bb2e4f6bb21",
+    "name": "Pipeline de Deploy para Produção",
+    "description": "Pipeline completo de preparação e execução de deploy: checklist de pré-deploy, configuração de infraestrutura, estratégia de rollback e monitoramento pós-deploy.",
+    "steps": [
+      {
+        "id": "5d218cf9-507a-42b9-9d0f-4dfe4a2d1b71",
+        "agentId": "aacbde57-6952-407d-8388-a62230b06c0b",
+        "order": 0,
+        "inputTemplate": "Execute o checklist de pré-deploy: verifique se todos os testes passam, valide a cobertura mínima, execute smoke tests e confirme que não há regressões. Gere relatório de go/no-go. Release: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "7894833e-8272-4259-9f12-8f0103306bb3",
+        "agentId": "d026be9f-0b16-492e-9e3c-833f839f6d72",
+        "order": 1,
+        "inputTemplate": "Realize verificação de segurança pré-deploy: scan de vulnerabilidades em dependências, verificação de secrets, análise de configurações de produção e checklist OWASP. Relatório QA: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "0640c41a-61e1-4d80-bd16-64f4947955a8",
+        "agentId": "7075eeef-1f11-441b-9a18-e5a715f28099",
+        "order": 2,
+        "inputTemplate": "Prepare a infraestrutura para o deploy: configure blue-green deployment, prepare scripts de rollback, atualize configurações de produção e configure health checks. Relatórios anteriores: {{input}}",
+        "description": ""
+      },
+      {
+        "id": "f98508bd-476b-4339-b114-4ae812ce0bd0",
+        "agentId": "7075eeef-1f11-441b-9a18-e5a715f28099",
+        "order": 3,
+        "inputTemplate": "Configure monitoramento pós-deploy: alertas de error rate, latência p99, dashboards de KPIs, log aggregation e runbook de incidentes. Defina critérios de rollback automático. Deploy info: {{input}}",
+        "description": ""
+      }
+    ],
+    "status": "active",
+    "created_at": "2026-02-26T03:32:06.855Z",
+    "updated_at": "2026-02-26T03:32:06.855Z"
+  },
+  {
+    "id": "18308362-793a-4fdd-b85c-a16bb41cf0c1",
+    "name": "Auto-Evolução do Sistema",
+    "description": "Pipeline completa de auto-melhoria: análise → planejamento → implementação backend → implementação frontend → validação. Os agentes trabalham em sequência, cada um recebendo o output do anterior.",
+    "steps": [
+      {
+        "id": "9fc6ac16-ad6e-4a3a-a1ea-a87bfe496b7c",
+        "agentId": "51202705-ce9d-4d96-acb5-00c6fe9d6b9e",
+        "order": 0,
+        "inputTemplate": "Analise o codebase do projeto em: {{input}}\n\nNavegue até o diretório, leia TODOS os arquivos principais e gere o relatório de análise conforme seu system prompt. Limite a saída a no máximo 3000 palavras. Inclua a seção META com caminho e nota.",
+        "description": "Análise de Código",
+        "requiresApproval": false
+      },
+      {
+        "id": "ec14ac5e-a82a-41df-9250-cead5600a8fc",
+        "agentId": "5f0be2a6-e549-44f7-8cc1-2a0634500321",
+        "order": 1,
+        "inputTemplate": "Relatório de análise:\n---\n{{input}}\n---\n\nExtraia o caminho do projeto da seção META. Navegue ao projeto, valide os achados e projete o plano de melhorias conforme seu system prompt.\n\nREGRAS CRÍTICAS:\n- Máximo 10 itens no plano\n- Cada item DEVE listar arquivos exatos a modificar\n- Cada item DEVE ter backend E frontend se aplicável\n- NUNCA proponha mudar defaults ou adicionar requisitos obrigatórios\n- Priorize: bugs > segurança > performance > UX > features novas",
+        "description": "Planejamento de Features",
+        "requiresApproval": true
+      },
+      {
+        "id": "472ac286-eee1-454e-9e5a-42678e91137b",
+        "agentId": "db116f20-f663-4d98-ab04-5ddeb09e2c0d",
+        "order": 2,
+        "inputTemplate": "Plano de implementação:\n---\n{{input}}\n---\n\nExtraia o caminho do projeto da seção META. Implemente APENAS os itens de BACKEND do plano.\n\nREGRAS INVIOLÁVEIS:\n- SÓ modifique arquivos de backend (server.js, src/**/*.js, package.json)\n- NUNCA toque no frontend (public/**)\n- NUNCA mude permissionMode, AUTH_TOKEN, ou outros defaults\n- NUNCA adicione dependências obrigatórias que quebrem o sistema se ausentes\n- Execute `node --check` em CADA arquivo modificado\n- Ao finalizar: inicie o servidor, teste com curl /api/health e pelo menos 3 endpoints afetados\n- Retorne o resumo conforme seu system prompt",
+        "description": "Implementação Backend",
+        "requiresApproval": true
+      },
+      {
+        "id": "5bcc2eab-6ba6-4586-b073-b7d2cc96f8e6",
+        "agentId": "7aad9f1c-fcbe-4c36-8cf4-26e8efed09c0",
+        "order": 3,
+        "inputTemplate": "Resumo do backend implementado + plano original:\n---\n{{input}}\n---\n\nExtraia o caminho do projeto da seção META. Implemente APENAS os itens de FRONTEND do plano.\n\nREGRAS INVIOLÁVEIS:\n- SÓ modifique arquivos do frontend (public/**)\n- NUNCA toque no backend (server.js, src/**)\n- Para cada rota criada pelo backend, implemente o client em api.js\n- SEMPRE chame Utils.refreshIcons() após inserir HTML dinâmico\n- SEMPRE escape conteúdo com Utils.escapeHtml()\n- Execute `node --check` em CADA arquivo modificado\n- Retorne o resumo conforme seu system prompt",
+        "description": "Implementação Frontend",
+        "requiresApproval": true
+      },
+      {
+        "id": "33daf19f-6ae1-410b-934b-c21e2d1c0c86",
+        "agentId": "e1e81038-d4cc-4772-a1cf-f1469e65351f",
+        "order": 4,
+        "inputTemplate": "Resumo das implementações:\n---\n{{input}}\n---\n\nExtraia o caminho do projeto da seção META. Execute a validação completa conforme seu system prompt:\n1. node --check em TODOS os .js\n2. Validar imports com node -e\n3. Iniciar servidor e testar health\n4. Testar TODOS os endpoints\n5. Verificar integração frontend-backend\n6. CORRIGIR qualquer problema encontrado\n7. Re-validar após correções\n\nRetorne o relatório de validação conforme seu system prompt.",
+        "description": "Validação e Integração",
+        "requiresApproval": true
+      }
+    ],
+    "status": "active",
+    "created_at": "2026-02-26T23:50:38.506Z",
+    "updated_at": "2026-02-27T04:56:19.540Z"
+  },
+  {
+    "id": "3a1cddd2-adc9-48da-b0dc-103a6b96af15",
+    "name": "Avaliação Completa de Sistema",
+    "description": "Pipeline completa de avaliação com 6 especialistas: Arquitetura → Segurança → Performance → Qualidade → Infraestrutura → Consolidação. Recebe o caminho do projeto como input. Nenhum arquivo é modificado.",
+    "steps": [
+      {
+        "id": "d455cc61-a4e3-492f-aa73-bd24c5cd4c51",
+        "agentId": "0f089f30-2776-48ec-a20b-e70b97e946a6",
+        "order": 0,
+        "inputTemplate": "Analise a ARQUITETURA do projeto localizado em: {{input}}\n\nNavegue até o diretório e faça sua análise completa. Siga o formato de saída do seu system prompt. Mantenha o relatório com no máximo 3000 palavras.",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "d886d627-2e1e-4a71-b1fc-b1d02cf4da76",
+        "agentId": "0b2b35c5-42c2-4ad5-8a4e-65370680e6f7",
+        "order": 1,
+        "inputTemplate": "Relatório anterior (Arquitetura):\n---\n{{input}}\n---\n\nExtraia o caminho do projeto da seção META acima. Analise a SEGURANÇA desse mesmo projeto. Use sudo se necessário. Siga o formato de saída do seu system prompt. Mantenha o relatório com no máximo 3000 palavras. Inclua a seção META com caminho e nota.",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "32d5acf9-6475-4b03-a6b4-f60024165ce7",
+        "agentId": "8c157f2d-fb99-4ccc-9feb-f8777d00ea10",
+        "order": 2,
+        "inputTemplate": "Relatórios anteriores:\n---\n{{input}}\n---\n\nExtraia o caminho do projeto da seção META acima. Analise a PERFORMANCE desse mesmo projeto. Siga o formato de saída do seu system prompt. Mantenha o relatório com no máximo 3000 palavras. Inclua a seção META com caminho e nota.",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "880a3c64-5897-4f63-8d7b-39f537390c7c",
+        "agentId": "5cbf86aa-c342-4d3e-8a73-3b4a700876d7",
+        "order": 3,
+        "inputTemplate": "Relatórios anteriores:\n---\n{{input}}\n---\n\nExtraia o caminho do projeto da seção META acima. Analise a QUALIDADE DO CÓDIGO desse mesmo projeto. Siga o formato de saída do seu system prompt. Mantenha o relatório com no máximo 3000 palavras. Inclua a seção META com caminho e nota.",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "c8b22cf4-04b5-4411-be7d-ba1e8b15053a",
+        "agentId": "a6540e40-1973-4c06-8214-047e353f7202",
+        "order": 4,
+        "inputTemplate": "Relatórios anteriores:\n---\n{{input}}\n---\n\nExtraia o caminho do projeto da seção META acima. Analise a INFRAESTRUTURA desse mesmo projeto. Use sudo para inspecionar Docker, systemd, portas, etc. Siga o formato de saída do seu system prompt. Mantenha o relatório com no máximo 3000 palavras. Inclua a seção META com caminho e nota.",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "00d165b1-0c07-4417-846e-c88f9d4f4386",
+        "agentId": "dafa71f1-4ad8-49d1-9e1d-ef8e591f537d",
+        "order": 5,
+        "inputTemplate": "Consolide TODOS os relatórios abaixo em um parecer técnico unificado:\n---\n{{input}}\n---\n\nExtraia as notas de cada seção META, calcule a nota ponderada, e gere o parecer final conforme o formato do seu system prompt.",
+        "description": "",
+        "requiresApproval": false
+      }
+    ],
+    "status": "active",
+    "created_at": "2026-02-27T02:34:57.004Z",
+    "updated_at": "2026-02-27T16:24:21.116Z"
+  },
+  {
+    "id": "8119e34c-3586-4ad9-b1cd-7ac47fc32b37",
+    "name": "Pipeline de Desenvolvimento",
+    "description": "Fluxo completo: Tech Lead → PO → Desenvolvedor → QA → Code Review → DevOps",
+    "steps": [
+      {
+        "id": "c5bf6a17-53c0-40dc-8673-d5de044d40a7",
+        "agentId": "927f157c-e005-4973-ae6a-21f29fd11a0f",
+        "order": 0,
+        "inputTemplate": "Analise a demanda a seguir e produza uma ESPECIFICAÇÃO TÉCNICA detalhada para o desenvolvedor.\n\n<demanda>\n{{input}}\n</demanda>\n\n<regras>\n- Você é o PO. Seu papel é PLANEJAR, não implementar.\n- NÃO escreva código. NÃO crie arquivos. NÃO use Write, Bash ou WebSearch.\n- Apenas LEIA o codebase existente (se houver) para entender o contexto.\n</regras>\n\n<formato_obrigatorio>\n## Resumo da Demanda\n[2-3 linhas descrevendo o que foi solicitado]\n\n## Diretório do Projeto\n[caminho completo do projeto, ex: /home/fred/projetos/meu-projeto]\n\n## User Stories\n- Como [persona], quero [funcionalidade] para [benefício]\n\n## Critérios de Aceite\n- [ ] [critério específico e testável]\n\n## Requisitos Técnicos\n- [stack, padrões, restrições]\n\n## Escopo\n### Incluído\n- [o que DEVE ser feito]\n### Excluído\n- [o que NÃO deve ser feito]\n\n## Pontos de Atenção\n- [riscos, dependências, edge cases]\n</formato_obrigatorio>",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "f6b9f9b4-cce6-4739-a8cd-be9420937a7d",
+        "agentId": "5c82ae64-4fcc-4299-ad5a-b8d55db1e951",
+        "order": 1,
+        "inputTemplate": "Implemente o código com base na especificação do Product Owner abaixo.\n\n<especificacao_po>\n{{input}}\n</especificacao_po>\n\n<instrucoes>\n- Extraia o diretório do projeto da especificação e trabalhe nele.\n- Siga os requisitos técnicos e critérios de aceite definidos pelo PO.\n- Implemente APENAS o que está no escopo.\n- Ao finalizar, produza o relatório abaixo (NÃO repita a especificação do PO).\n</instrucoes>\n\n<formato_obrigatorio>\n## Relatório de Implementação\n\n### Diretório do Projeto\n[caminho completo]\n\n### Arquivos Criados/Modificados\n| Arquivo | Ação | Descrição |\n|---------|------|-----------|\n| caminho/arquivo | criado/modificado | o que foi feito |\n\n### Decisões Técnicas\n- [decisão tomada e justificativa]\n\n### Como Testar\n- [passos para validar a implementação]\n\n### Pontos de Atenção para QA\n- [áreas que merecem teste especial]\n</formato_obrigatorio>",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "a47c9037-8460-4f8f-b04f-5c5f2cc91dc0",
+        "agentId": "61718d7b-f118-403c-8ba0-094b5c8ba733",
+        "order": 2,
+        "inputTemplate": "Realize testes de qualidade com base no relatório de implementação do Desenvolvedor.\n\n<relatorio_desenvolvedor>\n{{input}}\n</relatorio_desenvolvedor>\n\n<instrucoes>\n- Extraia o diretório do projeto do relatório.\n- Navegue até o projeto e LEIA os arquivos mencionados.\n- Valide cada critério de aceite e cada ponto de atenção.\n- Execute testes se possível (abrir no browser, rodar scripts, etc).\n- NÃO corrija bugs — apenas DOCUMENTE-OS.\n</instrucoes>\n\n<formato_obrigatorio>\n## Relatório de QA\n\n### Diretório do Projeto\n[caminho]\n\n### Resultado Geral\n[APROVADO / APROVADO COM RESSALVAS / REPROVADO]\n\n### Bugs Encontrados\n| # | Severidade | Descrição | Arquivo | Linha |\n|---|-----------|-----------|---------|-------|\n\n### Critérios de Aceite Validados\n- [x] ou [ ] [cada critério]\n\n### Observações e Recomendações\n- [notas adicionais]\n</formato_obrigatorio>",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "20c496b4-dc71-4258-994f-8aaf134dcd83",
+        "agentId": "3f1a5442-ffe9-461c-a8e1-2f7239a8f025",
+        "order": 3,
+        "inputTemplate": "Realize code review com base no relatório de QA e na implementação.\n\n<relatorio_qa>\n{{input}}\n</relatorio_qa>\n\n<instrucoes>\n- Extraia o diretório do projeto.\n- Navegue até o projeto e LEIA TODO o código dos arquivos mencionados.\n- Analise segurança, performance, qualidade e padrões.\n- NÃO corrija nada — apenas DOCUMENTE os problemas.\n</instrucoes>\n\n<formato_obrigatorio>\n## Code Review\n\n### Diretório do Projeto\n[caminho]\n\n### Veredicto\n[APROVADO / APROVADO COM RESSALVAS / REPROVADO]\n\n### Issues Encontradas\n| # | Severidade | Tipo | Arquivo | Descrição | Correção Sugerida |\n|---|-----------|------|---------|-----------|-------------------|\n\n### Aprovações\n- [o que está bem feito]\n\n### Correções Obrigatórias (para o Desenvolvedor)\n1. [correção específica com arquivo e o que fazer]\n2. [...]\n</formato_obrigatorio>",
+        "description": "",
+        "requiresApproval": false
+      },
+      {
+        "id": "c9e01b94-37db-42ad-b9f1-0205e97f7eab",
+        "agentId": "5c82ae64-4fcc-4299-ad5a-b8d55db1e951",
+        "order": 4,
+        "inputTemplate": "Aplique as correções apontadas pelo Code Reviewer abaixo.\n\n<code_review>\n{{input}}\n</code_review>\n\n<instrucoes>\n- Extraia o diretório do projeto e as correções obrigatórias do code review.\n- Aplique CADA correção listada na seção \"Correções Obrigatórias\".\n- Se o veredicto foi APROVADO, apenas confirme que não há pendências.\n- NÃO adicione features novas. Apenas corrija o que foi apontado.\n</instrucoes>\n\n<formato_obrigatorio>\n## Relatório de Correções\n\n### Correções Aplicadas\n| # | Issue | Arquivo | Status |\n|---|-------|---------|--------|\n| 1 | [descrição] | [arquivo] | Corrigido |\n\n### Verificação\n- [resultado dos testes após correções]\n\n### Status Final\n[Todas as correções aplicadas / Pendências restantes]\n</formato_obrigatorio>",
+        "description": "",
+        "requiresApproval": false
+      }
+    ],
+    "status": "active",
+    "created_at": "2026-02-27T17:19:39.329Z",
+    "updated_at": "2026-02-27T20:08:42.379Z"
+  }
+]
