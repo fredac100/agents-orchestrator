@@ -362,6 +362,7 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
   const model = agentConfig.model || 'claude-sonnet-4-6';
   const args = [
     '--resume', sessionId,
+    '-p', sanitizeText(message),
     '--output-format', 'stream-json',
     '--verbose',
     '--model', model,
@@ -378,7 +379,7 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
 
   const spawnOptions = {
     env: cleanEnv(),
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   };
 
   if (agentConfig.workingDirectory && agentConfig.workingDirectory.trim()) {
@@ -388,8 +389,6 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
   console.log(`[executor] Resumindo sessão: ${sessionId} | Execução: ${executionId}`);
 
   const child = spawn(CLAUDE_BIN, args, spawnOptions);
-  child.stdin.write(sanitizeText(message));
-  child.stdin.end();
 
   activeExecutions.set(executionId, {
     process: child,
