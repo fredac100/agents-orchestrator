@@ -37,14 +37,17 @@ router.post('/register', async (req, res) => {
     }
 
     const allUsers = usersStore.getAll();
-    const owner = allUsers.find(u => u.role === 'owner');
-    if (owner) {
-      const ownerPlan = getPlan(owner.plan);
-      const maxUsers = ownerPlan.limits.users;
-      if (maxUsers !== -1 && allUsers.length >= maxUsers) {
-        return res.status(403).json({
-          error: `Limite de ${maxUsers} usuário(s) no plano ${ownerPlan.name}. O administrador precisa fazer upgrade.`,
-        });
+    const isGateway = process.env.MODE === 'gateway';
+    if (!isGateway) {
+      const owner = allUsers.find(u => u.role === 'owner');
+      if (owner) {
+        const ownerPlan = getPlan(owner.plan);
+        const maxUsers = ownerPlan.limits.users;
+        if (maxUsers !== -1 && allUsers.length >= maxUsers) {
+          return res.status(403).json({
+            error: `Limite de ${maxUsers} usuário(s) no plano ${ownerPlan.name}. O administrador precisa fazer upgrade.`,
+          });
+        }
       }
     }
 
@@ -55,7 +58,7 @@ router.post('/register', async (req, res) => {
       name: name || email.split('@')[0],
       email: email.toLowerCase(),
       passwordHash,
-      role: isFirstUser ? 'owner' : 'member',
+      role: (isGateway || isFirstUser) ? 'owner' : 'member',
       plan: 'free',
       active: true,
       monthlyExecutions: 0,
