@@ -112,6 +112,12 @@ app.use(express.json({
   verify: (req, res, buf) => { req.rawBody = buf || Buffer.alloc(0); },
 }));
 app.use('/hook', hookLimiter, verifyWebhookSignature, hookRouter);
+
+// Serve o app diretamente na raiz — sem landing page intermediária
+app.get('/', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'app.html'));
+});
+
 app.use(express.static(join(__dirname, 'public'), {
   etag: true,
   setHeaders(res, filePath) {
