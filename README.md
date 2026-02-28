@@ -1,351 +1,373 @@
-# Agents Orchestrator
+<p align="center">
+  <img src="docs/logo.svg" alt="Agents Orchestrator" width="80" />
+</p>
 
-Painel administrativo web para orquestração de agentes [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Crie, configure e execute múltiplos agentes com diferentes personalidades, modelos e diretórios de trabalho — tudo a partir de uma interface visual profissional.
+<h1 align="center">Agents Orchestrator</h1>
 
-![Dashboard do Agents Orchestrator — visão geral com métricas, gráficos de execuções e custos, distribuição de status, ranking de agentes e taxa de sucesso](docs/dashboard.png)
+<p align="center">
+  <strong>Plataforma de orquestração de agentes IA com interface visual, pipelines automatizados e integração Git nativa.</strong>
+</p>
 
-## Acesso
+<p align="center">
+  <a href="https://agents.nitro-cloud.duckdns.org"><img src="https://img.shields.io/badge/demo-live-00d4aa?style=flat-square" alt="Live Demo" /></a>
+  <a href="https://git.nitro-cloud.duckdns.org/fred/agents-orchestrator"><img src="https://img.shields.io/badge/gitea-repo-6c40cc?style=flat-square" alt="Gitea" /></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" />
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License" />
+</p>
 
-| Recurso | URL |
-|---------|-----|
-| **Aplicação** | https://agents.nitro-cloud.duckdns.org |
-| **Repositório** | https://git.nitro-cloud.duckdns.org/fred/agents-orchestrator |
-| **Portal Nitro Cloud** | https://nitro-cloud.duckdns.org |
+<p align="center">
+  <a href="#visao-geral">Visao Geral</a> &bull;
+  <a href="#funcionalidades">Funcionalidades</a> &bull;
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#arquitetura">Arquitetura</a> &bull;
+  <a href="#api">API</a> &bull;
+  <a href="#deploy">Deploy</a>
+</p>
+
+---
+
+## Visao Geral
+
+Agents Orchestrator e uma plataforma web para criar, configurar e executar agentes [Claude Code](https://docs.anthropic.com/en/docs/claude-code) de forma visual. Projetada para equipes de desenvolvimento e profissionais que precisam orquestrar multiplos agentes IA com diferentes especialidades, executar pipelines de trabalho automatizados e integrar com repositorios Git — tudo a partir de um painel administrativo elegante.
+
+### Por que usar?
+
+| Problema | Solucao |
+|----------|---------|
+| Gerenciar multiplos agentes via CLI e tedioso | Interface visual com cards, filtros e execucao com 1 clique |
+| Saida do agente nao e visivel em tempo real | Terminal com streaming WebSocket chunk-a-chunk |
+| Automatizar fluxos sequenciais e complexo | Pipelines visuais com aprovacao humana entre passos |
+| Agentes nao tem acesso a repositorios remotos | Integracao Git nativa com clone, commit e push automatico |
+| Deploy manual e propenso a erros | `git deploy` — um comando faz tudo |
+
+---
 
 ## Funcionalidades
 
-### Gerenciamento de Agentes
-- Crie agentes com nome, system prompt, modelo (Sonnet/Opus/Haiku), diretório de trabalho, ferramentas permitidas, modo de permissão e tags
-- Ative, desative, edite, **duplique** ou exclua a qualquer momento
-- Exporte/importe configurações completas em JSON
+### Agentes
 
-### Catálogo de Tarefas
-- Crie e gerencie tarefas reutilizáveis com nome, categoria e descrição detalhada
-- Categorias: Code Review, Segurança, Refatoração, Testes, Documentação, Performance
-- Filtro por texto e categoria
-- Execute qualquer tarefa diretamente no agente escolhido
-- Cards com truncamento inteligente e tooltip com descrição completa
+- Criacao com system prompt, modelo (Sonnet/Opus/Haiku), diretorio de trabalho, ferramentas permitidas e modo de permissao
+- Tags para organizacao e filtragem
+- Duplicacao, importacao/exportacao JSON
+- Delegacao automatica entre agentes (Tech Lead → PO)
+- Agentes coordenadores recebem lista de agentes disponiveis injetada no prompt
 
-### Execução de Tarefas
-- Execute tarefas sob demanda em qualquer agente ativo
-- Templates rápidos incluídos (detecção de bugs, revisão OWASP, refatoração, testes, documentação, performance)
-- **Reexecute** tarefas que falharam ou foram canceladas com um clique
-- Continuação de conversa (resume session) no terminal
+### Execucao
 
-### Terminal em Tempo Real
-- Streaming chunk-a-chunk via WebSocket com indicador de conexão
-- **Botão Interromper** para cancelar todas as execuções ativas
-- **Busca** no output do terminal com navegação entre ocorrências
-- **Download** da saída completa como `.txt`
-- **Copiar** saída para a área de transferência
-- **Toggle de auto-scroll** para controle manual da rolagem
-- Filtro por execução
-
-### Dashboard com Gráficos
-- Métricas em tempo real (agentes, execuções, agendamentos, custo, webhooks)
-- **Gráfico de execuções** por dia (barras empilhadas sucesso/erro)
-- **Gráfico de custo** por dia (linha com área preenchida)
-- **Distribuição de status** (doughnut chart)
-- **Top 5 agentes** mais executados (barras horizontais)
-- **Taxa de sucesso** geral (gauge com percentual)
-- Seletor de período: 7, 14 ou 30 dias
-
-### Agendamento Cron
-- Agende tarefas recorrentes com expressões cron
-- Presets incluídos (horário, diário, semanal, mensal)
-- Histórico de execuções por agendamento com duração e custo
+- Modal de execucao com seletor de agente, tarefa, instrucoes adicionais e arquivos de contexto
+- **Seletor de repositorio Git** — escolha um repo do Gitea e o branch; o sistema clona/atualiza, executa e faz commit/push automatico
+- Templates rapidos: deteccao de bugs, revisao OWASP, refatoracao, testes, documentacao, performance
+- Retry automatico configuravel por agente
+- Continuacao de conversa (resume session)
+- Cancelamento individual ou em massa
 
 ### Pipelines
-- Encadeie múltiplos agentes em fluxos sequenciais
-- Saída de cada passo alimenta o próximo via template `{{input}}`
-- **Diretório de trabalho** configurável por pipeline (pré-preenchido com base path)
-- Portões de aprovação humana entre passos (human-in-the-loop)
-- **Retomar pipelines falhas** a partir do passo onde pararam
-- Ideal para fluxos como "analisar → corrigir → testar"
+
+- Encadeamento de multiplos agentes em fluxos sequenciais
+- Saida de cada passo alimenta o proximo via `{{input}}`
+- **Seletor de repositorio** — todos os passos trabalham no mesmo repo com commit automatico ao final
+- Portoes de aprovacao humana (human-in-the-loop)
+- Retomada de pipelines falhos a partir do passo onde pararam
+- Editor de fluxo visual com drag para reordenar passos
+
+### Terminal
+
+- Streaming em tempo real via WebSocket
+- Botao Interromper para cancelar execucoes ativas
+- Busca no output com navegacao entre ocorrencias
+- Download como `.txt` e copia para clipboard
+- Auto-scroll toggleavel
+
+### Integração Git
+
+- Listagem automatica de repositorios do Gitea
+- Seletor de branch dinamico
+- Clone/pull automatico antes da execucao
+- **Commit e push automatico** ao final com mensagem descritiva
+- Instrucao injetada para agentes nao fazerem operacoes git
+- Publicacao de projetos: cria repo, configura subdominio, deploy com 1 clique
+
+### Explorador de Arquivos
+
+- Navegacao em `/home/projetos/` com breadcrumb
+- Download de arquivos individuais ou pastas completas (.tar.gz)
+- Exclusao com confirmacao
+- Botao publicar em projetos — cria repo no Gitea, configura Caddy e faz deploy automatico em `projeto.nitro-cloud.duckdns.org`
+
+### Dashboard
+
+- Metricas em tempo real: agentes, execucoes, agendamentos, custo, webhooks
+- Graficos: execucoes por dia, custo diario, distribuicao de status, top 5 agentes, taxa de sucesso
+- Seletor de periodo: 7, 14 ou 30 dias
+
+### Catalogo de Tarefas
+
+- Tarefas reutilizaveis com nome, categoria e descricao
+- Categorias: Code Review, Seguranca, Refatoracao, Testes, Documentacao, Performance
+- Filtro por texto e categoria
+- Execucao direta a partir do catalogo
+
+### Agendamento Cron
+
+- Expressoes cron com presets (horario, diario, semanal, mensal)
+- Historico de execucoes por agendamento
+- Retry automatico em caso de limite de slots
 
 ### Webhooks
-- Dispare execuções de agentes ou pipelines via HTTP externo
-- **Edite** webhooks existentes (nome, alvo, status)
-- **Teste** webhooks com um clique para verificar configuração
-- Snippet cURL pronto para copiar
-- Assinatura HMAC-SHA256 para validação de origem
 
-### Notificações
-- **Centro de notificações** no header com badge de contagem
-- Notificações automáticas para execuções concluídas e com erro
-- **Notificações nativas do navegador** (Browser Notification API)
-- Marcar como lidas / limpar todas
-- Polling automático a cada 15 segundos
+- Disparo de execucoes via HTTP externo
+- Edicao, teste com 1 clique e snippet cURL
+- Assinatura HMAC-SHA256
 
-### Tema Claro/Escuro
-- Toggle de tema no header com transições suaves
-- Persistência da preferência em localStorage
-- Terminal mantém fundo escuro em ambos os temas
+### Notificacoes
 
-### Exportação de Dados
-- **Exportar histórico** de execuções como CSV (UTF-8 com BOM)
-- Exportar configuração de agentes em JSON
+- Centro de notificacoes com badge de contagem
+- Notificacoes nativas do navegador
+- Polling automatico a cada 15 segundos
 
-### Atalhos de Teclado
-| Tecla | Ação |
-|-------|------|
-| `1`–`9` | Navegar entre seções |
-| `N` | Novo agente |
-| `Esc` | Fechar modal |
+### Tema e UX
 
-## Deploy
+- Tema claro/escuro com transicao suave
+- Atalhos de teclado (`1`-`9` navegacao, `N` novo agente, `Esc` fechar modal)
+- Exportacao de historico como CSV
 
-A aplicação roda em container Docker na infraestrutura Nitro Cloud com HTTPS automático via Caddy + Let's Encrypt.
+---
 
-### Deploy automático (recomendado)
+## Quick Start
 
-Um único comando faz push e deploy completo:
+### Requisitos
+
+- Node.js >= 22
+- [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) instalado e autenticado
+
+### Execucao local
 
 ```bash
-git deploy
+git clone https://github.com/fredac100/agents-orchestrator.git
+cd agents-orchestrator
+npm install
+npm start
 ```
 
-O script `scripts/deploy.sh` executa automaticamente:
+Acesse `http://localhost:3000`.
 
-1. Push para GitHub (origin) e Gitea (nitro)
-2. Backup dos dados no VPS (`data-backup-YYYYMMDD-HHMMSS`)
-3. Sincronização via rsync (exclui `data/`, `.git`, `node_modules`)
-4. Correção de permissões do diretório de dados
-5. Rebuild do container Docker
-6. Verificação do container e integridade dos dados
-7. Limpeza de backups antigos (mantém os 3 mais recentes)
-
-Opções:
+### Com Docker
 
 ```bash
-git deploy                  # Push + deploy completo
-bash scripts/deploy.sh --skip-push   # Apenas deploy, sem push
+docker build -t agents-orchestrator .
+docker run -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  -v ~/.claude:/home/node/.claude \
+  agents-orchestrator
 ```
 
-## Variáveis de Ambiente
+---
 
-| Variável | Descrição | Padrão |
-|----------|-----------|--------|
-| `PORT` | Porta do servidor | `3000` |
-| `HOST` | Endereço de bind | `0.0.0.0` |
-| `AUTH_TOKEN` | Token Bearer para autenticação da API | _(desabilitado)_ |
-| `ALLOWED_ORIGIN` | Origin permitida para CORS | `https://agents.nitro-cloud.duckdns.org` |
-| `ALLOWED_DIRECTORIES` | Diretórios permitidos para working directory (CSV) | _(todos)_ |
-| `WEBHOOK_SECRET` | Segredo HMAC para assinatura de webhooks | _(desabilitado)_ |
-| `CLAUDE_BIN` | Caminho para o binário do Claude CLI | _(auto-detectado)_ |
-| `REDIS_URL` | URL do Redis para cache L2 (opcional) | _(somente memória)_ |
-
-## Como Funciona
-
-### Criando um agente
-
-1. Acesse https://agents.nitro-cloud.duckdns.org
-2. Clique em **Novo Agente** no header ou na seção Agentes
-3. Configure nome, system prompt, modelo e diretório de trabalho
-4. Salve — o agente aparecerá como card na listagem
-
-### Executando uma tarefa
-
-1. No card do agente, clique em **Executar**
-2. Descreva a tarefa ou use um template rápido
-3. Opcionalmente adicione instruções extras
-4. A execução inicia e o terminal abre automaticamente com streaming da saída
-
-### Criando um pipeline
-
-1. Vá em **Pipelines** → **Novo Pipeline**
-2. Adicione pelo menos 2 passos, selecionando um agente para cada
-3. Opcionalmente defina um template de input usando `{{input}}` para referenciar a saída do passo anterior
-4. Marque passos que requerem aprovação humana antes de prosseguir
-5. Execute o pipeline fornecendo o input inicial
-
-### Agendando uma tarefa
-
-1. Vá em **Agendamentos** → **Novo Agendamento**
-2. Selecione o agente, descreva a tarefa e defina a expressão cron
-3. A tarefa será executada automaticamente nos horários configurados
-
-## Infraestrutura
+## Arquitetura
 
 ```
-Cliente (navegador)
-    │
-    ▼ HTTPS (porta 443)
-  Caddy (reverse proxy + SSL automático)
-    │
-    ▼ agents.nitro-cloud.duckdns.org
-  Container Docker (agents-orchestrator)
-    │
-    ├── Express (HTTP API + arquivos estáticos)
-    └── WebSocket (streaming em tempo real)
+                    HTTPS (443)
+                        |
+                     [Caddy]  ─── SSL automatico via DuckDNS
+                        |
+              *.nitro-cloud.duckdns.org
+                        |
+         ┌──────────────┼──────────────┐
+         |              |              |
+    [agents.*]    [git.*]    [projeto.*]
+         |              |              |
+  ┌──────┴──────┐   [Gitea]    [Caddy file_server]
+  |             |
+[Express]  [WebSocket]
+  |             |
+  ├── API REST (40+ endpoints)
+  ├── Manager (CRUD + orquestracao)
+  ├── Executor (spawn claude CLI)
+  ├── Pipeline (sequencial + aprovacao)
+  ├── Scheduler (cron jobs)
+  ├── Git Integration (clone/pull/commit/push)
+  └── Store (JSON com escrita atomica)
 ```
 
-### Arquitetura Interna
+### Estrutura do Projeto
 
 ```
-server.js                     Express + WebSocket + rate limiting + auth
+server.js                        HTTP + WebSocket + rate limiting + auth
 src/
-  routes/api.js               API REST (/api/*) — 30+ endpoints
+  routes/api.js                  API REST — 40+ endpoints
   agents/
-    manager.js                CRUD + orquestração + notificações
-    executor.js               Spawna o CLI claude como child_process
-    scheduler.js              Agendamento cron (in-memory + persistido)
-    pipeline.js               Execução sequencial com aprovação humana
-  store/db.js                 Persistência em JSON com escrita atômica
-  cache/index.js              Cache em 2 níveis (memória + Redis opcional)
+    manager.js                   CRUD + orquestracao + delegacao
+    executor.js                  Spawna o CLI claude como child_process
+    scheduler.js                 Agendamento cron
+    pipeline.js                  Execucao sequencial + aprovacao humana
+    git-integration.js           Clone, pull, commit, push automatico
+  store/db.js                    Persistencia JSON com escrita atomica
+  cache/index.js                 Cache L1 (memoria) + L2 (Redis opcional)
+  reports/generator.js           Geracao de relatorios de execucao
 public/
-  index.html                  SPA single-page com hash routing
-  css/styles.css              Design system (dark/light themes)
+  app.html                       SPA com hash routing
+  css/styles.css                 Design system (dark/light)
   js/
-    app.js                    Controlador principal + WebSocket + tema + routing
-    api.js                    Client HTTP para a API
-    components/               UI por seção (15 módulos)
-data/
-  agents.json                 Agentes cadastrados
-  tasks.json                  Templates de tarefas
-  pipelines.json              Pipelines configurados
-  schedules.json              Agendamentos persistidos
-  executions.json             Histórico de execuções (max 5000)
-  webhooks.json               Configuração de webhooks
-  notifications.json          Notificações do sistema
-  settings.json               Configurações globais
+    app.js                       Controlador principal + WebSocket
+    api.js                       Client HTTP para a API
+    components/                  16 modulos UI independentes
+scripts/
+  deploy.sh                      Deploy automatizado via rsync + Docker
+data/                            Persistencia em JSON (8 stores)
 ```
 
-O executor invoca o binário `claude` com `--output-format stream-json`, parseia o stdout linha a linha e transmite os chunks via WebSocket para o frontend em tempo real.
+---
 
-## API REST
+## API
 
 ### Agentes
 
-| Método | Endpoint | Descrição |
+| Metodo | Endpoint | Descricao |
 |--------|----------|-----------|
 | `GET` | `/api/agents` | Listar agentes |
 | `POST` | `/api/agents` | Criar agente |
 | `GET` | `/api/agents/:id` | Obter agente |
 | `PUT` | `/api/agents/:id` | Atualizar agente |
 | `DELETE` | `/api/agents/:id` | Excluir agente |
-| `POST` | `/api/agents/:id/execute` | Executar tarefa no agente |
-| `POST` | `/api/agents/:id/continue` | Continuar conversa (resume) |
-| `POST` | `/api/agents/:id/cancel/:execId` | Cancelar execução |
-| `GET` | `/api/agents/:id/export` | Exportar agente (JSON) |
+| `POST` | `/api/agents/:id/execute` | Executar tarefa (aceita `repoName` e `repoBranch`) |
+| `POST` | `/api/agents/:id/continue` | Continuar conversa |
+| `POST` | `/api/agents/:id/cancel/:execId` | Cancelar execucao |
+| `GET` | `/api/agents/:id/export` | Exportar agente |
 | `POST` | `/api/agents/:id/duplicate` | Duplicar agente |
-
-### Tarefas
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/api/tasks` | Listar tarefas |
-| `POST` | `/api/tasks` | Criar tarefa |
-| `PUT` | `/api/tasks/:id` | Atualizar tarefa |
-| `DELETE` | `/api/tasks/:id` | Excluir tarefa |
-
-### Agendamentos
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/api/schedules` | Listar agendamentos |
-| `POST` | `/api/schedules` | Criar agendamento |
-| `PUT` | `/api/schedules/:taskId` | Atualizar agendamento |
-| `DELETE` | `/api/schedules/:taskId` | Remover agendamento |
-| `GET` | `/api/schedules/history` | Histórico de execuções agendadas |
 
 ### Pipelines
 
-| Método | Endpoint | Descrição |
+| Metodo | Endpoint | Descricao |
 |--------|----------|-----------|
 | `GET` | `/api/pipelines` | Listar pipelines |
 | `POST` | `/api/pipelines` | Criar pipeline |
-| `GET` | `/api/pipelines/:id` | Obter pipeline |
-| `PUT` | `/api/pipelines/:id` | Atualizar pipeline |
-| `DELETE` | `/api/pipelines/:id` | Excluir pipeline |
-| `POST` | `/api/pipelines/:id/execute` | Executar pipeline |
-| `POST` | `/api/pipelines/:id/cancel` | Cancelar pipeline |
+| `POST` | `/api/pipelines/:id/execute` | Executar (aceita `repoName` e `repoBranch`) |
 | `POST` | `/api/pipelines/:id/approve` | Aprovar passo pendente |
-| `POST` | `/api/pipelines/:id/reject` | Rejeitar passo pendente |
-| `POST` | `/api/pipelines/resume/:execId` | Retomar pipeline falha |
+| `POST` | `/api/pipelines/:id/reject` | Rejeitar passo |
+| `POST` | `/api/pipelines/resume/:execId` | Retomar pipeline falho |
 
-### Webhooks
+### Repositorios
 
-| Método | Endpoint | Descrição |
+| Metodo | Endpoint | Descricao |
 |--------|----------|-----------|
-| `GET` | `/api/webhooks` | Listar webhooks |
-| `POST` | `/api/webhooks` | Criar webhook |
-| `PUT` | `/api/webhooks/:id` | Atualizar webhook |
-| `DELETE` | `/api/webhooks/:id` | Excluir webhook |
-| `POST` | `/api/webhooks/:id/test` | Testar webhook |
+| `GET` | `/api/repos` | Listar repositorios do Gitea |
+| `GET` | `/api/repos/:name/branches` | Listar branches de um repo |
 
-### Execuções e Histórico
+### Arquivos e Publicacao
 
-| Método | Endpoint | Descrição |
+| Metodo | Endpoint | Descricao |
 |--------|----------|-----------|
-| `GET` | `/api/executions/active` | Execuções em andamento |
-| `GET` | `/api/executions/history` | Histórico paginado com filtros |
-| `GET` | `/api/executions/recent` | Execuções recentes |
-| `GET` | `/api/executions/export` | Exportar histórico como CSV |
-| `GET` | `/api/executions/:id` | Detalhes de uma execução |
-| `DELETE` | `/api/executions/:id` | Excluir execução do histórico |
-| `POST` | `/api/executions/:id/retry` | Reexecutar execução falha |
-| `POST` | `/api/executions/cancel-all` | Cancelar todas as execuções ativas |
-| `DELETE` | `/api/executions` | Limpar histórico |
-
-### Notificações
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `GET` | `/api/notifications` | Listar notificações |
-| `POST` | `/api/notifications/:id/read` | Marcar como lida |
-| `POST` | `/api/notifications/read-all` | Marcar todas como lidas |
-| `DELETE` | `/api/notifications` | Limpar notificações |
+| `GET` | `/api/files` | Listar diretorio |
+| `GET` | `/api/files/download` | Download de arquivo |
+| `GET` | `/api/files/download-folder` | Download de pasta (.tar.gz) |
+| `DELETE` | `/api/files` | Excluir arquivo ou pasta |
+| `POST` | `/api/files/publish` | Publicar projeto (repo + deploy + subdominio) |
 
 ### Sistema
 
-| Método | Endpoint | Descrição |
+| Metodo | Endpoint | Descricao |
 |--------|----------|-----------|
-| `GET` | `/api/health` | Health check (sem auth) |
-| `GET` | `/api/system/status` | Status geral do sistema |
-| `GET` | `/api/system/info` | Informações do servidor |
-| `GET` | `/api/stats/costs` | Estatísticas de custo |
-| `GET` | `/api/stats/charts` | Dados para gráficos do dashboard |
-| `GET/PUT` | `/api/settings` | Configurações globais |
+| `GET` | `/api/health` | Health check |
+| `GET` | `/api/system/status` | Status geral |
+| `GET` | `/api/stats/costs` | Estatisticas de custo |
+| `GET` | `/api/stats/charts` | Dados para graficos |
+
+---
+
+## Deploy
+
+### Deploy automatico
+
+```bash
+git deploy
+```
+
+O alias executa `scripts/deploy.sh` que automaticamente:
+
+1. Push para GitHub e Gitea
+2. Backup dos dados no VPS
+3. Sincronizacao via rsync
+4. Correcao de permissoes
+5. Rebuild do container Docker
+6. Verificacao de integridade
+7. Limpeza de backups antigos (mantem 3)
+
+```bash
+# Apenas deploy sem push
+bash scripts/deploy.sh --skip-push
+```
+
+### Variaveis de Ambiente
+
+| Variavel | Descricao | Padrao |
+|----------|-----------|--------|
+| `PORT` | Porta do servidor | `3000` |
+| `HOST` | Endereco de bind | `0.0.0.0` |
+| `AUTH_TOKEN` | Bearer token para auth da API | _(desabilitado)_ |
+| `ALLOWED_ORIGIN` | Origin para CORS | `http://localhost:3000` |
+| `WEBHOOK_SECRET` | Segredo HMAC para webhooks | _(desabilitado)_ |
+| `GITEA_URL` | URL interna do Gitea | `http://gitea:3000` |
+| `GITEA_USER` | Usuario do Gitea | `fred` |
+| `GITEA_PASS` | Senha do Gitea | _(obrigatorio para Git)_ |
+| `DOMAIN` | Dominio base para subdominios | `nitro-cloud.duckdns.org` |
+| `CLAUDE_BIN` | Caminho do CLI Claude | _(auto-detectado)_ |
+| `REDIS_URL` | Redis para cache L2 | _(somente memoria)_ |
+
+---
+
+## Seguranca
+
+- HTTPS via Caddy com certificado wildcard Let's Encrypt
+- Autenticacao Bearer token com timing-safe comparison
+- Rate limiting: 100 req/min (API), 30 req/min (webhooks)
+- CORS restrito a origin configurada
+- Correlation IDs em todas as requisicoes
+- Escrita atomica em disco (temp + rename)
+- Sanitizacao de prompts (NUL, controle, limite 50K chars)
+- HMAC-SHA256 para webhooks recebidos
+- Protecao contra path traversal no file explorer
+
+---
 
 ## Eventos WebSocket
 
-O servidor envia eventos tipados via WebSocket que o frontend renderiza no terminal:
-
-| Evento | Descrição |
+| Evento | Descricao |
 |--------|-----------|
-| `execution_output` | Chunk de texto da saída do agente |
-| `execution_complete` | Execução finalizada com resultado |
-| `execution_error` | Erro durante execução |
-| `pipeline_step_start` | Início de um passo do pipeline |
-| `pipeline_step_complete` | Passo do pipeline concluído |
+| `execution_output` | Chunk de saida do agente |
+| `execution_complete` | Execucao finalizada |
+| `execution_error` | Erro durante execucao |
+| `execution_retry` | Tentativa de retry |
+| `pipeline_step_start` | Inicio de passo |
+| `pipeline_step_complete` | Passo concluido |
 | `pipeline_complete` | Pipeline finalizado |
-| `pipeline_error` | Erro em um passo do pipeline |
-| `pipeline_approval_required` | Passo aguardando aprovação humana |
+| `pipeline_error` | Erro no pipeline |
+| `pipeline_approval_required` | Aguardando aprovacao humana |
+| `report_generated` | Relatorio gerado |
 
-## Segurança
-
-- **HTTPS** via Caddy com certificado Let's Encrypt automático
-- **Autenticação** via Bearer token (variável `AUTH_TOKEN`)
-- **Rate limiting** — 100 requisições por minuto por IP
-- **CORS** restrito à origin configurada
-- **Timing-safe comparison** para tokens de autenticação e webhooks
-- **Correlation IDs** em todas as requisições para rastreabilidade
-- **Escrita atômica** em disco (temp + rename) para integridade de dados
-- **Sanitização** de prompts (NUL, caracteres de controle, limite de 50.000 chars)
-- **Assinatura HMAC-SHA256** para webhooks recebidos
+---
 
 ## Stack
 
-- **Backend**: Node.js, Express, WebSocket (ws), node-cron, uuid, express-rate-limit
-- **Frontend**: HTML, CSS, JavaScript vanilla (sem framework, sem bundler)
-- **Gráficos**: Chart.js 4.x
-- **Ícones**: Lucide
-- **Fontes**: Inter (UI), JetBrains Mono (código/terminal)
-- **Persistência**: Arquivos JSON em disco com escrita atômica
-- **Cache**: In-memory com suporte opcional a Redis (ioredis)
-- **Infraestrutura**: Docker + Caddy + DuckDNS + Let's Encrypt
+| Camada | Tecnologias |
+|--------|-------------|
+| **Backend** | Node.js 22, Express, WebSocket (ws), node-cron, uuid |
+| **Frontend** | HTML, CSS, JavaScript vanilla — sem framework, sem bundler |
+| **Graficos** | Chart.js 4.x |
+| **Icones** | Lucide |
+| **Fontes** | Inter (UI), JetBrains Mono (terminal) |
+| **Persistencia** | JSON em disco com escrita atomica |
+| **Cache** | In-memory + Redis opcional (ioredis) |
+| **Infra** | Docker, Caddy, DuckDNS, Let's Encrypt |
+| **Git** | Gitea (self-hosted) |
 
-## Licença
+---
+
+## Licenca
 
 MIT
+
+---
+
+<p align="center">
+  <sub>Desenvolvido por <a href="https://nitro-cloud.duckdns.org">Nitro Cloud</a></sub>
+</p>
