@@ -1436,10 +1436,17 @@ router.post('/projects/import', async (req, res) => {
     const projectsDir = '/home/projetos';
     const targetDir = join(projectsDir, sanitizedName);
     if (existsSync(targetDir)) {
-      await exec(`git remote set-url origin "${repoUrl}"`, targetDir);
-      await exec('git fetch origin', targetDir);
-      await exec('git reset --hard origin/main', targetDir);
-      steps.push('Projeto atualizado em /home/projetos/');
+      try {
+        await exec('git rev-parse --git-dir', targetDir);
+        await exec(`git remote set-url origin "${repoUrl}"`, targetDir);
+        await exec('git fetch origin', targetDir);
+        await exec('git reset --hard origin/main', targetDir);
+        steps.push('Projeto atualizado em /home/projetos/');
+      } catch {
+        rmSync(targetDir, { recursive: true, force: true });
+        await exec(`git clone "${repoUrl}" "${targetDir}"`, projectsDir);
+        steps.push('Diretório anterior removido e projeto clonado em /home/projetos/');
+      }
     } else {
       await exec(`git clone "${repoUrl}" "${targetDir}"`, projectsDir);
       steps.push('Projeto clonado em /home/projetos/');
@@ -1536,10 +1543,17 @@ router.post('/projects/upload', (req, res, next) => {
     const projectsDir = '/home/projetos';
     const targetDir = join(projectsDir, repoName);
     if (existsSync(targetDir)) {
-      await exec(`git remote set-url origin "${repoUrl}"`, targetDir);
-      await exec('git fetch origin', targetDir);
-      await exec('git reset --hard origin/main', targetDir);
-      steps.push('Projeto atualizado em /home/projetos/');
+      try {
+        await exec('git rev-parse --git-dir', targetDir);
+        await exec(`git remote set-url origin "${repoUrl}"`, targetDir);
+        await exec('git fetch origin', targetDir);
+        await exec('git reset --hard origin/main', targetDir);
+        steps.push('Projeto atualizado em /home/projetos/');
+      } catch {
+        rmSync(targetDir, { recursive: true, force: true });
+        await exec(`git clone "${repoUrl}" "${targetDir}"`, projectsDir);
+        steps.push('Diretório anterior removido e projeto clonado em /home/projetos/');
+      }
     } else {
       await exec(`git clone "${repoUrl}" "${targetDir}"`, projectsDir);
       steps.push('Projeto clonado em /home/projetos/');
