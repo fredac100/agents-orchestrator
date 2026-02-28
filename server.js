@@ -107,6 +107,17 @@ app.use('/api/auth', (req, res, next) => {
 });
 
 if (MODE === 'worker') {
+  app.get('/api/internal/stats', (req, res) => {
+    const users = usersStore.getAll();
+    const user = users[0];
+    res.json({
+      agents: agentsStore.count(),
+      pipelines: pipelinesStore.count(),
+      webhooks: webhooksStore.count(),
+      executionsPerMonth: user?.monthlyExecutions || 0,
+    });
+  });
+
   app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/auth')) return next();
 
@@ -133,17 +144,6 @@ if (MODE === 'worker') {
 
     req.user = user;
     next();
-  });
-
-  app.get('/api/internal/stats', (req, res) => {
-    const users = usersStore.getAll();
-    const user = users[0];
-    res.json({
-      agents: agentsStore.count(),
-      pipelines: pipelinesStore.count(),
-      webhooks: webhooksStore.count(),
-      executionsPerMonth: user?.monthlyExecutions || 0,
-    });
   });
 } else {
   app.use('/api', (req, res, next) => {
