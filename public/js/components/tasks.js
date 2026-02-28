@@ -68,7 +68,7 @@ const TasksUI = {
           <h4 class="task-card-name">${Utils.escapeHtml(task.name)}</h4>
           <span class="badge ${categoryClass}">${Utils.escapeHtml(categoryLabel)}</span>
         </div>
-        ${task.description ? `<p class="task-card-description" title="${Utils.escapeHtml(task.description)}">${Utils.escapeHtml(task.description.length > 120 ? task.description.slice(0, 120) + '…' : task.description)}</p>` : ''}
+        ${task.description ? `<p class="task-card-description" title="${Utils.escapeHtml(task.description)}">${Utils.escapeHtml(task.description.length > 240 ? task.description.slice(0, 240) + '…' : task.description)}</p>` : ''}
         <div class="task-card-footer">
           <span class="task-card-date">
             <i data-lucide="calendar"></i>

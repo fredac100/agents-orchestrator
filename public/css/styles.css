@@ -3364,9 +3364,6 @@ tbody tr:hover td {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .task-card-description {
@@ -3374,13 +3371,13 @@ tbody tr:hover td {
   color: var(--text-secondary);
   line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  max-height: 3em;
 }
 
 .task-card-footer {
+  margin-top: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
