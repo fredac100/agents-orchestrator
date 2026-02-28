@@ -180,6 +180,9 @@ const AgentsUI = {
     const maxTurns = document.getElementById('agent-max-turns');
     if (maxTurns) maxTurns.value = '0';
 
+    const workdir = document.getElementById('agent-workdir');
+    if (workdir) workdir.value = '/home/projetos/';
+
     const permissionMode = document.getElementById('agent-permission-mode');
     if (permissionMode) permissionMode.value = '';
 
