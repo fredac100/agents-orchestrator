@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import authRouter from './src/routes/auth.js';
 import { authMiddleware, verifyWsToken } from './src/auth/middleware.js';
 import { ContainerManager } from './src/gateway/container-manager.js';
+import { initOracleUsers } from './src/store/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -217,8 +218,27 @@ process.on('unhandledRejection', (reason) => {
 
 containerManager.startIdleCleanup();
 
-httpServer.listen(PORT, HOST, () => {
-  console.log(`[gateway] Gateway rodando em http://${HOST}:${PORT}`);
-  console.log(`[gateway] Imagem: ${containerManager.image} | Rede: ${containerManager.network}`);
-  console.log(`[gateway] Idle timeout: ${containerManager.idleTimeoutMin} min`);
-});
+const ORACLE_CONNECT = process.env.ORACLE_CONNECT_STRING || '';
+
+async function start() {
+  if (ORACLE_CONNECT) {
+    try {
+      await initOracleUsers({
+        user: process.env.ORACLE_USER || 'local123',
+        password: process.env.ORACLE_PASSWORD || 'local123',
+        connectString: ORACLE_CONNECT,
+      });
+      console.log('[gateway] Autenticação persistida no Oracle');
+    } catch (err) {
+      console.error('[gateway] Falha ao conectar Oracle, usando JSON fallback:', err.message);
+    }
+  }
+
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`[gateway] Gateway rodando em http://${HOST}:${PORT}`);
+    console.log(`[gateway] Imagem: ${containerManager.image} | Rede: ${containerManager.network}`);
+    console.log(`[gateway] Idle timeout: ${containerManager.idleTimeoutMin} min`);
+  });
+}
+
+start();

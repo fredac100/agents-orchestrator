@@ -240,4 +240,23 @@ export const secretsStore = createStore(`${DATA_DIR}/secrets.json`);
 export const notificationsStore = createStore(`${DATA_DIR}/notifications.json`);
 notificationsStore.setMaxSize(200);
 export const agentVersionsStore = createStore(`${DATA_DIR}/agent_versions.json`);
-export const usersStore = createStore(`${DATA_DIR}/users.json`);
+let _usersImpl = createStore(`${DATA_DIR}/users.json`);
+
+export const usersStore = {
+  getAll: (...a) => _usersImpl.getAll(...a),
+  getById: (...a) => _usersImpl.getById(...a),
+  findById: (...a) => _usersImpl.findById(...a),
+  count: (...a) => _usersImpl.count(...a),
+  filter: (...a) => _usersImpl.filter(...a),
+  create: (...a) => _usersImpl.create(...a),
+  update: (...a) => _usersImpl.update(...a),
+  delete: (...a) => _usersImpl.delete(...a),
+  save: (...a) => _usersImpl.save(...a),
+  flush: (...a) => _usersImpl.flush(...a),
+  setMaxSize: (...a) => _usersImpl.setMaxSize?.(...a),
+};
+
+export async function initOracleUsers(config) {
+  const { createOracleUsersStore } = await import('./oracle-users.js');
+  _usersImpl = await createOracleUsersStore(config);
+}
