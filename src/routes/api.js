@@ -11,7 +11,7 @@ import * as pipeline from '../agents/pipeline.js';
 import { getBinPath, updateMaxConcurrent, cancelAllExecutions, getActiveExecutions } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
-import { readdirSync, readFileSync, unlinkSync, existsSync, mkdirSync, statSync, createReadStream, rmSync } from 'fs';
+import { readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync, statSync, createReadStream, rmSync } from 'fs';
 import { join, dirname, resolve as pathResolve, extname, basename, relative } from 'path';
 import { createGzip } from 'zlib';
 import { Readable } from 'stream';
@@ -1157,6 +1157,147 @@ router.delete('/files', (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/files/publish', async (req, res) => {
+  const { path: projectPath } = req.body;
+  if (!projectPath) return res.status(400).json({ error: 'path é obrigatório' });
+
+  const targetPath = resolveProjectPath(projectPath);
+  if (!targetPath) return res.status(400).json({ error: 'Caminho inválido' });
+  if (!existsSync(targetPath)) return res.status(404).json({ error: 'Projeto não encontrado' });
+  if (!statSync(targetPath).isDirectory()) return res.status(400).json({ error: 'Caminho não é uma pasta' });
+
+  const projectName = basename(targetPath).toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const GITEA_URL = process.env.GITEA_URL || 'http://gitea:3000';
+  const GITEA_USER = process.env.GITEA_USER || 'fred';
+  const GITEA_PASS = process.env.GITEA_PASS || '';
+  const DOMAIN = process.env.DOMAIN || 'nitro-cloud.duckdns.org';
+  const VPS_COMPOSE_DIR = process.env.VPS_COMPOSE_DIR || '/vps';
+
+  if (!GITEA_PASS) return res.status(500).json({ error: 'GITEA_PASS não configurado no servidor' });
+
+  const exec = (cmd, opts = {}) => new Promise((resolve, reject) => {
+    const proc = spawnProcess('sh', ['-c', cmd], { cwd: opts.cwd || targetPath, env: { ...process.env, HOME: '/tmp', GIT_TERMINAL_PROMPT: '0' } });
+    let stdout = '', stderr = '';
+    proc.stdout.on('data', d => stdout += d);
+    proc.stderr.on('data', d => stderr += d);
+    proc.on('close', code => code === 0 ? resolve(stdout.trim()) : reject(new Error(stderr.trim() || `exit ${code}`)));
+  });
+
+  const steps = [];
+
+  try {
+    const authUrl = `${GITEA_URL.replace('://', `://${GITEA_USER}:${GITEA_PASS}@`)}`;
+    const repoApiUrl = `${GITEA_URL}/api/v1/repos/${GITEA_USER}/${projectName}`;
+    const createUrl = `${GITEA_URL}/api/v1/user/repos`;
+    const authHeader = 'Basic ' + Buffer.from(`${GITEA_USER}:${GITEA_PASS}`).toString('base64');
+
+    let repoExists = false;
+    try {
+      const check = await fetch(repoApiUrl, { headers: { Authorization: authHeader } });
+      repoExists = check.ok;
+    } catch {}
+
+    if (!repoExists) {
+      const createRes = await fetch(createUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+        body: JSON.stringify({ name: projectName, auto_init: false, private: false }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}));
+        throw new Error(`Erro ao criar repositório: ${err.message || createRes.statusText}`);
+      }
+      steps.push('Repositório criado no Gitea');
+    } else {
+      steps.push('Repositório já existe no Gitea');
+    }
+
+    const repoUrl = `${authUrl}/${GITEA_USER}/${projectName}.git`;
+    const gitDir = `${targetPath}/.git`;
+
+    if (!existsSync(gitDir)) {
+      await exec('git init');
+      await exec(`git remote add origin "${repoUrl}"`);
+      steps.push('Git inicializado');
+    } else {
+      try {
+        await exec('git remote get-url origin');
+        await exec(`git remote set-url origin "${repoUrl}"`);
+      } catch {
+        await exec(`git remote add origin "${repoUrl}"`);
+      }
+      steps.push('Remote atualizado');
+    }
+
+    await exec('git add -A');
+    try {
+      await exec('git -c user.name="Agents Orchestrator" -c user.email="agents@nitro-cloud" commit -m "Publicação automática"');
+      steps.push('Commit criado');
+    } catch {
+      steps.push('Sem alterações para commit');
+    }
+
+    await exec('git push -u origin HEAD:main --force');
+    steps.push('Push realizado');
+
+    const caddyFile = `${VPS_COMPOSE_DIR}/caddy/Caddyfile`;
+    if (existsSync(caddyFile)) {
+      const caddyContent = readFileSync(caddyFile, 'utf-8');
+      const marker = `@${projectName} host ${projectName}.${DOMAIN}`;
+
+      if (!caddyContent.includes(marker)) {
+        const block = `\n    @${projectName} host ${projectName}.${DOMAIN}\n    handle @${projectName} {\n        root * /srv/${projectName}\n        file_server\n        try_files {path} /index.html\n    }\n`;
+        const updated = caddyContent.replace(
+          /(\n? {4}handle \{[\s\S]*?respond.*?200[\s\S]*?\})/,
+          block + '$1'
+        );
+        writeFileSync(caddyFile, updated);
+        steps.push('Caddyfile atualizado');
+      } else {
+        steps.push('Caddyfile já configurado');
+      }
+    }
+
+    const composePath = `${VPS_COMPOSE_DIR}/docker-compose.yml`;
+    if (existsSync(composePath)) {
+      const composeContent = readFileSync(composePath, 'utf-8');
+      const volumeLine = `/home/projetos/${basename(targetPath)}:/srv/${projectName}:ro`;
+      if (!composeContent.includes(volumeLine)) {
+        const updated = composeContent.replace(
+          /(- .\/caddy\/config:\/config)/,
+          `$1\n      - ${volumeLine}`
+        );
+        writeFileSync(composePath, updated);
+        steps.push('Volume adicionado ao docker-compose');
+      } else {
+        steps.push('Volume já configurado');
+      }
+    }
+
+    try {
+      await exec(`docker compose -f ${VPS_COMPOSE_DIR}/docker-compose.yml up -d --no-deps caddy`, { cwd: VPS_COMPOSE_DIR });
+      steps.push('Caddy reiniciado');
+    } catch (e) {
+      steps.push(`Caddy: reinício manual necessário (${e.message})`);
+    }
+
+    const siteUrl = `https://${projectName}.${DOMAIN}`;
+    const repoWebUrl = `https://git.${DOMAIN}/${GITEA_USER}/${projectName}`;
+
+    res.json({
+      status: 'Publicado',
+      siteUrl,
+      repoUrl: repoWebUrl,
+      projectName,
+      steps,
+      message: `Acesse ${siteUrl} em alguns segundos`,
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message, steps });
   }
 });
 

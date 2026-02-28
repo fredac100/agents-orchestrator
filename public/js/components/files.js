@@ -90,8 +90,12 @@ const FilesUI = {
     const downloadBtn = entry.type === 'directory'
       ? `<button class="btn btn--ghost btn--sm" data-action="download-folder" data-path="${Utils.escapeHtml(fullPath)}" title="Baixar pasta"><i data-lucide="download" style="width:14px;height:14px"></i></button>`
       : `<button class="btn btn--ghost btn--sm" data-action="download-file" data-path="${Utils.escapeHtml(fullPath)}" title="Baixar arquivo"><i data-lucide="download" style="width:14px;height:14px"></i></button>`;
+    const isRootDir = entry.type === 'directory' && !currentPath;
+    const publishBtn = isRootDir
+      ? `<button class="btn btn--ghost btn--sm btn-publish" data-action="publish-project" data-path="${Utils.escapeHtml(fullPath)}" title="Publicar projeto"><i data-lucide="rocket" style="width:14px;height:14px"></i></button>`
+      : '';
     const deleteBtn = `<button class="btn btn--ghost btn--sm btn-danger" data-action="delete-entry" data-path="${Utils.escapeHtml(fullPath)}" data-entry-type="${entry.type}" title="Excluir"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button>`;
-    const actions = `${downloadBtn}${deleteBtn}`;
+    const actions = `${downloadBtn}${publishBtn}${deleteBtn}`;
 
     return `
       <tr class="files-row">
@@ -148,6 +152,40 @@ const FilesUI = {
     a.href = `/api/files/download-folder?path=${encodeURIComponent(path)}`;
     a.download = '';
     a.click();
+  },
+
+  async publishProject(path) {
+    const name = path.split('/').pop();
+    const confirmed = await Modal.confirm(
+      'Publicar projeto',
+      `Isso irá criar o repositório "${name}" no Gitea, fazer push dos arquivos e publicar em <strong>${name}.nitro-cloud.duckdns.org</strong>. Continuar?`
+    );
+    if (!confirmed) return;
+
+    try {
+      Toast.info('Publicando projeto... isso pode levar alguns segundos');
+      const result = await API.files.publish(path);
+      Toast.success(`Projeto publicado com sucesso!`);
+
+      const modal = document.getElementById('execution-detail-modal-overlay');
+      const title = document.getElementById('execution-detail-title');
+      const content = document.getElementById('execution-detail-content');
+      if (modal && title && content) {
+        title.textContent = 'Projeto Publicado';
+        content.innerHTML = `
+          <div class="publish-result">
+            <div class="publish-result-item"><strong>Repositório:</strong> <a href="${Utils.escapeHtml(result.repoUrl)}" target="_blank">${Utils.escapeHtml(result.repoUrl)}</a></div>
+            <div class="publish-result-item"><strong>Site:</strong> <a href="${Utils.escapeHtml(result.siteUrl)}" target="_blank">${Utils.escapeHtml(result.siteUrl)}</a></div>
+            <div class="publish-result-item"><strong>Status:</strong> <span class="badge badge-active">${Utils.escapeHtml(result.status)}</span></div>
+            ${result.message ? `<div class="publish-result-item"><em>${Utils.escapeHtml(result.message)}</em></div>` : ''}
+          </div>`;
+        Modal.open('execution-detail-modal-overlay');
+      }
+
+      await FilesUI.navigate(FilesUI.currentPath);
+    } catch (err) {
+      Toast.error(`Erro ao publicar: ${err.message}`);
+    }
   },
 
   async deleteEntry(path, entryType) {
