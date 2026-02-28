@@ -151,7 +151,21 @@ const API = {
 
   projects: {
     browse(path) { return API.request('GET', `/browse?path=${encodeURIComponent(path || '/home')}`); },
-    import(sourcePath, repoName) { return API.request('POST', '/projects/import', { sourcePath, repoName }); },
+    importLocal(sourcePath, repoName) { return API.request('POST', '/projects/import', { sourcePath, repoName }); },
+    async upload(files, paths, repoName) {
+      const form = new FormData();
+      form.append('repoName', repoName);
+      form.append('paths', JSON.stringify(paths));
+      for (const f of files) form.append('files', f);
+      const response = await fetch('/api/projects/upload', {
+        method: 'POST',
+        headers: { 'X-Client-Id': API.clientId },
+        body: form,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro no upload');
+      return data;
+    },
   },
 
   files: {

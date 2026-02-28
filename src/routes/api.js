@@ -39,6 +39,11 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024, files: 20 },
 });
 
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024, files: 10000 },
+});
+
 const router = Router();
 export const hookRouter = Router();
 
@@ -1446,6 +1451,102 @@ router.post('/projects/import', async (req, res) => {
       status: 'Importado',
       repoName: sanitizedName,
       repoUrl: `https://git.${DOMAIN}/${GITEA_USER}/${sanitizedName}`,
+      projectDir: targetDir,
+      steps,
+      message: 'Projeto disponível no Gitea e pronto para uso com agentes',
+    });
+  } catch (err) {
+    try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    res.status(500).json({ error: err.message, steps });
+  }
+});
+
+router.post('/projects/upload', importUpload.array('files', 10000), async (req, res) => {
+  const repoName = (req.body.repoName || '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  if (!repoName) return res.status(400).json({ error: 'repoName é obrigatório' });
+
+  let paths;
+  try { paths = JSON.parse(req.body.paths || '[]'); } catch { return res.status(400).json({ error: 'paths inválido' }); }
+
+  const files = req.files || [];
+  if (files.length === 0) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+  if (files.length !== paths.length) return res.status(400).json({ error: 'Quantidade de files e paths diverge' });
+
+  const GITEA_URL = process.env.GITEA_URL || 'http://gitea:3000';
+  const GITEA_USER = process.env.GITEA_USER || 'fred';
+  const GITEA_PASS = process.env.GITEA_PASS || '';
+  const DOMAIN = process.env.DOMAIN || 'nitro-cloud.duckdns.org';
+  if (!GITEA_PASS) return res.status(500).json({ error: 'GITEA_PASS não configurado' });
+
+  const steps = [];
+  const tmpDir = join(os.tmpdir(), `upload-${Date.now()}`);
+
+  const exec = (cmd, cwd) => new Promise((resolve, reject) => {
+    const proc = spawnProcess('sh', ['-c', cmd], { cwd: cwd || tmpDir, env: { ...process.env, HOME: '/tmp', GIT_TERMINAL_PROMPT: '0' } });
+    let stdout = '', stderr = '';
+    proc.stdout.on('data', d => stdout += d);
+    proc.stderr.on('data', d => stderr += d);
+    proc.on('close', code => code === 0 ? resolve(stdout.trim()) : reject(new Error(stderr.trim() || `exit ${code}`)));
+  });
+
+  try {
+    mkdirSync(tmpDir, { recursive: true });
+
+    for (let i = 0; i < files.length; i++) {
+      const relativePath = paths[i].split('/').slice(1).join('/');
+      if (!relativePath || relativePath.includes('..')) continue;
+      const dest = join(tmpDir, relativePath);
+      mkdirSync(dirname(dest), { recursive: true });
+      const { writeFileSync: wfs } = await import('fs');
+      wfs(dest, files[i].buffer);
+    }
+    steps.push(`${files.length} arquivos recebidos`);
+
+    const authHeader = 'Basic ' + Buffer.from(`${GITEA_USER}:${GITEA_PASS}`).toString('base64');
+    let repoExists = false;
+    try {
+      const check = await fetch(`${GITEA_URL}/api/v1/repos/${GITEA_USER}/${repoName}`, { headers: { Authorization: authHeader } });
+      repoExists = check.ok;
+    } catch {}
+
+    if (!repoExists) {
+      const createRes = await fetch(`${GITEA_URL}/api/v1/user/repos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+        body: JSON.stringify({ name: repoName, auto_init: false, private: false }),
+      });
+      if (!createRes.ok) throw new Error('Erro ao criar repositório no Gitea');
+      steps.push('Repositório criado no Gitea');
+    } else {
+      steps.push('Repositório já existe no Gitea');
+    }
+
+    const repoUrl = `${GITEA_URL.replace('://', `://${GITEA_USER}:${GITEA_PASS}@`)}/${GITEA_USER}/${repoName}.git`;
+    await exec('git init');
+    await exec('git add -A');
+    await exec(`git -c user.name="Agents Orchestrator" -c user.email="agents@${DOMAIN}" commit -m "Import do projeto ${repoName}"`);
+    await exec(`git remote add origin "${repoUrl}"`);
+    await exec('git push -u origin HEAD:main --force');
+    steps.push('Push realizado para o Gitea');
+
+    const projectsDir = '/home/projetos';
+    const targetDir = join(projectsDir, repoName);
+    if (existsSync(targetDir)) {
+      await exec(`git remote set-url origin "${repoUrl}"`, targetDir);
+      await exec('git fetch origin', targetDir);
+      await exec('git reset --hard origin/main', targetDir);
+      steps.push('Projeto atualizado em /home/projetos/');
+    } else {
+      await exec(`git clone "${repoUrl}" "${targetDir}"`, projectsDir);
+      steps.push('Projeto clonado em /home/projetos/');
+    }
+
+    rmSync(tmpDir, { recursive: true, force: true });
+
+    res.json({
+      status: 'Importado',
+      repoName,
+      repoUrl: `https://git.${DOMAIN}/${GITEA_USER}/${repoName}`,
       projectDir: targetDir,
       steps,
       message: 'Projeto disponível no Gitea e pronto para uso com agentes',

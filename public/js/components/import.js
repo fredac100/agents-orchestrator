@@ -1,16 +1,18 @@
 const ImportUI = {
-  _currentBrowsePath: '/home',
-  _selectedPath: '',
+  _selectedFiles: [],
+  _selectedPaths: [],
+  _folderName: '',
   _importing: false,
+
+  _excludedDirs: ['.git', 'node_modules', '__pycache__', '.next', '.nuxt', 'venv', '.venv', '.cache', '.parcel-cache', 'dist', 'build', '.output', '.svelte-kit', 'vendor', 'target', '.gradle', '.idea', '.vs', 'coverage', '.nyc_output'],
+  _excludedFiles: ['.DS_Store', 'Thumbs.db', 'desktop.ini', '*.pyc', '*.pyo', '*.class', '*.o', '*.so', '*.dll'],
 
   async load() {
     const container = document.getElementById('import-container');
     if (!container) return;
 
     let repos = [];
-    try {
-      repos = await API.repos.list();
-    } catch {}
+    try { repos = await API.repos.list(); } catch {}
 
     container.innerHTML = `
       <div class="import-layout">
@@ -19,26 +21,32 @@ const ImportUI = {
             <h2 class="card-title"><i data-lucide="upload-cloud" style="width:20px;height:20px"></i> Importar Projeto</h2>
           </div>
           <div class="card-body">
-            <p class="import-desc">Selecione um diretório do servidor para importar ao Gitea. Os arquivos serão copiados respeitando o <code>.gitignore</code>, sem alterar o projeto original.</p>
+            <p class="import-desc">Selecione uma pasta do seu computador para enviar ao Gitea. Arquivos ignorados pelo <code>.gitignore</code> e pastas como <code>node_modules</code> serão filtrados automaticamente.</p>
+
+            <input type="file" id="import-folder-input" webkitdirectory directory multiple hidden />
+
             <div class="form-group">
-              <label class="form-label">Diretório do projeto</label>
+              <label class="form-label">Pasta do projeto</label>
               <div class="import-path-row">
-                <input type="text" class="form-input" id="import-path" placeholder="/home/fred/meu-projeto" value="" />
-                <button class="btn btn--ghost btn--sm" id="import-browse-btn" type="button"><i data-lucide="folder-search" style="width:16px;height:16px"></i> Navegar</button>
+                <div class="import-folder-display" id="import-folder-display">
+                  <i data-lucide="folder-open" style="width:18px;height:18px;color:var(--text-muted)"></i>
+                  <span class="text-muted">Nenhuma pasta selecionada</span>
+                </div>
+                <button class="btn btn--primary btn--sm" id="import-select-btn" type="button">
+                  <i data-lucide="folder-search" style="width:16px;height:16px"></i> Selecionar Pasta
+                </button>
               </div>
             </div>
-            <div id="import-browser" class="import-browser" hidden>
-              <div class="import-browser-header">
-                <nav id="import-browser-breadcrumb" class="files-breadcrumb"></nav>
-              </div>
-              <div class="import-browser-list" id="import-browser-list"></div>
-            </div>
+
+            <div id="import-preview" class="import-preview" hidden></div>
+
             <div class="form-group">
               <label class="form-label">Nome do repositório no Gitea</label>
               <input type="text" class="form-input" id="import-repo-name" placeholder="meu-projeto" />
-              <span class="form-hint">Letras minúsculas, números e hífens. Será criado no Gitea e clonado em /home/projetos/</span>
+              <span class="form-hint">Letras minúsculas, números e hífens</span>
             </div>
-            <button class="btn btn--primary" id="import-submit-btn" type="button">
+
+            <button class="btn btn--primary" id="import-submit-btn" type="button" disabled>
               <i data-lucide="upload-cloud" style="width:16px;height:16px"></i> Importar para o Gitea
             </button>
           </div>
@@ -67,7 +75,7 @@ const ImportUI = {
     const domain = 'nitro-cloud.duckdns.org';
     const repoUrl = `https://git.${domain}/${repo.full_name || repo.name}`;
     const updated = repo.updated_at ? new Date(repo.updated_at).toLocaleDateString('pt-BR') : '';
-    const size = repo.size ? ImportUI._formatSize(repo.size * 1024) : '';
+    const size = repo.size ? ImportUI._fmtSize(repo.size * 1024) : '';
 
     return `
       <div class="import-repo-card">
@@ -85,7 +93,7 @@ const ImportUI = {
     `;
   },
 
-  _formatSize(bytes) {
+  _fmtSize(bytes) {
     if (!bytes) return '';
     const units = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
@@ -93,152 +101,170 @@ const ImportUI = {
   },
 
   _bindEvents() {
-    const browseBtn = document.getElementById('import-browse-btn');
+    const selectBtn = document.getElementById('import-select-btn');
+    const folderInput = document.getElementById('import-folder-input');
     const submitBtn = document.getElementById('import-submit-btn');
-    const pathInput = document.getElementById('import-path');
 
-    if (browseBtn) {
-      browseBtn.addEventListener('click', () => {
-        const browser = document.getElementById('import-browser');
-        if (!browser) return;
-        const isVisible = !browser.hidden;
-        browser.hidden = isVisible;
-        if (!isVisible) {
-          const currentVal = pathInput?.value.trim();
-          ImportUI._browseTo(currentVal || '/home');
-        }
-      });
-    }
-
-    if (pathInput) {
-      pathInput.addEventListener('change', () => {
-        const val = pathInput.value.trim();
-        if (val) {
-          ImportUI._autoFillRepoName(val);
-        }
-      });
-
-      pathInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const val = pathInput.value.trim();
-          if (val) {
-            ImportUI._autoFillRepoName(val);
-            const browser = document.getElementById('import-browser');
-            if (browser && !browser.hidden) {
-              ImportUI._browseTo(val);
-            }
-          }
-        }
-      });
+    if (selectBtn && folderInput) {
+      selectBtn.addEventListener('click', () => folderInput.click());
+      folderInput.addEventListener('change', () => ImportUI._onFolderSelected(folderInput.files));
     }
 
     if (submitBtn) {
-      submitBtn.addEventListener('click', () => ImportUI._doImport());
+      submitBtn.addEventListener('click', () => ImportUI._doUpload());
     }
   },
 
-  _autoFillRepoName(path) {
-    const nameInput = document.getElementById('import-repo-name');
-    if (!nameInput || nameInput.value.trim()) return;
-    const folderName = path.split('/').filter(Boolean).pop() || '';
-    nameInput.value = folderName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  _shouldExclude(relativePath) {
+    const parts = relativePath.split('/');
+    for (const part of parts.slice(0, -1)) {
+      if (ImportUI._excludedDirs.includes(part)) return true;
+    }
+    const fileName = parts[parts.length - 1];
+    for (const pattern of ImportUI._excludedFiles) {
+      if (pattern.startsWith('*.')) {
+        if (fileName.endsWith(pattern.slice(1))) return true;
+      } else {
+        if (fileName === pattern) return true;
+      }
+    }
+    return false;
   },
 
-  async _browseTo(path) {
-    try {
-      const data = await API.projects.browse(path);
-      ImportUI._currentBrowsePath = data.currentPath;
-      ImportUI._renderBrowser(data);
-    } catch (err) {
-      Toast.error(`Erro ao navegar: ${err.message}`);
+  _parseGitignore(content) {
+    const patterns = [];
+    for (const raw of content.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#') || line.startsWith('!')) continue;
+      patterns.push(line.replace(/\/$/, ''));
     }
+    return patterns;
   },
 
-  _renderBrowser(data) {
-    const breadcrumbEl = document.getElementById('import-browser-breadcrumb');
-    const listEl = document.getElementById('import-browser-list');
-    if (!breadcrumbEl || !listEl) return;
-
-    const parts = data.currentPath.split('/').filter(Boolean);
-    let breadcrumb = `<a href="#" class="files-breadcrumb-link import-browse-link" data-browse-path="/"><i data-lucide="hard-drive" style="width:14px;height:14px"></i> /</a>`;
-    let accumulated = '';
-    for (const part of parts) {
-      accumulated += '/' + part;
-      breadcrumb += ` <span class="files-breadcrumb-sep">/</span> <a href="#" class="files-breadcrumb-link import-browse-link" data-browse-path="${Utils.escapeHtml(accumulated)}">${Utils.escapeHtml(part)}</a>`;
-    }
-    breadcrumbEl.innerHTML = breadcrumb;
-
-    const dirs = data.directories || [];
-    if (dirs.length === 0) {
-      listEl.innerHTML = '<div class="import-browser-empty">Nenhum subdiretório encontrado</div>';
-    } else {
-      listEl.innerHTML = dirs.map(d => `
-        <div class="import-browser-item">
-          <a href="#" class="import-browse-link import-browser-dir" data-browse-path="${Utils.escapeHtml(d.path)}">
-            <i data-lucide="folder" style="width:16px;height:16px;color:var(--warning)"></i>
-            <span>${Utils.escapeHtml(d.name)}</span>
-          </a>
-          <button class="btn btn--primary btn--sm import-select-btn" data-select-path="${Utils.escapeHtml(d.path)}" data-select-name="${Utils.escapeHtml(d.name)}" type="button">Selecionar</button>
-        </div>
-      `).join('');
-    }
-
-    Utils.refreshIcons(breadcrumbEl);
-    Utils.refreshIcons(listEl);
-
-    breadcrumbEl.querySelectorAll('.import-browse-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        ImportUI._browseTo(link.dataset.browsePath);
-      });
-    });
-
-    listEl.querySelectorAll('.import-browse-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        ImportUI._browseTo(link.dataset.browsePath);
-      });
-    });
-
-    listEl.querySelectorAll('.import-select-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const selectedPath = btn.dataset.selectPath;
-        const selectedName = btn.dataset.selectName;
-        const pathInput = document.getElementById('import-path');
-        const nameInput = document.getElementById('import-repo-name');
-        if (pathInput) pathInput.value = selectedPath;
-        if (nameInput && !nameInput.value.trim()) {
-          nameInput.value = selectedName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  _matchesGitignore(relativePath, patterns) {
+    const parts = relativePath.split('/');
+    for (const pattern of patterns) {
+      if (pattern.includes('/')) {
+        if (relativePath.startsWith(pattern + '/') || relativePath === pattern) return true;
+      } else if (pattern.startsWith('*.')) {
+        const ext = pattern.slice(1);
+        if (relativePath.endsWith(ext)) return true;
+      } else {
+        for (const part of parts) {
+          if (part === pattern) return true;
         }
-        document.getElementById('import-browser').hidden = true;
-        ImportUI._selectedPath = selectedPath;
-      });
-    });
+      }
+    }
+    return false;
   },
 
-  async _doImport() {
-    if (ImportUI._importing) return;
+  _onFolderSelected(fileList) {
+    if (!fileList || fileList.length === 0) return;
 
-    const pathInput = document.getElementById('import-path');
+    const allFiles = Array.from(fileList);
+    const firstPath = allFiles[0].webkitRelativePath || '';
+    ImportUI._folderName = firstPath.split('/')[0] || 'projeto';
+
+    let gitignorePatterns = [];
+    const gitignoreFile = allFiles.find(f => {
+      const rel = f.webkitRelativePath || '';
+      const parts = rel.split('/');
+      return parts.length === 2 && parts[1] === '.gitignore';
+    });
+
+    if (gitignoreFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        gitignorePatterns = ImportUI._parseGitignore(e.target.result);
+        ImportUI._applyFilter(allFiles, gitignorePatterns);
+      };
+      reader.readAsText(gitignoreFile);
+    } else {
+      ImportUI._applyFilter(allFiles, []);
+    }
+  },
+
+  _applyFilter(allFiles, gitignorePatterns) {
+    const filtered = [];
+    const paths = [];
+    let totalSize = 0;
+    let excluded = 0;
+
+    for (const file of allFiles) {
+      const fullRel = file.webkitRelativePath || file.name;
+      const relWithoutRoot = fullRel.split('/').slice(1).join('/');
+      if (!relWithoutRoot) continue;
+
+      if (ImportUI._shouldExclude(relWithoutRoot)) { excluded++; continue; }
+      if (gitignorePatterns.length > 0 && ImportUI._matchesGitignore(relWithoutRoot, gitignorePatterns)) { excluded++; continue; }
+
+      filtered.push(file);
+      paths.push(fullRel);
+      totalSize += file.size;
+    }
+
+    ImportUI._selectedFiles = filtered;
+    ImportUI._selectedPaths = paths;
+
+    const display = document.getElementById('import-folder-display');
+    if (display) {
+      display.innerHTML = `
+        <i data-lucide="folder" style="width:18px;height:18px;color:var(--warning)"></i>
+        <strong>${Utils.escapeHtml(ImportUI._folderName)}</strong>
+      `;
+      Utils.refreshIcons(display);
+    }
+
+    const preview = document.getElementById('import-preview');
+    if (preview) {
+      preview.hidden = false;
+      preview.innerHTML = `
+        <div class="import-preview-stats">
+          <div class="import-stat">
+            <i data-lucide="file" style="width:16px;height:16px"></i>
+            <span><strong>${filtered.length}</strong> arquivos selecionados</span>
+          </div>
+          <div class="import-stat">
+            <i data-lucide="hard-drive" style="width:16px;height:16px"></i>
+            <span><strong>${ImportUI._fmtSize(totalSize)}</strong> total</span>
+          </div>
+          ${excluded > 0 ? `<div class="import-stat import-stat--muted">
+            <i data-lucide="eye-off" style="width:16px;height:16px"></i>
+            <span>${excluded} arquivos ignorados (.gitignore / node_modules / etc.)</span>
+          </div>` : ''}
+        </div>
+      `;
+      Utils.refreshIcons(preview);
+    }
+
+    const nameInput = document.getElementById('import-repo-name');
+    if (nameInput && !nameInput.value.trim()) {
+      nameInput.value = ImportUI._folderName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    }
+
+    const submitBtn = document.getElementById('import-submit-btn');
+    if (submitBtn) submitBtn.disabled = filtered.length === 0;
+  },
+
+  async _doUpload() {
+    if (ImportUI._importing) return;
+    if (ImportUI._selectedFiles.length === 0) { Toast.warning('Selecione uma pasta primeiro'); return; }
+
     const nameInput = document.getElementById('import-repo-name');
     const submitBtn = document.getElementById('import-submit-btn');
-    const sourcePath = pathInput?.value.trim();
-    const repoName = nameInput?.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
-
-    if (!sourcePath) { Toast.warning('Informe o caminho do projeto'); return; }
+    const repoName = (nameInput?.value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
     if (!repoName) { Toast.warning('Informe o nome do repositório'); return; }
 
     ImportUI._importing = true;
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i data-lucide="loader" style="width:16px;height:16px" class="spin"></i> Importando...';
+      submitBtn.innerHTML = '<i data-lucide="loader" style="width:16px;height:16px" class="spin"></i> Enviando...';
       Utils.refreshIcons(submitBtn);
     }
 
     try {
-      Toast.info('Importando projeto... isso pode levar alguns segundos');
-      const result = await API.projects.import(sourcePath, repoName);
+      Toast.info(`Enviando ${ImportUI._selectedFiles.length} arquivos...`);
+      const result = await API.projects.upload(ImportUI._selectedFiles, ImportUI._selectedPaths, repoName);
 
       Toast.success('Projeto importado com sucesso!');
 
@@ -261,7 +287,9 @@ const ImportUI = {
         Modal.open('execution-detail-modal-overlay');
       }
 
-      if (pathInput) pathInput.value = '';
+      ImportUI._selectedFiles = [];
+      ImportUI._selectedPaths = [];
+      ImportUI._folderName = '';
       if (nameInput) nameInput.value = '';
       App._reposCache = null;
       await ImportUI.load();
