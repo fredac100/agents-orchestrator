@@ -8,7 +8,7 @@ import * as manager from '../agents/manager.js';
 import { tasksStore, settingsStore, executionsStore, webhooksStore, notificationsStore, secretsStore, agentVersionsStore } from '../store/db.js';
 import * as scheduler from '../agents/scheduler.js';
 import * as pipeline from '../agents/pipeline.js';
-import { getBinPath, updateMaxConcurrent } from '../agents/executor.js';
+import { getBinPath, updateMaxConcurrent, cancelAllExecutions, getActiveExecutions } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
 import { readdirSync, readFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
@@ -833,6 +833,23 @@ router.delete('/executions/history', (req, res) => {
 router.get('/executions/active', (req, res) => {
   try {
     res.json(manager.getActiveExecutions());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/executions/cancel-all', (req, res) => {
+  try {
+    const activePipelines = pipeline.getActivePipelines();
+    for (const p of activePipelines) {
+      pipeline.cancelPipeline(p.pipelineId);
+    }
+    cancelAllExecutions();
+    const running = executionsStore.getAll().filter(e => e.status === 'running' || e.status === 'awaiting_approval');
+    for (const e of running) {
+      executionsStore.update(e.id, { status: 'canceled', endedAt: new Date().toISOString() });
+    }
+    res.json({ cancelled: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
