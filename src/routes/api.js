@@ -1278,7 +1278,7 @@ router.post('/files/publish', async (req, res) => {
     }
 
     try {
-      await exec(`docker compose -f ${VPS_COMPOSE_DIR}/docker-compose.yml up -d --no-deps caddy`, { cwd: VPS_COMPOSE_DIR });
+      await exec(`docker compose -f ${VPS_COMPOSE_DIR}/docker-compose.yml up -d --force-recreate --no-deps caddy`, { cwd: VPS_COMPOSE_DIR });
       steps.push('Caddy reiniciado');
     } catch (e) {
       steps.push(`Caddy: reinício manual necessário (${e.message})`);
