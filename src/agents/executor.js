@@ -9,8 +9,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AGENT_SETTINGS = path.resolve(__dirname, '..', '..', 'data', 'agent-settings.json');
 const CLAUDE_BIN = resolveBin();
 const activeExecutions = new Map();
+const executionOutputBuffers = new Map();
 const MAX_OUTPUT_SIZE = 512 * 1024;
 const MAX_ERROR_SIZE = 100 * 1024;
+const MAX_BUFFER_LINES = 1000;
 const ALLOWED_DIRECTORIES = (process.env.ALLOWED_DIRECTORIES || '').split(',').map(d => d.trim()).filter(Boolean);
 
 let maxConcurrent = settingsStore.get().maxConcurrent || 5;
@@ -52,6 +54,8 @@ function cleanEnv(agentSecrets) {
   delete env.CLAUDECODE;
   delete env.ANTHROPIC_API_KEY;
   env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = '128000';
+  if (!env.SHELL) env.SHELL = '/bin/bash';
+  if (!env.HOME) env.HOME = process.env.HOME || '/root';
   if (agentSecrets && typeof agentSecrets === 'object') {
     Object.assign(env, agentSecrets);
   }
@@ -179,6 +183,16 @@ function extractSystemInfo(event) {
   return null;
 }
 
+function bufferLine(executionId, data) {
+  let buf = executionOutputBuffers.get(executionId);
+  if (!buf) {
+    buf = [];
+    executionOutputBuffers.set(executionId, buf);
+  }
+  buf.push(data);
+  if (buf.length > MAX_BUFFER_LINES) buf.shift();
+}
+
 function processChildOutput(child, executionId, callbacks, options = {}) {
   const { onData, onError, onComplete } = callbacks;
   const timeoutMs = options.timeout || 1800000;
@@ -202,7 +216,9 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
     if (tools) {
       for (const t of tools) {
         const msg = t.detail ? `${t.name}: ${t.detail}` : t.name;
-        if (onData) onData({ type: 'tool', content: msg, toolName: t.name }, executionId);
+        const data = { type: 'tool', content: msg, toolName: t.name };
+        bufferLine(executionId, data);
+        if (onData) onData(data, executionId);
       }
     }
 
@@ -211,17 +227,23 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
       if (fullText.length < MAX_OUTPUT_SIZE) {
         fullText += text;
       }
-      if (onData) onData({ type: 'chunk', content: text }, executionId);
+      const data = { type: 'chunk', content: text };
+      bufferLine(executionId, data);
+      if (onData) onData(data, executionId);
     }
 
     const sysInfo = extractSystemInfo(parsed);
     if (sysInfo) {
-      if (onData) onData({ type: 'system', content: sysInfo }, executionId);
+      const data = { type: 'system', content: sysInfo };
+      bufferLine(executionId, data);
+      if (onData) onData(data, executionId);
     }
 
     if (parsed.type === 'assistant') {
       turnCount++;
-      if (onData) onData({ type: 'turn', content: `Turno ${turnCount}`, turn: turnCount }, executionId);
+      const data = { type: 'turn', content: `Turno ${turnCount}`, turn: turnCount };
+      bufferLine(executionId, data);
+      if (onData) onData(data, executionId);
     }
 
     if (parsed.type === 'result') {
@@ -251,7 +273,9 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
     }
     const lines = str.split('\n').filter(l => l.trim());
     for (const line of lines) {
-      if (onData) onData({ type: 'stderr', content: line.trim() }, executionId);
+      const data = { type: 'stderr', content: line.trim() };
+      bufferLine(executionId, data);
+      if (onData) onData(data, executionId);
     }
   });
 
@@ -260,6 +284,7 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
     console.log(`[executor][error] ${err.message}`);
     hadError = true;
     activeExecutions.delete(executionId);
+    executionOutputBuffers.delete(executionId);
     if (onError) onError(err, executionId);
   });
 
@@ -267,6 +292,7 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
     clearTimeout(timeout);
     const wasCanceled = activeExecutions.get(executionId)?.canceled || false;
     activeExecutions.delete(executionId);
+    executionOutputBuffers.delete(executionId);
     if (hadError) return;
     if (outputBuffer.trim()) processEvent(parseStreamLine(outputBuffer));
 
@@ -426,6 +452,7 @@ export function cancel(executionId) {
 export function cancelAllExecutions() {
   for (const [, exec] of activeExecutions) exec.process.kill('SIGTERM');
   activeExecutions.clear();
+  executionOutputBuffers.clear();
 }
 
 export function getActiveExecutions() {
@@ -433,6 +460,7 @@ export function getActiveExecutions() {
     executionId: exec.executionId,
     startedAt: exec.startedAt,
     agentConfig: exec.agentConfig,
+    outputBuffer: executionOutputBuffers.get(exec.executionId) || [],
   }));
 }
 

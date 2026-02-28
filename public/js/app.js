@@ -90,6 +90,8 @@ const App = {
       history.pushState(null, '', `#${section}`);
     }
 
+    if (typeof FlowEditor !== 'undefined') FlowEditor._teardown();
+
     document.querySelectorAll('.section').forEach((el) => {
       const isActive = el.id === section;
       el.classList.toggle('active', isActive);

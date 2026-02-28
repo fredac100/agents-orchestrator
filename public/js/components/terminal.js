@@ -43,16 +43,35 @@ const Terminal = {
     try {
       const active = await API.system.activeExecutions();
       const hasActive = Array.isArray(active) && active.length > 0;
-      if (hasActive && Terminal._restoreFromStorage()) {
+      if (hasActive) {
+        const exec = active[0];
+        const serverBuffer = Array.isArray(exec.outputBuffer) ? exec.outputBuffer : [];
+
+        if (serverBuffer.length > 0) {
+          Terminal.lines = serverBuffer.map((item) => {
+            const time = new Date();
+            return {
+              content: item.content || '',
+              type: item.type || 'default',
+              timestamp: time.toTimeString().slice(0, 8),
+              executionId: exec.executionId,
+            };
+          });
+          Terminal._saveToStorage();
+        } else {
+          Terminal._restoreFromStorage();
+        }
+
         Terminal.render();
+        const startedAt = exec.startedAt ? new Date(exec.startedAt).getTime() : null;
         const savedStart = sessionStorage.getItem(Terminal._timerStorageKey);
-        Terminal._startTimer(savedStart ? Number(savedStart) : null);
-        Terminal.startProcessing(active[0].agentConfig?.agent_name || 'Agente');
+        Terminal._startTimer(savedStart ? Number(savedStart) : startedAt);
+        Terminal.startProcessing(exec.agentConfig?.agent_name || 'Agente');
         try {
           const chatData = sessionStorage.getItem(Terminal._chatStorageKey);
           if (chatData) Terminal._chatSession = JSON.parse(chatData);
         } catch {}
-      } else if (!hasActive) {
+      } else {
         Terminal._clearStorage();
         Terminal._hideTimer();
       }

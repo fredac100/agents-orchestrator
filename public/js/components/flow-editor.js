@@ -737,8 +737,12 @@ const FlowEditor = {
       if (!leave) return;
     }
 
+    FlowEditor._teardown();
+  },
+
+  _teardown() {
     const overlay = FlowEditor._overlay;
-    if (!overlay) return;
+    if (!overlay || overlay.hidden) return;
 
     overlay.classList.remove('active');
     setTimeout(() => { overlay.hidden = true; }, 200);
@@ -755,6 +759,7 @@ const FlowEditor = {
     FlowEditor._selectedNode = null;
     FlowEditor._dragState = null;
     FlowEditor._panStart = null;
+    FlowEditor._dirty = false;
   },
 };
 
