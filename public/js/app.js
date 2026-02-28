@@ -276,6 +276,7 @@ const App = {
 
       case 'pipeline_step_start':
         Terminal.stopProcessing();
+        if (data.resumed) Terminal.addLine('(retomando execução anterior)', 'system');
         Terminal.addLine(`Pipeline passo ${data.stepIndex + 1}/${data.totalSteps}: Executando agente "${data.agentName}"...`, 'system');
         Terminal.startProcessing(data.agentName);
         break;
@@ -732,6 +733,7 @@ const App = {
         case 'view-execution': HistoryUI.viewDetail(id); break;
         case 'delete-execution': HistoryUI.deleteExecution(id); break;
         case 'retry': HistoryUI.retryExecution(id); break;
+        case 'resume-pipeline': HistoryUI.resumePipeline(id); break;
       }
     });
 

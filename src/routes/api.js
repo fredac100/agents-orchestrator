@@ -506,6 +506,18 @@ router.post('/pipelines/:id/reject', (req, res) => {
   }
 });
 
+router.post('/pipelines/resume/:executionId', async (req, res) => {
+  try {
+    const clientId = req.headers['x-client-id'] || null;
+    const result = pipeline.resumePipeline(req.params.executionId, (msg) => wsCallback(msg, clientId));
+    result.catch(() => {});
+    res.status(202).json({ status: 'resumed' });
+  } catch (err) {
+    const status = err.message.includes('não encontrad') ? 404 : 400;
+    res.status(status).json({ error: err.message });
+  }
+});
+
 router.get('/webhooks', (req, res) => {
   try {
     res.json(webhooksStore.getAll());

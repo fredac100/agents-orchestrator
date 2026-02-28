@@ -3489,6 +3489,25 @@ tbody tr:hover td {
   }
 }
 
+.pipeline-workdir-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.pipeline-workdir-badge code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
 .pipeline-flow {
   display: flex;
   flex-direction: column;

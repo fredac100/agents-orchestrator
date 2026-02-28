@@ -91,6 +91,7 @@ const API = {
     cancel(id) { return API.request('POST', `/pipelines/${id}/cancel`); },
     approve(id) { return API.request('POST', `/pipelines/${id}/approve`); },
     reject(id) { return API.request('POST', `/pipelines/${id}/reject`); },
+    resume(executionId) { return API.request('POST', `/pipelines/resume/${executionId}`); },
   },
 
   webhooks: {
