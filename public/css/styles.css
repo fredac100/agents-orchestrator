@@ -966,15 +966,22 @@ textarea {
   transform: scale(1) translateY(0);
 }
 
-.modal-sm {
+.modal-sm,
+.modal--sm {
   max-width: 400px;
 }
 
-.modal-lg {
+.modal--md {
+  max-width: 700px;
+}
+
+.modal-lg,
+.modal--lg {
   max-width: 800px;
 }
 
-.modal-xl {
+.modal-xl,
+.modal--xl {
   max-width: 1000px;
 }
 
