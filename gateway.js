@@ -115,6 +115,9 @@ async function proxyToUser(userId, user, req, res) {
 }
 
 app.use('/api', authMiddleware, async (req, res) => {
+  if (!req.user || !req.user.id || req.user.id === 'system') {
+    return res.status(401).json({ error: 'Autenticação necessária. Faça login.' });
+  }
   try {
     await proxyToUser(req.user.id, req.user, req, res);
   } catch (err) {
@@ -158,7 +161,7 @@ httpServer.on('upgrade', async (req, socket, head) => {
   const token = params.get('token');
   const user = verifyWsToken(token);
 
-  if (!user) {
+  if (!user || !user.id || user.id === 'system') {
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     socket.destroy();
     return;
