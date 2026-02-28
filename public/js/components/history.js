@@ -102,6 +102,11 @@ const HistoryUI = {
             <i data-lucide="eye"></i>
             Ver detalhes
           </button>
+          ${(exec.status === 'error' && exec.type === 'pipeline' && exec.failedAtStep !== undefined) ? `
+          <button class="btn btn-ghost btn-sm" data-action="resume-pipeline" data-id="${exec.id}" type="button" title="Retomar do passo ${(exec.failedAtStep || 0) + 1}">
+            <i data-lucide="play"></i>
+            Retomar
+          </button>` : ''}
           ${(exec.status === 'error' || exec.status === 'canceled') ? `
           <button class="btn btn-ghost btn-sm" data-action="retry" data-id="${exec.id}" type="button" title="Reexecutar">
             <i data-lucide="refresh-cw"></i>
@@ -419,6 +424,16 @@ const HistoryUI = {
     a.click();
     URL.revokeObjectURL(url);
     Toast.success('Download iniciado');
+  },
+
+  async resumePipeline(executionId) {
+    try {
+      await API.pipelines.resume(executionId);
+      Toast.info('Pipeline retomado');
+      App.navigateTo('terminal');
+    } catch (err) {
+      Toast.error(`Erro ao retomar pipeline: ${err.message}`);
+    }
   },
 
   async retryExecution(id) {

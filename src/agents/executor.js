@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
@@ -58,9 +58,9 @@ function cleanEnv(agentSecrets) {
   return env;
 }
 
-function buildArgs(agentConfig, prompt) {
+function buildArgs(agentConfig) {
   const model = agentConfig.model || 'claude-sonnet-4-6';
-  const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--model', model];
+  const args = ['--output-format', 'stream-json', '--verbose', '--model', model];
 
   if (existsSync(AGENT_SETTINGS)) {
     args.push('--settings', AGENT_SETTINGS);
@@ -290,9 +290,13 @@ function validateWorkingDirectory(agentConfig, executionId, onError) {
   }
 
   if (!existsSync(agentConfig.workingDirectory)) {
-    const err = new Error(`Diretório de trabalho não encontrado: ${agentConfig.workingDirectory}`);
-    if (onError) onError(err, executionId);
-    return false;
+    try {
+      mkdirSync(agentConfig.workingDirectory, { recursive: true });
+    } catch (e) {
+      const err = new Error(`Não foi possível criar o diretório: ${agentConfig.workingDirectory} (${e.message})`);
+      if (onError) onError(err, executionId);
+      return false;
+    }
   }
 
   return true;
@@ -311,11 +315,11 @@ export function execute(agentConfig, task, callbacks = {}, secrets = null) {
   if (!validateWorkingDirectory(agentConfig, executionId, onError)) return null;
 
   const prompt = buildPrompt(task.description || task, task.instructions);
-  const args = buildArgs(agentConfig, prompt);
+  const args = buildArgs(agentConfig);
 
   const spawnOptions = {
     env: cleanEnv(secrets),
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
   };
 
   if (agentConfig.workingDirectory && agentConfig.workingDirectory.trim()) {
@@ -325,6 +329,8 @@ export function execute(agentConfig, task, callbacks = {}, secrets = null) {
   console.log(`[executor] Iniciando: ${executionId} | Modelo: ${agentConfig.model || 'claude-sonnet-4-6'}`);
 
   const child = spawn(CLAUDE_BIN, args, spawnOptions);
+  child.stdin.write(prompt);
+  child.stdin.end();
 
   activeExecutions.set(executionId, {
     process: child,
@@ -356,7 +362,6 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
   const model = agentConfig.model || 'claude-sonnet-4-6';
   const args = [
     '--resume', sessionId,
-    '-p', sanitizeText(message),
     '--output-format', 'stream-json',
     '--verbose',
     '--model', model,
@@ -373,7 +378,7 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
 
   const spawnOptions = {
     env: cleanEnv(),
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
   };
 
   if (agentConfig.workingDirectory && agentConfig.workingDirectory.trim()) {
@@ -383,6 +388,8 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
   console.log(`[executor] Resumindo sessão: ${sessionId} | Execução: ${executionId}`);
 
   const child = spawn(CLAUDE_BIN, args, spawnOptions);
+  child.stdin.write(sanitizeText(message));
+  child.stdin.end();
 
   activeExecutions.set(executionId, {
     process: child,
@@ -443,7 +450,6 @@ ${text}
 </conteudo_para_resumir>`;
 
     const args = [
-      '-p', prompt,
       '--output-format', 'text',
       '--model', 'claude-haiku-4-5-20251001',
       '--max-turns', '1',
@@ -456,8 +462,10 @@ ${text}
 
     const child = spawn(CLAUDE_BIN, args, {
       env: cleanEnv(),
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
+    child.stdin.write(prompt);
+    child.stdin.end();
 
     let output = '';
     const timer = setTimeout(() => {

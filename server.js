@@ -63,6 +63,7 @@ function verifyWebhookSignature(req, res, next) {
 }
 
 const app = express();
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 

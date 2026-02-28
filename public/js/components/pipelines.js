@@ -107,6 +107,8 @@ const PipelinesUI = {
 
           ${pipeline.description ? `<p class="agent-description">${Utils.escapeHtml(pipeline.description)}</p>` : ''}
 
+          ${pipeline.workingDirectory ? `<div class="pipeline-workdir-badge"><i data-lucide="folder" style="width:12px;height:12px"></i> <code>${Utils.escapeHtml(pipeline.workingDirectory)}</code></div>` : ''}
+
           <div class="pipeline-flow">
             ${flowHtml || '<span class="agent-description">Nenhum passo configurado</span>'}
           </div>
@@ -133,6 +135,8 @@ const PipelinesUI = {
     `;
   },
 
+  _basePath: '/home/projetos/',
+
   openCreateModal() {
     PipelinesUI._editingId = null;
     PipelinesUI._steps = [
@@ -151,6 +155,9 @@ const PipelinesUI = {
 
     const descEl = document.getElementById('pipeline-description');
     if (descEl) descEl.value = '';
+
+    const workdirEl = document.getElementById('pipeline-workdir');
+    if (workdirEl) workdirEl.value = PipelinesUI._basePath;
 
     PipelinesUI.renderSteps();
     Modal.open('pipeline-modal-overlay');
@@ -182,6 +189,9 @@ const PipelinesUI = {
 
       const descEl = document.getElementById('pipeline-description');
       if (descEl) descEl.value = pipeline.description || '';
+
+      const workdirEl = document.getElementById('pipeline-workdir');
+      if (workdirEl) workdirEl.value = pipeline.workingDirectory || PipelinesUI._basePath;
 
       PipelinesUI.renderSteps();
       Modal.open('pipeline-modal-overlay');
@@ -391,9 +401,16 @@ const PipelinesUI = {
       return;
     }
 
+    const workingDirectory = document.getElementById('pipeline-workdir')?.value.trim() || '';
+    if (workingDirectory && !workingDirectory.startsWith('/')) {
+      Toast.warning('O diretório do projeto deve ser um caminho absoluto (começar com /)');
+      return;
+    }
+
     const data = {
       name,
       description: document.getElementById('pipeline-description')?.value.trim() || '',
+      workingDirectory,
       steps: PipelinesUI._steps.map((s, index) => {
         const isSimple = s.promptMode !== 'advanced';
         const inputTemplate = isSimple
@@ -455,7 +472,7 @@ const PipelinesUI = {
     if (inputEl) inputEl.value = '';
 
     const workdirEl = document.getElementById('pipeline-execute-workdir');
-    if (workdirEl) workdirEl.value = '';
+    if (workdirEl) workdirEl.value = (pipeline && pipeline.workingDirectory) || PipelinesUI._basePath;
 
     if (App._pipelineDropzone) App._pipelineDropzone.reset();
 
