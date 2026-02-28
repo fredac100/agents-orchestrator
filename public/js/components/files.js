@@ -40,7 +40,7 @@ const FilesUI = {
       ${breadcrumb}
       <div class="files-toolbar">
         <span class="files-count">${entries.length} ${entries.length === 1 ? 'item' : 'itens'}</span>
-        ${data.path ? `<button class="btn btn--ghost btn--sm" data-action="download-folder" data-path="${Utils.escapeHtml(data.path)}" title="Baixar pasta como .tar.gz"><i data-lucide="archive" style="width:14px;height:14px"></i> Baixar pasta</button>` : ''}
+        <button class="btn btn--ghost btn--sm" data-action="download-folder" data-path="${Utils.escapeHtml(data.path || '')}" title="Baixar pasta como .tar.gz"><i data-lucide="archive" style="width:14px;height:14px"></i> Baixar tudo</button>
       </div>
       <div class="files-table-wrapper">
         <table class="files-table">
