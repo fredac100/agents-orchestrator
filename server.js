@@ -111,7 +111,18 @@ app.use(express.json({
   verify: (req, res, buf) => { req.rawBody = buf || Buffer.alloc(0); },
 }));
 app.use('/hook', hookLimiter, verifyWebhookSignature, hookRouter);
-app.use(express.static(join(__dirname, 'public'), { maxAge: '1h', etag: true }));
+app.use(express.static(join(__dirname, 'public'), {
+  etag: true,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+  },
+}));
 app.use('/api', apiRouter);
 
 const connectedClients = new Map();
