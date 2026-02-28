@@ -128,6 +128,7 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', authMiddleware, async (req, res) => {
   const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Não autenticado' });
   const owner = usersStore.filter(u => u.role === 'owner')[0];
   const activePlan = getPlan((owner || user).plan);
 
