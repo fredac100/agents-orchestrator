@@ -73,6 +73,14 @@ const Utils = {
       render();
     }
 
+    const browseBtn = zone.querySelector('.dropzone-browse');
+    if (browseBtn) {
+      browseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        input.click();
+      });
+    }
+
     zone.addEventListener('click', (e) => {
       if (e.target.closest('.dropzone-file-remove')) {
         const idx = parseInt(e.target.closest('.dropzone-file-remove').dataset.index);
@@ -80,6 +88,7 @@ const Utils = {
         render();
         return;
       }
+      if (e.target.closest('.dropzone-browse')) return;
       if (!e.target.closest('.dropzone-file')) input.click();
     });
 

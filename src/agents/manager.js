@@ -273,6 +273,23 @@ export function getRecentExecutions(limit = 20) {
   return recentExecBuffer.slice(0, Math.min(limit, MAX_RECENT));
 }
 
+async function executeWithRetry(agentId, taskDescription, metadata, maxRetries = 10, baseDelay = 30000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      executeTask(agentId, taskDescription, null, null, metadata);
+      return;
+    } catch (err) {
+      if (err.message.includes('Limite de execuções simultâneas') && attempt < maxRetries) {
+        const delay = baseDelay + Math.random() * 10000;
+        console.log(`[manager] Agendamento aguardando slot (tentativa ${attempt}/${maxRetries}), retry em ${(delay / 1000).toFixed(0)}s`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 export function scheduleTask(agentId, taskDescription, cronExpression, wsCallback) {
   const agent = agentsStore.getById(agentId);
   if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
@@ -296,7 +313,9 @@ export function scheduleTask(agentId, taskDescription, cronExpression, wsCallbac
   schedulesStore.save(items);
 
   scheduler.schedule(scheduleId, cronExpression, () => {
-    executeTask(agentId, taskDescription, null, null, { source: 'schedule', scheduleId });
+    executeWithRetry(agentId, taskDescription, { source: 'schedule', scheduleId }).catch(err => {
+      console.log(`[manager] Agendamento ${scheduleId} falhou após retries: ${err.message}`);
+    });
   }, false);
 
   return { scheduleId, agentId, agentName: agent.agent_name, taskDescription, cronExpression };
@@ -314,7 +333,9 @@ export function updateScheduleTask(scheduleId, data, wsCallback) {
   const cronExpression = data.cronExpression || stored.cronExpression;
 
   scheduler.updateSchedule(scheduleId, cronExpression, () => {
-    executeTask(agentId, taskDescription, null, null, { source: 'schedule', scheduleId });
+    executeWithRetry(agentId, taskDescription, { source: 'schedule', scheduleId }).catch(err => {
+      console.log(`[manager] Agendamento ${scheduleId} falhou após retries: ${err.message}`);
+    });
   });
 
   schedulesStore.update(scheduleId, { agentId, agentName: agent.agent_name, taskDescription, cronExpression });
@@ -424,10 +445,8 @@ export function importAgent(data) {
 
 export function restoreSchedules() {
   scheduler.restoreSchedules((agentId, taskDescription, scheduleId) => {
-    try {
-      executeTask(agentId, taskDescription, null, null, { source: 'schedule', scheduleId });
-    } catch (err) {
+    executeWithRetry(agentId, taskDescription, { source: 'schedule', scheduleId }).catch(err => {
       console.log(`[manager] Erro ao executar tarefa agendada: ${err.message}`);
-    }
+    });
   });
 }

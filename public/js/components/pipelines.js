@@ -84,7 +84,6 @@ const PipelinesUI = {
 
     const flowHtml = steps.map((step, index) => {
       const agentName = Utils.escapeHtml(step.agentName || step.agentId || 'Agente');
-      const isLast = index === steps.length - 1;
       const approvalIcon = step.requiresApproval && index > 0
         ? '<i data-lucide="shield-check" style="width:10px;height:10px;color:var(--warning)"></i> '
         : '';
@@ -93,7 +92,6 @@ const PipelinesUI = {
           <span class="pipeline-step-number">${index + 1}</span>
           ${approvalIcon}${agentName}
         </span>
-        ${!isLast ? '<span class="pipeline-flow-arrow">→</span>' : ''}
       `;
     }).join('');
 
@@ -120,6 +118,9 @@ const PipelinesUI = {
             Executar
           </button>
           <div class="agent-actions-icons">
+            <button class="btn btn-ghost btn-icon btn-sm" data-action="flow-pipeline" data-id="${pipeline.id}" title="Editor de fluxo">
+              <i data-lucide="workflow"></i>
+            </button>
             <button class="btn btn-ghost btn-icon btn-sm" data-action="edit-pipeline" data-id="${pipeline.id}" title="Editar pipeline">
               <i data-lucide="pencil"></i>
             </button>
@@ -135,8 +136,8 @@ const PipelinesUI = {
   openCreateModal() {
     PipelinesUI._editingId = null;
     PipelinesUI._steps = [
-      { agentId: '', inputTemplate: '', requiresApproval: false },
-      { agentId: '', inputTemplate: '', requiresApproval: false },
+      { agentId: '', inputTemplate: '', description: '', promptMode: 'simple', requiresApproval: false },
+      { agentId: '', inputTemplate: '', description: '', promptMode: 'simple', requiresApproval: false },
     ];
 
     const titleEl = document.getElementById('pipeline-modal-title');
@@ -161,7 +162,13 @@ const PipelinesUI = {
 
       PipelinesUI._editingId = pipelineId;
       PipelinesUI._steps = Array.isArray(pipeline.steps)
-        ? pipeline.steps.map((s) => ({ agentId: s.agentId || '', inputTemplate: s.inputTemplate || '', requiresApproval: !!s.requiresApproval }))
+        ? pipeline.steps.map((s) => ({
+            agentId: s.agentId || '',
+            inputTemplate: s.inputTemplate || '',
+            description: s.description || '',
+            promptMode: s.description ? 'simple' : 'advanced',
+            requiresApproval: !!s.requiresApproval,
+          }))
         : [];
 
       const titleEl = document.getElementById('pipeline-modal-title');
@@ -212,6 +219,46 @@ const PipelinesUI = {
           </label>`
         : '';
 
+      const isSimple = step.promptMode !== 'advanced';
+      const inputContext = isFirst
+        ? 'O input inicial do pipeline'
+        : 'O resultado (sumarizado) do passo anterior';
+
+      const promptHtml = isSimple
+        ? `<textarea
+            class="textarea"
+            rows="2"
+            placeholder="Ex: Analise os requisitos e crie um plano técnico detalhado"
+            data-step-field="description"
+            data-step-index="${index}"
+          >${Utils.escapeHtml(step.description || '')}</textarea>
+          <div class="pipeline-step-hints">
+            <span class="pipeline-step-hint">
+              <i data-lucide="info" style="width:11px;height:11px"></i>
+              ${inputContext} será injetado via <code>{{input}}</code> automaticamente no final.
+            </span>
+            <span class="pipeline-step-hint">
+              <i data-lucide="lightbulb" style="width:11px;height:11px"></i>
+              Dica: use <code>&lt;tags&gt;</code> XML para organizar melhor. Ex: <code>&lt;contexto&gt;</code> <code>&lt;regras&gt;</code> <code>&lt;formato_saida&gt;</code>
+            </span>
+          </div>`
+        : `<textarea
+            class="textarea"
+            rows="3"
+            placeholder="Use {{input}} para posicionar o output do passo anterior. Estruture com <tags> XML."
+            data-step-field="inputTemplate"
+            data-step-index="${index}"
+          >${Utils.escapeHtml(step.inputTemplate || '')}</textarea>
+          <div class="pipeline-step-hints">
+            <span class="pipeline-step-hint">
+              <i data-lucide="lightbulb" style="width:11px;height:11px"></i>
+              Dica: use <code>&lt;tags&gt;</code> XML para organizar. Ex: <code>&lt;contexto&gt;{{input}}&lt;/contexto&gt;</code> <code>&lt;regras&gt;</code> <code>&lt;formato_saida&gt;</code>
+            </span>
+          </div>`;
+
+      const modeIcon = isSimple ? 'code' : 'text';
+      const modeLabel = isSimple ? 'Avançado' : 'Simples';
+
       return `
         <div class="pipeline-step-row" data-step-index="${index}">
           <span class="pipeline-step-number-lg">${index + 1}</span>
@@ -220,14 +267,14 @@ const PipelinesUI = {
               <option value="">Selecionar agente...</option>
               ${agentOptions}
             </select>
-            <textarea
-              class="textarea"
-              rows="2"
-              placeholder="{{input}} será substituído pelo output anterior"
-              data-step-field="inputTemplate"
-              data-step-index="${index}"
-            >${Utils.escapeHtml(step.inputTemplate || '')}</textarea>
-            ${approvalHtml}
+            ${promptHtml}
+            <div class="pipeline-step-footer">
+              ${approvalHtml}
+              <button type="button" class="pipeline-mode-toggle" data-step-action="toggle-mode" data-step-index="${index}" title="Alternar entre modo simples e avançado">
+                <i data-lucide="${modeIcon}" style="width:12px;height:12px"></i>
+                ${modeLabel}
+              </button>
+            </div>
           </div>
           <div class="pipeline-step-actions">
             <button class="btn btn-ghost btn-icon btn-sm" type="button" data-step-action="move-up" data-step-index="${index}" title="Mover para cima" ${isFirst ? 'disabled' : ''}>
@@ -270,9 +317,41 @@ const PipelinesUI = {
     });
   },
 
+  _generateTemplate(description, stepIndex) {
+    if (!description) return '';
+    if (stepIndex === 0) {
+      return `${description}\n\n{{input}}`;
+    }
+    return `${description}\n\nResultado do passo anterior:\n{{input}}`;
+  },
+
+  toggleMode(index) {
+    PipelinesUI._syncStepsFromDOM();
+    const step = PipelinesUI._steps[index];
+    if (!step) return;
+
+    if (step.promptMode === 'advanced') {
+      step.promptMode = 'simple';
+      if (step.inputTemplate && !step.description) {
+        step.description = step.inputTemplate
+          .replace(/\{\{input\}\}/g, '')
+          .replace(/Resultado do passo anterior:\s*/g, '')
+          .replace(/Input:\s*/g, '')
+          .trim();
+      }
+    } else {
+      step.promptMode = 'advanced';
+      if (step.description && !step.inputTemplate) {
+        step.inputTemplate = PipelinesUI._generateTemplate(step.description, index);
+      }
+    }
+
+    PipelinesUI.renderSteps();
+  },
+
   addStep() {
     PipelinesUI._syncStepsFromDOM();
-    PipelinesUI._steps.push({ agentId: '', inputTemplate: '', requiresApproval: false });
+    PipelinesUI._steps.push({ agentId: '', inputTemplate: '', description: '', promptMode: 'simple', requiresApproval: false });
     PipelinesUI.renderSteps();
   },
 
@@ -315,11 +394,19 @@ const PipelinesUI = {
     const data = {
       name,
       description: document.getElementById('pipeline-description')?.value.trim() || '',
-      steps: PipelinesUI._steps.map((s) => ({
-        agentId: s.agentId,
-        inputTemplate: s.inputTemplate || '',
-        requiresApproval: !!s.requiresApproval,
-      })),
+      steps: PipelinesUI._steps.map((s, index) => {
+        const isSimple = s.promptMode !== 'advanced';
+        const inputTemplate = isSimple
+          ? PipelinesUI._generateTemplate(s.description, index)
+          : (s.inputTemplate || '');
+
+        return {
+          agentId: s.agentId,
+          inputTemplate,
+          description: isSimple ? (s.description || '') : '',
+          requiresApproval: !!s.requiresApproval,
+        };
+      }),
     };
 
     try {
@@ -382,6 +469,11 @@ const PipelinesUI = {
 
     if (!input) {
       Toast.warning('O input inicial é obrigatório');
+      return;
+    }
+
+    if (workingDirectory && !workingDirectory.startsWith('/')) {
+      Toast.warning('O diretório de trabalho deve ser um caminho absoluto (começar com /)');
       return;
     }
 

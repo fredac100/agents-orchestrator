@@ -39,8 +39,17 @@ const AgentsUI = {
 
     if (empty) empty.style.display = 'none';
 
+    const sorted = [...agents].sort((a, b) => {
+      const rank = (tags) => {
+        if ((tags || []).some((t) => t.toLowerCase() === 'lider')) return 0;
+        if ((tags || []).some((t) => t.toLowerCase() === 'po' || t.toLowerCase() === 'product-owner')) return 1;
+        return 2;
+      };
+      return rank(a.tags) - rank(b.tags);
+    });
+
     const fragment = document.createDocumentFragment();
-    agents.forEach((agent) => {
+    sorted.forEach((agent) => {
       const wrapper = document.createElement('div');
       wrapper.innerHTML = AgentsUI.renderCard(agent);
       fragment.appendChild(wrapper.firstElementChild);
@@ -78,16 +87,24 @@ const AgentsUI = {
     const tags = Array.isArray(agent.tags) && agent.tags.length > 0
       ? `<div class="agent-tags">${agent.tags.map((t) => `<span class="tag-chip tag-chip--sm">${Utils.escapeHtml(t)}</span>`).join('')}</div>`
       : '';
+    const isLeader = Array.isArray(agent.tags) && agent.tags.some((t) => t.toLowerCase() === 'lider');
+    const isPO = !isLeader && Array.isArray(agent.tags) && agent.tags.some((t) => t.toLowerCase() === 'po' || t.toLowerCase() === 'product-owner');
+    const roleClass = isLeader ? ' agent-card--leader' : isPO ? ' agent-card--po' : '';
+    const roleBadge = isLeader
+      ? '<i data-lucide="crown" class="agent-leader-icon"></i>'
+      : isPO
+        ? '<i data-lucide="shield-check" class="agent-po-icon"></i>'
+        : '';
 
     return `
-      <div class="agent-card" data-agent-id="${agent.id}">
+      <div class="agent-card${roleClass}" data-agent-id="${agent.id}">
         <div class="agent-card-body">
           <div class="agent-card-top">
             <div class="agent-avatar" style="background-color: ${color}" aria-hidden="true">
               <span>${initials}</span>
             </div>
             <div class="agent-info">
-              <h3 class="agent-name">${Utils.escapeHtml(name)}</h3>
+              <h3 class="agent-name">${roleBadge}${Utils.escapeHtml(name)}</h3>
               <span class="badge ${statusClass}">${statusLabel}</span>
             </div>
           </div>

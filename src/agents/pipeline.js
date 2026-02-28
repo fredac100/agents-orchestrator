@@ -86,6 +86,7 @@ function executeStepAsPromise(agentConfig, prompt, pipelineState, wsCallback, pi
             costUsd: result.costUsd || 0,
             durationMs: result.durationMs || 0,
             numTurns: result.numTurns || 0,
+            sessionId: result.sessionId || '',
           });
         },
       }
@@ -237,7 +238,7 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
 
       totalCost += stepResult.costUsd;
       currentInput = stepResult.text;
-      results.push({ stepId: step.id, agentName: agent.agent_name, result: stepResult.text });
+      results.push({ stepId: step.id, agentId: step.agentId, agentName: agent.agent_name, result: stepResult.text, sessionId: stepResult.sessionId });
 
       const current = executionsStore.getById(historyRecord.id);
       const savedSteps = current ? (current.steps || []) : [];
@@ -266,6 +267,19 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
           costUsd: stepResult.costUsd,
         });
       }
+
+      if (i < steps.length - 1 && !pipelineState.canceled) {
+        if (wsCallback) {
+          wsCallback({ type: 'pipeline_summarizing', pipelineId, stepIndex: i, originalLength: currentInput.length });
+        }
+        const summarized = await executor.summarize(currentInput);
+        if (summarized !== currentInput) {
+          if (wsCallback) {
+            wsCallback({ type: 'pipeline_summarized', pipelineId, stepIndex: i, originalLength: currentInput.length, summarizedLength: summarized.length });
+          }
+          currentInput = summarized;
+        }
+      }
     }
 
     activePipelines.delete(executionId);
@@ -285,7 +299,17 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
           if (wsCallback) wsCallback({ type: 'report_generated', pipelineId, reportFile: report.filename });
         }
       } catch (e) { console.error('[pipeline] Erro ao gerar relatório:', e.message); }
-      if (wsCallback) wsCallback({ type: 'pipeline_complete', pipelineId, executionId, results, totalCostUsd: totalCost });
+      const lastResult = results.length > 0 ? results[results.length - 1] : null;
+      if (wsCallback) wsCallback({
+        type: 'pipeline_complete',
+        pipelineId,
+        executionId,
+        results,
+        totalCostUsd: totalCost,
+        lastAgentId: lastResult?.agentId || '',
+        lastAgentName: lastResult?.agentName || '',
+        lastSessionId: lastResult?.sessionId || '',
+      });
     }
 
     return { executionId, results };

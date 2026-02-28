@@ -1,9 +1,12 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { settingsStore } from '../store/db.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const AGENT_SETTINGS = path.resolve(__dirname, '..', '..', 'data', 'agent-settings.json');
 const CLAUDE_BIN = resolveBin();
 const activeExecutions = new Map();
 const MAX_OUTPUT_SIZE = 512 * 1024;
@@ -48,9 +51,7 @@ function cleanEnv(agentSecrets) {
   const env = { ...process.env };
   delete env.CLAUDECODE;
   delete env.ANTHROPIC_API_KEY;
-  if (!env.CLAUDE_CODE_MAX_OUTPUT_TOKENS) {
-    env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = '128000';
-  }
+  env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = '128000';
   if (agentSecrets && typeof agentSecrets === 'object') {
     Object.assign(env, agentSecrets);
   }
@@ -60,6 +61,10 @@ function cleanEnv(agentSecrets) {
 function buildArgs(agentConfig, prompt) {
   const model = agentConfig.model || 'claude-sonnet-4-6';
   const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--model', model];
+
+  if (existsSync(AGENT_SETTINGS)) {
+    args.push('--settings', AGENT_SETTINGS);
+  }
 
   if (agentConfig.systemPrompt) {
     args.push('--system-prompt', agentConfig.systemPrompt);
@@ -358,6 +363,10 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
     '--permission-mode', agentConfig.permissionMode || 'bypassPermissions',
   ];
 
+  if (existsSync(AGENT_SETTINGS)) {
+    args.push('--settings', AGENT_SETTINGS);
+  }
+
   if (agentConfig.maxTurns && agentConfig.maxTurns > 0) {
     args.push('--max-turns', String(agentConfig.maxTurns));
   }
@@ -410,6 +419,65 @@ export function getActiveExecutions() {
     startedAt: exec.startedAt,
     agentConfig: exec.agentConfig,
   }));
+}
+
+export function summarize(text, threshold = 1500) {
+  return new Promise((resolve) => {
+    if (!text || text.length <= threshold) {
+      resolve(text);
+      return;
+    }
+
+    const prompt = `Resuma o conteúdo abaixo de forma estruturada e concisa. Preserve TODAS as informações críticas:
+- Decisões técnicas e justificativas
+- Trechos de código essenciais
+- Dados, números e métricas
+- Problemas encontrados e soluções
+- Recomendações e próximos passos
+
+Organize o resumo usando <tags> XML (ex: <decisoes>, <codigo>, <problemas>, <recomendacoes>).
+NÃO omita informações que seriam necessárias para outro profissional continuar o trabalho.
+
+<conteudo_para_resumir>
+${text}
+</conteudo_para_resumir>`;
+
+    const args = [
+      '-p', prompt,
+      '--output-format', 'text',
+      '--model', 'claude-haiku-4-5-20251001',
+      '--max-turns', '1',
+      '--permission-mode', 'bypassPermissions',
+    ];
+
+    if (existsSync(AGENT_SETTINGS)) {
+      args.push('--settings', AGENT_SETTINGS);
+    }
+
+    const child = spawn(CLAUDE_BIN, args, {
+      env: cleanEnv(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let output = '';
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+    }, 120000);
+
+    child.stdout.on('data', (chunk) => { output += chunk.toString(); });
+
+    child.on('close', () => {
+      clearTimeout(timer);
+      const result = output.trim();
+      console.log(`[executor] Sumarização: ${text.length} → ${result.length} chars`);
+      resolve(result || text);
+    });
+
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolve(text);
+    });
+  });
 }
 
 export function getBinPath() {

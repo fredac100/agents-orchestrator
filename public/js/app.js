@@ -289,6 +289,9 @@ const App = {
       case 'pipeline_complete':
         Terminal.stopProcessing();
         Terminal.addLine('Pipeline concluído com sucesso.', 'success');
+        if (data.lastSessionId && data.lastAgentId) {
+          Terminal.enableChat(data.lastAgentId, data.lastAgentName || 'Agente', data.lastSessionId);
+        }
         Toast.success('Pipeline concluído');
         App.refreshCurrentSection();
         break;
@@ -716,6 +719,7 @@ const App = {
       switch (action) {
         case 'execute-pipeline': PipelinesUI.execute(id); break;
         case 'edit-pipeline': PipelinesUI.openEditModal(id); break;
+        case 'flow-pipeline': FlowEditor.open(id); break;
         case 'delete-pipeline': PipelinesUI.delete(id); break;
       }
     });
@@ -756,6 +760,7 @@ const App = {
         case 'move-up': PipelinesUI.moveStep(stepIndex, -1); break;
         case 'move-down': PipelinesUI.moveStep(stepIndex, 1); break;
         case 'remove': PipelinesUI.removeStep(stepIndex); break;
+        case 'toggle-mode': PipelinesUI.toggleMode(stepIndex); break;
       }
     });
 
