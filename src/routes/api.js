@@ -41,7 +41,7 @@ const upload = multer({
 
 const importUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024, files: 10000 },
+  limits: { fileSize: 500 * 1024 * 1024, files: 50000 },
 });
 
 const router = Router();
@@ -1461,7 +1461,12 @@ router.post('/projects/import', async (req, res) => {
   }
 });
 
-router.post('/projects/upload', importUpload.array('files', 10000), async (req, res) => {
+router.post('/projects/upload', (req, res, next) => {
+  importUpload.array('files', 50000)(req, res, (err) => {
+    if (err) return res.status(413).json({ error: `Upload falhou: ${err.message}` });
+    next();
+  });
+}, async (req, res) => {
   const repoName = (req.body.repoName || '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
   if (!repoName) return res.status(400).json({ error: 'repoName é obrigatório' });
 
@@ -1497,8 +1502,7 @@ router.post('/projects/upload', importUpload.array('files', 10000), async (req, 
       if (!relativePath || relativePath.includes('..')) continue;
       const dest = join(tmpDir, relativePath);
       mkdirSync(dirname(dest), { recursive: true });
-      const { writeFileSync: wfs } = await import('fs');
-      wfs(dest, files[i].buffer);
+      writeFileSync(dest, files[i].buffer);
     }
     steps.push(`${files.length} arquivos recebidos`);
 
