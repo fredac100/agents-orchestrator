@@ -40,7 +40,7 @@ const FilesUI = {
       ${breadcrumb}
       <div class="files-toolbar">
         <span class="files-count">${entries.length} ${entries.length === 1 ? 'item' : 'itens'}</span>
-        <button class="btn btn--ghost btn--sm" data-action="download-folder" data-path="${Utils.escapeHtml(data.path || '')}" title="Baixar pasta como .tar.gz"><i data-lucide="archive" style="width:14px;height:14px"></i> Baixar tudo</button>
+        <button class="btn btn--ghost btn--sm" data-action="download-folder" data-path="${Utils.escapeHtml(data.path || '')}" title="Baixar pasta como .tar.gz"><i data-lucide="download" style="width:14px;height:14px"></i> Baixar tudo</button>
       </div>
       <div class="files-table-wrapper">
         <table class="files-table">
@@ -87,9 +87,11 @@ const FilesUI = {
       ? `<a href="#" class="files-entry-link files-entry-dir" data-action="navigate-files" data-path="${Utils.escapeHtml(fullPath)}"><i data-lucide="${icon}" style="width:16px;height:16px;color:${iconColor};flex-shrink:0"></i> ${Utils.escapeHtml(entry.name)}</a>`
       : `<span class="files-entry-link files-entry-file"><i data-lucide="${icon}" style="width:16px;height:16px;color:${iconColor};flex-shrink:0"></i> ${Utils.escapeHtml(entry.name)}</span>`;
 
-    const actions = entry.type === 'directory'
-      ? `<button class="btn btn--ghost btn--sm" data-action="download-folder" data-path="${Utils.escapeHtml(fullPath)}" title="Baixar pasta"><i data-lucide="archive" style="width:14px;height:14px"></i></button>`
+    const downloadBtn = entry.type === 'directory'
+      ? `<button class="btn btn--ghost btn--sm" data-action="download-folder" data-path="${Utils.escapeHtml(fullPath)}" title="Baixar pasta"><i data-lucide="download" style="width:14px;height:14px"></i></button>`
       : `<button class="btn btn--ghost btn--sm" data-action="download-file" data-path="${Utils.escapeHtml(fullPath)}" title="Baixar arquivo"><i data-lucide="download" style="width:14px;height:14px"></i></button>`;
+    const deleteBtn = `<button class="btn btn--ghost btn--sm btn-danger" data-action="delete-entry" data-path="${Utils.escapeHtml(fullPath)}" data-entry-type="${entry.type}" title="Excluir"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button>`;
+    const actions = `${downloadBtn}${deleteBtn}`;
 
     return `
       <tr class="files-row">
@@ -146,6 +148,24 @@ const FilesUI = {
     a.href = `/api/files/download-folder?path=${encodeURIComponent(path)}`;
     a.download = '';
     a.click();
+  },
+
+  async deleteEntry(path, entryType) {
+    const label = entryType === 'directory' ? 'pasta' : 'arquivo';
+    const name = path.split('/').pop();
+    const confirmed = await Modal.confirm(
+      `Excluir ${label}`,
+      `Tem certeza que deseja excluir "${name}"? Esta ação não pode ser desfeita.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await API.files.delete(path);
+      Toast.success(`${label.charAt(0).toUpperCase() + label.slice(1)} excluído`);
+      await FilesUI.navigate(FilesUI.currentPath);
+    } catch (err) {
+      Toast.error(`Erro ao excluir: ${err.message}`);
+    }
   },
 };
 

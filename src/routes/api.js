@@ -11,7 +11,7 @@ import * as pipeline from '../agents/pipeline.js';
 import { getBinPath, updateMaxConcurrent, cancelAllExecutions, getActiveExecutions } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
-import { readdirSync, readFileSync, unlinkSync, existsSync, mkdirSync, statSync, createReadStream } from 'fs';
+import { readdirSync, readFileSync, unlinkSync, existsSync, mkdirSync, statSync, createReadStream, rmSync } from 'fs';
 import { join, dirname, resolve as pathResolve, extname, basename, relative } from 'path';
 import { createGzip } from 'zlib';
 import { Readable } from 'stream';
@@ -1135,6 +1135,26 @@ router.get('/files/download-folder', (req, res) => {
     });
 
     req.on('close', () => { try { tar.kill(); } catch {} });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/files', (req, res) => {
+  try {
+    const targetPath = resolveProjectPath(req.query.path || '');
+    if (!targetPath) return res.status(400).json({ error: 'Caminho inválido' });
+    if (targetPath === PROJECTS_DIR) return res.status(400).json({ error: 'Não é permitido excluir o diretório raiz' });
+    if (!existsSync(targetPath)) return res.status(404).json({ error: 'Arquivo ou pasta não encontrado' });
+
+    const stat = statSync(targetPath);
+    if (stat.isDirectory()) {
+      rmSync(targetPath, { recursive: true, force: true });
+    } else {
+      unlinkSync(targetPath);
+    }
+
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

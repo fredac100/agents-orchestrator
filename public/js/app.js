@@ -774,6 +774,7 @@ const App = {
         case 'navigate-files': FilesUI.navigate(path || ''); break;
         case 'download-file': FilesUI.downloadFile(path); break;
         case 'download-folder': FilesUI.downloadFolder(path); break;
+        case 'delete-entry': FilesUI.deleteEntry(path, el.dataset.entryType); break;
       }
     });
 

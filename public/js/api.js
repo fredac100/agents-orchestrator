@@ -144,6 +144,7 @@ const API = {
 
   files: {
     list(path) { return API.request('GET', `/files${path ? '?path=' + encodeURIComponent(path) : ''}`); },
+    delete(path) { return API.request('DELETE', `/files?path=${encodeURIComponent(path)}`); },
   },
 
   reports: {
