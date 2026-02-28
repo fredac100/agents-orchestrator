@@ -476,6 +476,11 @@ const PipelinesUI = {
 
     if (App._pipelineDropzone) App._pipelineDropzone.reset();
 
+    const repoSelect = document.getElementById('pipeline-execute-repo');
+    if (repoSelect) { repoSelect.value = ''; repoSelect.dispatchEvent(new Event('change')); }
+    App._reposCache = null;
+    App._loadRepos('pipeline-execute-repo');
+
     Modal.open('pipeline-execute-modal-overlay');
   },
 
@@ -503,7 +508,9 @@ const PipelinesUI = {
         contextFiles = uploadResult.files;
       }
 
-      await API.pipelines.execute(pipelineId, input, workingDirectory, contextFiles);
+      const repoName = document.getElementById('pipeline-execute-repo')?.value || '';
+      const repoBranch = document.getElementById('pipeline-execute-repo-branch')?.value || '';
+      await API.pipelines.execute(pipelineId, input, workingDirectory, contextFiles, repoName, repoBranch);
       if (dropzone) dropzone.reset();
       Modal.close('pipeline-execute-modal-overlay');
       App.navigateTo('terminal');

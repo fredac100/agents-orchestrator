@@ -38,9 +38,10 @@ const API = {
     create(data) { return API.request('POST', '/agents', data); },
     update(id, data) { return API.request('PUT', `/agents/${id}`, data); },
     delete(id) { return API.request('DELETE', `/agents/${id}`); },
-    execute(id, task, instructions, contextFiles, workingDirectory) {
+    execute(id, task, instructions, contextFiles, workingDirectory, repoName, repoBranch) {
       const body = { task, instructions };
-      if (workingDirectory) body.workingDirectory = workingDirectory;
+      if (repoName) { body.repoName = repoName; if (repoBranch) body.repoBranch = repoBranch; }
+      else if (workingDirectory) body.workingDirectory = workingDirectory;
       if (contextFiles && contextFiles.length > 0) body.contextFiles = contextFiles;
       return API.request('POST', `/agents/${id}/execute`, body);
     },
@@ -83,9 +84,10 @@ const API = {
     create(data) { return API.request('POST', '/pipelines', data); },
     update(id, data) { return API.request('PUT', `/pipelines/${id}`, data); },
     delete(id) { return API.request('DELETE', `/pipelines/${id}`); },
-    execute(id, input, workingDirectory, contextFiles) {
+    execute(id, input, workingDirectory, contextFiles, repoName, repoBranch) {
       const body = { input };
-      if (workingDirectory) body.workingDirectory = workingDirectory;
+      if (repoName) { body.repoName = repoName; if (repoBranch) body.repoBranch = repoBranch; }
+      else if (workingDirectory) body.workingDirectory = workingDirectory;
       if (contextFiles && contextFiles.length > 0) body.contextFiles = contextFiles;
       return API.request('POST', `/pipelines/${id}/execute`, body);
     },
@@ -140,6 +142,11 @@ const API = {
       if (!response.ok) throw new Error(data.error || 'Erro no upload');
       return data;
     },
+  },
+
+  repos: {
+    list() { return API.request('GET', '/repos'); },
+    branches(name) { return API.request('GET', `/repos/${encodeURIComponent(name)}/branches`); },
   },
 
   files: {

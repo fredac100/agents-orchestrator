@@ -5301,6 +5301,9 @@ body, .sidebar, .header, .card, .modal-content, .input, .select, textarea, .metr
   align-items: center;
 }
 
+.repo-selector { display: flex; gap: 8px; }
+.repo-selector .select { flex: 1; }
+
 .btn-publish { color: var(--success); }
 .btn-publish:hover { background: rgba(16, 185, 129, 0.1); }
 

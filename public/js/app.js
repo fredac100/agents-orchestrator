@@ -37,6 +37,7 @@ const App = {
 
     App._executeDropzone = Utils.initDropzone('execute-dropzone', 'execute-files', 'execute-file-list');
     App._pipelineDropzone = Utils.initDropzone('pipeline-execute-dropzone', 'pipeline-execute-files', 'pipeline-execute-file-list');
+    App._initRepoSelectors();
 
     const initialSection = location.hash.replace('#', '') || 'dashboard';
     App.navigateTo(App.sections.includes(initialSection) ? initialSection : 'dashboard');
@@ -860,6 +861,61 @@ const App = {
     });
   },
 
+  _reposCache: null,
+
+  async _loadRepos(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    try {
+      if (!App._reposCache) App._reposCache = await API.repos.list();
+      const current = select.value;
+      select.innerHTML = '<option value="">Nenhum (usar diretório manual)</option>';
+      App._reposCache.forEach(r => {
+        select.insertAdjacentHTML('beforeend',
+          `<option value="${Utils.escapeHtml(r.name)}">${Utils.escapeHtml(r.name)}${r.description ? ' — ' + Utils.escapeHtml(r.description.slice(0, 40)) : ''}</option>`
+        );
+      });
+      if (current) select.value = current;
+    } catch { }
+  },
+
+  _initRepoSelectors() {
+    const pairs = [
+      ['execute-repo', 'execute-repo-branch', 'execute-workdir-group'],
+      ['pipeline-execute-repo', 'pipeline-execute-repo-branch', 'pipeline-execute-workdir-group'],
+    ];
+    pairs.forEach(([repoId, branchId, workdirGroupId]) => {
+      const repoSelect = document.getElementById(repoId);
+      const branchSelect = document.getElementById(branchId);
+      const workdirGroup = document.getElementById(workdirGroupId);
+      if (!repoSelect) return;
+
+      repoSelect.addEventListener('change', async () => {
+        const repoName = repoSelect.value;
+        if (repoName) {
+          if (workdirGroup) workdirGroup.style.display = 'none';
+          if (branchSelect) {
+            branchSelect.style.display = '';
+            branchSelect.innerHTML = '<option value="">Branch padrão</option>';
+            try {
+              const branches = await API.repos.branches(repoName);
+              branches.forEach(b => {
+                branchSelect.insertAdjacentHTML('beforeend', `<option value="${Utils.escapeHtml(b)}">${Utils.escapeHtml(b)}</option>`);
+              });
+            } catch { }
+          }
+        } else {
+          if (workdirGroup) workdirGroup.style.display = '';
+          if (branchSelect) branchSelect.style.display = 'none';
+        }
+      });
+
+      repoSelect.addEventListener('focus', () => {
+        if (repoSelect.options.length <= 1) App._loadRepos(repoId);
+      });
+    });
+  },
+
   async _handleExecute() {
     const agentId = document.getElementById('execute-agent-select')?.value
       || document.getElementById('execute-agent-id')?.value;
@@ -877,6 +933,8 @@ const App = {
 
     const instructions = document.getElementById('execute-instructions')?.value.trim() || '';
     const workingDirectory = document.getElementById('execute-workdir')?.value.trim() || '';
+    const repoName = document.getElementById('execute-repo')?.value || '';
+    const repoBranch = document.getElementById('execute-repo-branch')?.value || '';
 
     try {
       const selectEl = document.getElementById('execute-agent-select');
@@ -893,7 +951,7 @@ const App = {
       Terminal.disableChat();
       App._lastAgentName = agentName;
 
-      await API.agents.execute(agentId, task, instructions, contextFiles, workingDirectory);
+      await API.agents.execute(agentId, task, instructions, contextFiles, workingDirectory, repoName, repoBranch);
 
       if (dropzone) dropzone.reset();
       Modal.close('execute-modal-overlay');

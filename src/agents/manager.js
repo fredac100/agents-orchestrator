@@ -4,6 +4,7 @@ import { agentsStore, schedulesStore, executionsStore, notificationsStore, secre
 import * as executor from './executor.js';
 import * as scheduler from './scheduler.js';
 import { generateAgentReport } from '../reports/generator.js';
+import * as gitIntegration from './git-integration.js';
 
 const DEFAULT_CONFIG = {
   model: 'claude-sonnet-4-6',
@@ -180,6 +181,10 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
     effectiveInstructions += `\n\n<agentes_disponiveis>\n${agentList}\n</agentes_disponiveis>`;
   }
 
+  if (metadata.repoName) {
+    effectiveInstructions += `\n\n<git_repository>\nVocê está trabalhando no repositório "${metadata.repoName}". NÃO faça git init, git commit, git push ou qualquer operação git. O sistema fará commit e push automaticamente ao final da execução. Foque apenas no código.\n</git_repository>`;
+  }
+
   const effectiveConfig = { ...agent.config };
   if (metadata.workingDirectoryOverride) {
     effectiveConfig.workingDirectory = metadata.workingDirectoryOverride;
@@ -246,6 +251,23 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
             if (cb) cb({ type: 'report_generated', executionId: execId, agentId, reportFile: report.filename });
           }
         } catch (e) { console.error('[manager] Erro ao gerar relatório:', e.message); }
+        if (metadata.repoName && result.result) {
+          const repoDir = gitIntegration.getProjectDir(metadata.repoName);
+          gitIntegration.commitAndPush(repoDir, agent.agent_name, taskText.slice(0, 100))
+            .then(gitResult => {
+              if (gitResult.changed) {
+                console.log(`[manager] Auto-commit: ${gitResult.commitHash} em ${metadata.repoName}`);
+                if (cb) cb({
+                  type: 'execution_output', executionId: execId, agentId,
+                  data: { type: 'success', content: `Git: commit ${gitResult.commitHash} pushed para ${metadata.repoName} (${gitResult.filesChanged} arquivos) → ${gitResult.commitUrl}` },
+                });
+              } else if (gitResult.error) {
+                console.error(`[manager] Erro no auto-commit:`, gitResult.error);
+              }
+            })
+            .catch(err => console.error(`[manager] Erro no auto-commit:`, err.message));
+        }
+
         if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
 
         const isPipelineStep = !!metadata.pipelineExecutionId;

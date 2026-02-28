@@ -8,6 +8,7 @@ import * as manager from '../agents/manager.js';
 import { tasksStore, settingsStore, executionsStore, webhooksStore, notificationsStore, secretsStore, agentVersionsStore } from '../store/db.js';
 import * as scheduler from '../agents/scheduler.js';
 import * as pipeline from '../agents/pipeline.js';
+import * as gitIntegration from '../agents/git-integration.js';
 import { getBinPath, updateMaxConcurrent, cancelAllExecutions, getActiveExecutions } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
@@ -165,15 +166,24 @@ function buildContextFilesPrompt(contextFiles) {
   return `\n\nArquivos de contexto anexados (leia cada um deles antes de iniciar):\n${lines.join('\n')}`;
 }
 
-router.post('/agents/:id/execute', (req, res) => {
+router.post('/agents/:id/execute', async (req, res) => {
   try {
-    const { task, instructions, contextFiles, workingDirectory } = req.body;
+    const { task, instructions, contextFiles, workingDirectory, repoName, repoBranch } = req.body;
     if (!task) return res.status(400).json({ error: 'task é obrigatório' });
     const clientId = req.headers['x-client-id'] || null;
     const filesPrompt = buildContextFilesPrompt(contextFiles);
     const fullTask = task + filesPrompt;
     const metadata = {};
-    if (workingDirectory) metadata.workingDirectoryOverride = workingDirectory;
+
+    if (repoName) {
+      const syncResult = await gitIntegration.cloneOrPull(repoName, repoBranch || null);
+      metadata.workingDirectoryOverride = syncResult.dir;
+      metadata.repoName = repoName;
+      metadata.repoBranch = repoBranch || null;
+    } else if (workingDirectory) {
+      metadata.workingDirectoryOverride = workingDirectory;
+    }
+
     const executionId = manager.executeTask(req.params.id, fullTask, instructions, (msg) => wsCallback(msg, clientId), metadata);
     res.status(202).json({ executionId, status: 'started' });
   } catch (err) {
@@ -464,11 +474,20 @@ router.delete('/pipelines/:id', (req, res) => {
 
 router.post('/pipelines/:id/execute', async (req, res) => {
   try {
-    const { input, workingDirectory, contextFiles } = req.body;
+    const { input, workingDirectory, contextFiles, repoName, repoBranch } = req.body;
     if (!input) return res.status(400).json({ error: 'input é obrigatório' });
     const clientId = req.headers['x-client-id'] || null;
     const options = {};
-    if (workingDirectory) options.workingDirectory = workingDirectory;
+
+    if (repoName) {
+      const syncResult = await gitIntegration.cloneOrPull(repoName, repoBranch || null);
+      options.workingDirectory = syncResult.dir;
+      options.repoName = repoName;
+      options.repoBranch = repoBranch || null;
+    } else if (workingDirectory) {
+      options.workingDirectory = workingDirectory;
+    }
+
     const filesPrompt = buildContextFilesPrompt(contextFiles);
     const fullInput = input + filesPrompt;
     const result = pipeline.executePipeline(req.params.id, fullInput, (msg) => wsCallback(msg, clientId), options);
@@ -1155,6 +1174,24 @@ router.delete('/files', (req, res) => {
     }
 
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/repos', async (req, res) => {
+  try {
+    const repos = await gitIntegration.listRepos();
+    res.json(repos);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/repos/:name/branches', async (req, res) => {
+  try {
+    const branches = await gitIntegration.listBranches(req.params.name);
+    res.json(branches);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

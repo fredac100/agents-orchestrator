@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { pipelinesStore, agentsStore, executionsStore } from '../store/db.js';
 import * as executor from './executor.js';
+import * as gitIntegration from './git-integration.js';
 import { mem } from '../cache/index.js';
 import { generatePipelineReport } from '../reports/generator.js';
 
@@ -293,6 +294,19 @@ export async function executePipeline(pipelineId, initialInput, wsCallback, opti
     });
 
     if (!pipelineState.canceled) {
+      if (options.repoName) {
+        try {
+          const repoDir = gitIntegration.getProjectDir(options.repoName);
+          const gitResult = await gitIntegration.commitAndPush(repoDir, pl.name, `Pipeline: ${pl.name}`);
+          if (gitResult.changed && wsCallback) {
+            wsCallback({
+              type: 'pipeline_step_output', pipelineId, stepIndex: steps.length - 1,
+              data: { type: 'success', content: `Git: commit ${gitResult.commitHash} pushed para ${options.repoName} (${gitResult.filesChanged} arquivos) → ${gitResult.commitUrl}` },
+            });
+          }
+        } catch (e) { console.error('[pipeline] Erro no auto-commit:', e.message); }
+      }
+
       try {
         const updated = executionsStore.getById(historyRecord.id);
         if (updated) {

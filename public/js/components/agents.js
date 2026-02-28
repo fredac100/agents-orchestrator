@@ -374,6 +374,11 @@ const AgentsUI = {
 
       AgentsUI._loadSavedTasks();
 
+      const repoSelect = document.getElementById('execute-repo');
+      if (repoSelect) { repoSelect.value = ''; repoSelect.dispatchEvent(new Event('change')); }
+      App._reposCache = null;
+      App._loadRepos('execute-repo');
+
       Modal.open('execute-modal-overlay');
     } catch (err) {
       Toast.error(`Erro ao abrir modal de execução: ${err.message}`);

@@ -999,6 +999,19 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label" for="execute-repo">Repositório Git</label>
+            <div class="repo-selector">
+              <select class="select" id="execute-repo">
+                <option value="">Nenhum (usar diretório manual)</option>
+              </select>
+              <select class="select" id="execute-repo-branch" style="display:none">
+                <option value="">Branch padrão</option>
+              </select>
+            </div>
+            <p class="form-hint">Se selecionado, o agente trabalha no repositório e faz commit/push automático ao finalizar.</p>
+          </div>
+
+          <div class="form-group" id="execute-workdir-group">
             <label class="form-label" for="execute-workdir">Diretório de Trabalho</label>
             <input
               type="text"
@@ -1232,6 +1245,19 @@
           </div>
         </div>
         <div class="form-group">
+          <label class="form-label" for="pipeline-execute-repo">Repositório Git</label>
+          <div class="repo-selector">
+            <select class="select" id="pipeline-execute-repo">
+              <option value="">Nenhum (usar diretório manual)</option>
+            </select>
+            <select class="select" id="pipeline-execute-repo-branch" style="display:none">
+              <option value="">Branch padrão</option>
+            </select>
+          </div>
+          <p class="form-hint">Se selecionado, todos os agentes trabalham no repositório e o commit/push é automático ao final.</p>
+        </div>
+
+        <div class="form-group" id="pipeline-execute-workdir-group">
           <label class="form-label" for="pipeline-execute-workdir">Diretório de Trabalho (opcional)</label>
           <input
             type="text"
