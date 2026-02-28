@@ -874,6 +874,7 @@ const App = {
     }
 
     const instructions = document.getElementById('execute-instructions')?.value.trim() || '';
+    const workingDirectory = document.getElementById('execute-workdir')?.value.trim() || '';
 
     try {
       const selectEl = document.getElementById('execute-agent-select');
@@ -890,7 +891,7 @@ const App = {
       Terminal.disableChat();
       App._lastAgentName = agentName;
 
-      await API.agents.execute(agentId, task, instructions, contextFiles);
+      await API.agents.execute(agentId, task, instructions, contextFiles, workingDirectory);
 
       if (dropzone) dropzone.reset();
       Modal.close('execute-modal-overlay');

@@ -160,6 +160,13 @@ export function restoreSchedules(executeFn) {
   if (restored > 0) console.log(`[scheduler] ${restored} agendamento(s) restaurado(s)`);
 }
 
+export function stopAll() {
+  for (const [, entry] of schedules) {
+    entry.task.stop();
+  }
+  schedules.clear();
+}
+
 export function on(event, listener) {
   emitter.on(event, listener);
 }

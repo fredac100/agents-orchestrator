@@ -122,18 +122,6 @@ git deploy                  # Push + deploy completo
 bash scripts/deploy.sh --skip-push   # Apenas deploy, sem push
 ```
 
-### Verificar status
-
-```bash
-ssh -p 2222 fred@192.168.1.151 "docker logs agents-orchestrator --tail 20"
-```
-
-### Reiniciar
-
-```bash
-ssh -p 2222 fred@192.168.1.151 "cd ~/vps && docker compose restart agents-orchestrator"
-```
-
 ## Variáveis de Ambiente
 
 | Variável | Descrição | Padrão |

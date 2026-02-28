@@ -366,6 +366,12 @@ const AgentsUI = {
 
       if (App._executeDropzone) App._executeDropzone.reset();
 
+      const selectedAgent = allAgents.find(a => a.id === agentId);
+      const workdirEl = document.getElementById('execute-workdir');
+      if (workdirEl) {
+        workdirEl.value = (selectedAgent?.config?.workingDirectory) || '/home/projetos/';
+      }
+
       AgentsUI._loadSavedTasks();
 
       Modal.open('execute-modal-overlay');

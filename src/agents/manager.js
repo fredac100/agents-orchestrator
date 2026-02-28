@@ -180,8 +180,13 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
     effectiveInstructions += `\n\n<agentes_disponiveis>\n${agentList}\n</agentes_disponiveis>`;
   }
 
+  const effectiveConfig = { ...agent.config };
+  if (metadata.workingDirectoryOverride) {
+    effectiveConfig.workingDirectory = metadata.workingDirectoryOverride;
+  }
+
   const executionId = executor.execute(
-    agent.config,
+    effectiveConfig,
     { description: task, instructions: effectiveInstructions },
     {
       onData: (parsed, execId) => {

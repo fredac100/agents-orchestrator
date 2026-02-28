@@ -38,8 +38,9 @@ const API = {
     create(data) { return API.request('POST', '/agents', data); },
     update(id, data) { return API.request('PUT', `/agents/${id}`, data); },
     delete(id) { return API.request('DELETE', `/agents/${id}`); },
-    execute(id, task, instructions, contextFiles) {
+    execute(id, task, instructions, contextFiles, workingDirectory) {
       const body = { task, instructions };
+      if (workingDirectory) body.workingDirectory = workingDirectory;
       if (contextFiles && contextFiles.length > 0) body.contextFiles = contextFiles;
       return API.request('POST', `/agents/${id}/execute`, body);
     },

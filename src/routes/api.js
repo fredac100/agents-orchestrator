@@ -167,12 +167,14 @@ function buildContextFilesPrompt(contextFiles) {
 
 router.post('/agents/:id/execute', (req, res) => {
   try {
-    const { task, instructions, contextFiles } = req.body;
+    const { task, instructions, contextFiles, workingDirectory } = req.body;
     if (!task) return res.status(400).json({ error: 'task é obrigatório' });
     const clientId = req.headers['x-client-id'] || null;
     const filesPrompt = buildContextFilesPrompt(contextFiles);
     const fullTask = task + filesPrompt;
-    const executionId = manager.executeTask(req.params.id, fullTask, instructions, (msg) => wsCallback(msg, clientId));
+    const metadata = {};
+    if (workingDirectory) metadata.workingDirectoryOverride = workingDirectory;
+    const executionId = manager.executeTask(req.params.id, fullTask, instructions, (msg) => wsCallback(msg, clientId), metadata);
     res.status(202).json({ executionId, status: 'started' });
   } catch (err) {
     const status = err.message.includes('não encontrado') ? 404 : 400;
