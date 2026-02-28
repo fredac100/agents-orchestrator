@@ -40,12 +40,14 @@ const AgentsUI = {
     if (empty) empty.style.display = 'none';
 
     const sorted = [...agents].sort((a, b) => {
-      const rank = (tags) => {
-        if ((tags || []).some((t) => t.toLowerCase() === 'lider')) return 0;
-        if ((tags || []).some((t) => t.toLowerCase() === 'po' || t.toLowerCase() === 'product-owner')) return 1;
+      const rank = (agent) => {
+        const name = (agent.agent_name || agent.name || '').toLowerCase();
+        const tags = (agent.tags || []).map((t) => t.toLowerCase());
+        if (name === 'tech lead' || tags.includes('lider')) return 0;
+        if (name === 'product owner' || tags.includes('po') || tags.includes('product-owner')) return 1;
         return 2;
       };
-      return rank(a.tags) - rank(b.tags);
+      return rank(a) - rank(b);
     });
 
     const fragment = document.createDocumentFragment();
@@ -87,8 +89,10 @@ const AgentsUI = {
     const tags = Array.isArray(agent.tags) && agent.tags.length > 0
       ? `<div class="agent-tags">${agent.tags.map((t) => `<span class="tag-chip tag-chip--sm">${Utils.escapeHtml(t)}</span>`).join('')}</div>`
       : '';
-    const isLeader = Array.isArray(agent.tags) && agent.tags.some((t) => t.toLowerCase() === 'lider');
-    const isPO = !isLeader && Array.isArray(agent.tags) && agent.tags.some((t) => t.toLowerCase() === 'po' || t.toLowerCase() === 'product-owner');
+    const agentNameLower = (agent.agent_name || agent.name || '').toLowerCase();
+    const tagsLower = Array.isArray(agent.tags) ? agent.tags.map((t) => t.toLowerCase()) : [];
+    const isLeader = agentNameLower === 'tech lead' || tagsLower.includes('lider');
+    const isPO = !isLeader && (agentNameLower === 'product owner' || tagsLower.includes('po') || tagsLower.includes('product-owner'));
     const roleClass = isLeader ? ' agent-card--leader' : isPO ? ' agent-card--po' : '';
     const roleBadge = isLeader
       ? '<i data-lucide="crown" class="agent-leader-icon"></i>'
