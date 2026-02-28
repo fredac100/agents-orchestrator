@@ -12,6 +12,7 @@ import apiRouter, { setWsBroadcast, setWsBroadcastTo, hookRouter } from './src/r
 import * as manager from './src/agents/manager.js';
 import { setGlobalBroadcast } from './src/agents/manager.js';
 import { cancelAllExecutions } from './src/agents/executor.js';
+import { stopAll as stopAllSchedules } from './src/agents/scheduler.js';
 import { flushAllStores } from './src/store/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -114,13 +115,9 @@ app.use('/hook', hookLimiter, verifyWebhookSignature, hookRouter);
 app.use(express.static(join(__dirname, 'public'), {
   etag: true,
   setHeaders(res, filePath) {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-    } else {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-    }
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
   },
 }));
 app.use('/api', apiRouter);
@@ -177,6 +174,9 @@ setGlobalBroadcast(broadcast);
 function gracefulShutdown(signal) {
   console.log(`\nSinal ${signal} recebido. Encerrando servidor...`);
 
+  stopAllSchedules();
+  console.log('Agendamentos parados.');
+
   cancelAllExecutions();
   console.log('Execuções ativas canceladas.');
 
@@ -185,15 +185,23 @@ function gracefulShutdown(signal) {
 
   clearInterval(wsHeartbeat);
 
-  httpServer.close(() => {
-    console.log('Servidor HTTP encerrado.');
-    process.exit(0);
+  for (const client of wss.clients) {
+    client.close(1001, 'Servidor encerrando');
+  }
+  connectedClients.clear();
+
+  wss.close(() => {
+    console.log('WebSocket server encerrado.');
+    httpServer.close(() => {
+      console.log('Servidor HTTP encerrado.');
+      process.exit(0);
+    });
   });
 
   setTimeout(() => {
     console.error('Forçando encerramento após timeout.');
     process.exit(1);
-  }, 10000);
+  }, 10000).unref();
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
