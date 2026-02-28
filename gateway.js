@@ -102,6 +102,7 @@ app.use(express.static(join(__dirname, 'public'), {
 
 async function proxyToUser(userId, user, req, res) {
   const host = await containerManager.ensure(userId);
+  req.url = '/api' + req.url;
   proxy.web(req, res, {
     target: `http://${host}:3000`,
     headers: {
@@ -145,6 +146,7 @@ app.use('/hook', express.json({
           signal: AbortSignal.timeout(2000),
         });
         if (check.ok) {
+          req.url = '/hook' + req.url;
           proxy.web(req, res, { target: `http://${w.name}:3000` });
           return;
         }
