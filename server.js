@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
@@ -9,11 +10,13 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import compression from 'compression';
 import apiRouter, { setWsBroadcast, setWsBroadcastTo, hookRouter } from './src/routes/api.js';
+import authRouter from './src/routes/auth.js';
+import { authMiddleware, verifyWsToken } from './src/auth/middleware.js';
 import * as manager from './src/agents/manager.js';
 import { setGlobalBroadcast } from './src/agents/manager.js';
 import { cancelAllExecutions } from './src/agents/executor.js';
 import { stopAll as stopAllSchedules } from './src/agents/scheduler.js';
-import { flushAllStores } from './src/store/db.js';
+import { flushAllStores, usersStore } from './src/store/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -98,14 +101,20 @@ app.use(compression());
 
 app.use('/api', apiLimiter);
 
-app.use('/api', (req, res, next) => {
-  if (!AUTH_TOKEN) return next();
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : req.query.token;
-  if (!timingSafeCompare(token, AUTH_TOKEN)) {
-    return res.status(401).json({ error: 'Token de autenticação inválido' });
-  }
+app.use('/api/auth', (req, res, next) => {
   next();
+});
+
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth')) return next();
+
+  if (AUTH_TOKEN) {
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : req.query.token;
+    if (timingSafeCompare(token, AUTH_TOKEN)) return next();
+  }
+
+  return authMiddleware(req, res, next);
 });
 
 app.use(express.json({
@@ -113,7 +122,6 @@ app.use(express.json({
 }));
 app.use('/hook', hookLimiter, verifyWebhookSignature, hookRouter);
 
-// Serve o app diretamente na raiz — sem landing page intermediária
 app.get('/', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'app.html'));
 });
@@ -126,19 +134,26 @@ app.use(express.static(join(__dirname, 'public'), {
     res.setHeader('Expires', '0');
   },
 }));
+
+app.use('/api/auth', authRouter);
 app.use('/api', apiRouter);
 
 const connectedClients = new Map();
 
 wss.on('connection', (ws, req) => {
-  const clientId = new URL(req.url, 'http://localhost').searchParams.get('clientId') || uuidv4();
+  const params = new URL(req.url, 'http://localhost').searchParams;
+  const clientId = params.get('clientId') || uuidv4();
+  const wsToken = params.get('token');
 
-  if (AUTH_TOKEN) {
-    const token = new URL(req.url, 'http://localhost').searchParams.get('token');
-    if (!timingSafeCompare(token, AUTH_TOKEN)) {
+  if (AUTH_TOKEN && wsToken && timingSafeCompare(wsToken, AUTH_TOKEN)) {
+    // OK via AUTH_TOKEN legado
+  } else if (usersStore.count() > 0) {
+    const user = verifyWsToken(wsToken);
+    if (!user) {
       ws.close(4001, 'Token inválido');
       return;
     }
+    ws.user = user;
   }
 
   ws.clientId = clientId;

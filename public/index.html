@@ -154,8 +154,11 @@ footer{padding:48px 0 32px;border-top:1px solid var(--glass-border)}
 .footer-bottom{text-align:center;padding-top:24px;border-top:1px solid var(--glass-border);color:var(--text3);font-size:.8rem}
 
 /* RESPONSIVE */
+@media(max-width:1100px){
+.pricing-grid{grid-template-columns:repeat(2,1fr)!important}
+}
 @media(max-width:900px){
-.features-grid,.pricing-grid{grid-template-columns:1fr}
+.features-grid,.pricing-grid{grid-template-columns:1fr!important}
 .steps{flex-direction:column;gap:40px}
 .steps::before{display:none}
 .nav-links{display:none}
@@ -184,7 +187,7 @@ footer{padding:48px 0 32px;border-top:1px solid var(--glass-border)}
 <a href="#how">Como Funciona</a>
 <a href="#pricing">Preços</a>
 <a href="#faq">FAQ</a>
-<a href="/app.html" class="btn btn-primary nav-cta" style="color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);font-weight:700">Começar Agora</a>
+<a href="/login.html" class="btn btn-primary nav-cta" style="color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);font-weight:700">Começar Agora</a>
 </div>
 <button class="nav-menu-btn" onclick="document.querySelector('.nav-links').classList.toggle('show')" aria-label="Menu">☰</button>
 </div>
@@ -203,7 +206,7 @@ footer{padding:48px 0 32px;border-top:1px solid var(--glass-border)}
 <h1 class="reveal">Orquestre Agentes IA<br>com <span>Precisão Cirúrgica</span></h1>
 <p class="reveal">Transforme o Claude Code em uma plataforma de automação completa. Pipelines visuais, execução em tempo real e controle total — sem escrever uma linha de código.</p>
 <div class="hero-btns reveal">
-<a href="/app.html" class="btn btn-primary">Começar Gratuitamente →</a>
+<a href="/login.html?tab=register" class="btn btn-primary">Começar Gratuitamente →</a>
 <a href="#how" class="btn btn-outline">▶ Ver Demo</a>
 </div>
 <div class="hero-metrics reveal">
@@ -294,7 +297,23 @@ footer{padding:48px 0 32px;border-top:1px solid var(--glass-border)}
 <div class="section-label"><span class="badge reveal">Preços</span></div>
 <h2 class="section-title reveal">Planos para cada necessidade</h2>
 <p class="section-sub reveal">Comece pequeno e escale conforme sua operação cresce. Sem surpresas.</p>
-<div class="pricing-grid">
+<div class="pricing-grid" style="grid-template-columns:repeat(4,1fr)">
+
+<div class="price-card reveal">
+<h3>Free</h3>
+<p class="desc">Para testar e experimentar</p>
+<div class="price-val">R$0<span>/mês</span></div>
+<p class="period">Grátis para sempre</p>
+<ul class="price-features">
+<li>2 agentes configuráveis</li>
+<li>1 pipeline</li>
+<li>50 execuções/mês</li>
+<li>1 usuário</li>
+<li>1 webhook</li>
+<li>Dashboard básico</li>
+</ul>
+<a href="/login.html?tab=register&plan=free" class="btn btn-outline">Começar Grátis</a>
+</div>
 
 <div class="price-card reveal">
 <h3>Starter</h3>
@@ -306,10 +325,11 @@ footer{padding:48px 0 32px;border-top:1px solid var(--glass-border)}
 <li>5 pipelines</li>
 <li>500 execuções/mês</li>
 <li>1 usuário</li>
+<li>5 webhooks</li>
 <li>Suporte por email</li>
 <li>Dashboard e métricas</li>
 </ul>
-<a href="/app.html" class="btn btn-outline">Escolher Starter</a>
+<a href="/login.html?tab=register&plan=starter" class="btn btn-outline">Escolher Starter</a>
 </div>
 
 <div class="price-card popular reveal-scale">
@@ -328,7 +348,7 @@ footer{padding:48px 0 32px;border-top:1px solid var(--glass-border)}
 <li>Relatórios avançados</li>
 <li>Suporte prioritário</li>
 </ul>
-<a href="/app.html" class="btn btn-primary">Escolher Pro</a>
+<a href="/login.html?tab=register&plan=pro" class="btn btn-primary">Escolher Pro</a>
 </div>
 
 <div class="price-card reveal">
@@ -346,7 +366,7 @@ footer{padding:48px 0 32px;border-top:1px solid var(--glass-border)}
 <li>Deploy on-premise</li>
 <li>SSO / SAML</li>
 </ul>
-<a href="/app.html" class="btn btn-outline">Falar com Vendas</a>
+<a href="/login.html?tab=register&plan=enterprise" class="btn btn-outline">Falar com Vendas</a>
 </div>
 
 </div>
@@ -412,7 +432,7 @@ Vocês oferecem teste gratuito?
 <h2 class="reveal">Pronto para Automatizar<br>seus Agentes IA?</h2>
 <p class="reveal">Junte-se a milhares de equipes que já usam AgentFlow para escalar suas operações com inteligência artificial.</p>
 <div class="reveal">
-<a href="/app.html" class="btn btn-primary" style="padding:18px 44px;font-size:1.05rem">Começar Gratuitamente →</a>
+<a href="/login.html?tab=register" class="btn btn-primary" style="padding:18px 44px;font-size:1.05rem">Começar Gratuitamente →</a>
 </div>
 </div>
 </section>

@@ -20,13 +20,39 @@ const App = {
     import: 'Importar Projeto',
     files: 'Projetos',
     settings: 'Configurações',
+    billing: 'Plano e Cobrança',
   },
 
-  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'import', 'files', 'settings'],
+  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'import', 'files', 'settings', 'billing'],
 
-  init() {
+  _authData: null,
+
+  async init() {
     if (App._initialized) return;
     App._initialized = true;
+
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      window.location.href = '/login.html';
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        window.location.href = '/login.html';
+        return;
+      }
+      App._authData = await res.json();
+      App._renderUserInfo();
+    } catch {
+      window.location.href = '/login.html';
+      return;
+    }
 
     const savedTheme = localStorage.getItem('theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -42,7 +68,14 @@ const App = {
 
     Terminal.restoreIfActive();
 
-    const initialSection = location.hash.replace('#', '') || 'dashboard';
+    let initialSection = location.hash.replace('#', '') || 'dashboard';
+    if (initialSection === 'billing-success') {
+      initialSection = 'billing';
+      setTimeout(() => Toast.success('Plano atualizado com sucesso! Obrigado pela assinatura.'), 500);
+    } else if (initialSection === 'billing-cancel') {
+      initialSection = 'billing';
+      setTimeout(() => Toast.info('Checkout cancelado. Seu plano não foi alterado.'), 500);
+    }
     App.navigateTo(App.sections.includes(initialSection) ? initialSection : 'dashboard');
     App.startPeriodicRefresh();
 
@@ -123,6 +156,7 @@ const App = {
         case 'import': await ImportUI.load(); break;
         case 'files': await FilesUI.load(); break;
         case 'settings': await SettingsUI.load(); break;
+        case 'billing': await App._loadBilling(); break;
       }
     } catch (err) {
       Toast.error(`Erro ao carregar seção: ${err.message}`);
@@ -132,7 +166,8 @@ const App = {
   setupWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const clientId = API.clientId;
-    const url = `${protocol}//${window.location.host}?clientId=${clientId}`;
+    const token = localStorage.getItem('auth_token') || '';
+    const url = `${protocol}//${window.location.host}?clientId=${clientId}&token=${encodeURIComponent(token)}`;
 
     try {
       App.ws = new WebSocket(url);
@@ -1090,6 +1125,146 @@ const App = {
         Terminal._hideTimer();
       }
     } catch {}
+  },
+
+  _renderUserInfo() {
+    const data = App._authData;
+    if (!data) return;
+
+    const nameEl = document.getElementById('header-user-name');
+    const planEl = document.getElementById('sidebar-plan-badge');
+    const upgradeEl = document.getElementById('sidebar-upgrade-btn');
+
+    if (nameEl) nameEl.textContent = data.user.name || data.user.email;
+    if (planEl) {
+      planEl.textContent = data.plan.name;
+      planEl.className = `sidebar-plan-badge plan-${data.plan.id}`;
+    }
+    if (upgradeEl) {
+      upgradeEl.style.display = data.plan.id === 'enterprise' ? 'none' : '';
+    }
+
+    const usageEl = document.getElementById('sidebar-usage');
+    if (usageEl && data.usage) {
+      const exec = data.usage.executionsPerMonth;
+      const pct = exec.limit === -1 ? 0 : Math.round((exec.current / exec.limit) * 100);
+      usageEl.innerHTML = `
+        <div class="sidebar-usage-label">${exec.current}/${exec.limit === -1 ? '∞' : exec.limit} execuções/mês</div>
+        <div class="sidebar-usage-bar"><div class="sidebar-usage-fill" style="width:${Math.min(pct, 100)}%"></div></div>
+      `;
+    }
+  },
+
+  logout() {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    window.location.href = '/login.html';
+  },
+
+  async _handleUpgrade(planId) {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch('/api/auth/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ planId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        Toast.success(data.message || 'Plano atualizado');
+        const meRes = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (meRes.ok) {
+          App._authData = await meRes.json();
+          App._renderUserInfo();
+        }
+      }
+    } catch (err) {
+      Toast.error(err.message);
+    }
+  },
+
+  async _loadBilling() {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const [meRes, plansRes] = await Promise.all([
+        fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/auth/plans', { headers: { 'Authorization': `Bearer ${token}` } }),
+      ]);
+      if (!meRes.ok || !plansRes.ok) return;
+      const meData = await meRes.json();
+      const plans = await plansRes.json();
+      App._authData = meData;
+      App._renderUserInfo();
+
+      const nameEl = document.getElementById('billing-plan-name');
+      const priceEl = document.getElementById('billing-plan-price');
+      if (nameEl) nameEl.textContent = meData.plan.name;
+      if (priceEl) priceEl.textContent = meData.plan.price === 0 ? 'Gratuito' : `R$${(meData.plan.price / 100).toFixed(0)}/mês`;
+
+      const usageEl = document.getElementById('billing-usage');
+      if (usageEl && meData.usage) {
+        const items = [
+          { label: 'Agentes', ...meData.usage.agents },
+          { label: 'Pipelines', ...meData.usage.pipelines },
+          { label: 'Webhooks', ...meData.usage.webhooks },
+          { label: 'Execuções/mês', ...meData.usage.executionsPerMonth },
+          { label: 'Usuários', ...meData.usage.users },
+        ];
+        usageEl.innerHTML = items.map(i => {
+          const limitText = i.limit === -1 ? '∞' : i.limit;
+          const pct = i.limit === -1 ? 0 : Math.round((i.current / i.limit) * 100);
+          const colorClass = pct >= 90 ? 'usage-danger' : pct >= 70 ? 'usage-warning' : '';
+          return `<div class="billing-usage-item">
+            <div class="billing-usage-header"><span>${i.label}</span><span>${i.current}/${limitText}</span></div>
+            <div class="billing-usage-bar ${colorClass}"><div class="billing-usage-fill" style="width:${Math.min(pct, 100)}%"></div></div>
+          </div>`;
+        }).join('');
+      }
+
+      const grid = document.getElementById('billing-plans-grid');
+      if (grid) {
+        grid.innerHTML = plans.map(p => {
+          const isCurrent = p.id === meData.plan.id;
+          const priceText = p.price === 0 ? 'Grátis' : `R$${(p.price / 100).toFixed(0)}/mês`;
+          return `<div class="billing-plan-card ${isCurrent ? 'current' : ''}">
+            <div class="billing-plan-card-header">
+              <strong>${Utils.escapeHtml(p.name)}</strong>
+              <span>${priceText}</span>
+            </div>
+            <ul class="billing-plan-features">${p.features.map(f => `<li>${Utils.escapeHtml(f)}</li>`).join('')}</ul>
+            ${isCurrent
+              ? '<button class="btn btn--ghost btn--sm" disabled>Plano Atual</button>'
+              : `<button class="btn btn--primary btn--sm" onclick="App._handleUpgrade('${p.id}')">${p.price === 0 ? 'Downgrade para Free' : 'Fazer Upgrade'}</button>`
+            }
+          </div>`;
+        }).join('');
+      }
+
+      const manageCard = document.getElementById('billing-manage-card');
+      if (manageCard) {
+        manageCard.style.display = meData.stripeConfigured && meData.plan.id !== 'free' ? '' : 'none';
+      }
+    } catch (err) {
+      console.error('[billing]', err);
+    }
+  },
+
+  async _openBillingPortal() {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch('/api/auth/billing-portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.portalUrl) window.location.href = data.portalUrl;
+    } catch (err) {
+      Toast.error(err.message);
+    }
   },
 
   startPeriodicRefresh() {

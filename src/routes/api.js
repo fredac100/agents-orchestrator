@@ -5,7 +5,8 @@ import crypto from 'crypto';
 import os from 'os';
 import multer from 'multer';
 import * as manager from '../agents/manager.js';
-import { tasksStore, settingsStore, executionsStore, webhooksStore, notificationsStore, secretsStore, agentVersionsStore } from '../store/db.js';
+import { tasksStore, settingsStore, executionsStore, webhooksStore, notificationsStore, secretsStore, agentVersionsStore, usersStore, agentsStore, pipelinesStore } from '../store/db.js';
+import { getPlan } from '../auth/plans.js';
 import * as scheduler from '../agents/scheduler.js';
 import * as pipeline from '../agents/pipeline.js';
 import * as gitIntegration from '../agents/git-integration.js';
@@ -63,6 +64,70 @@ function wsCallback(message, clientId) {
   else if (wsbroadcast) wsbroadcast(message);
 }
 
+function getActivePlan(req) {
+  if (!req.user) return getPlan('enterprise');
+  const owner = usersStore.filter(u => u.role === 'owner')[0];
+  return getPlan((owner || req.user).plan);
+}
+
+function checkResourceLimit(req, res, resource, store) {
+  const plan = getActivePlan(req);
+  const limit = plan.limits[resource];
+  if (limit === -1) return true;
+  const current = store.count();
+  if (current >= limit) {
+    res.status(403).json({
+      error: `Limite do plano ${plan.name}: máximo de ${limit} ${resource}. Faça upgrade.`,
+      limitReached: true,
+      resource,
+      limit,
+      current,
+    });
+    return false;
+  }
+  return true;
+}
+
+function checkExecutionLimit(req, res) {
+  if (!req.user) return true;
+  const plan = getActivePlan(req);
+  const limit = plan.limits.executionsPerMonth;
+  if (limit === -1) return true;
+  const user = usersStore.getById(req.user.id);
+  if (!user) return true;
+  const now = new Date();
+  const resetDate = new Date(user.monthlyExecReset || now);
+  let count = user.monthlyExecutions || 0;
+  if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
+    count = 0;
+    usersStore.update(user.id, { monthlyExecutions: 0, monthlyExecReset: now.toISOString() });
+  }
+  if (count >= limit) {
+    res.status(403).json({
+      error: `Limite de ${limit} execuções/mês atingido no plano ${plan.name}. Faça upgrade.`,
+      limitReached: true,
+      resource: 'executionsPerMonth',
+      limit,
+      current: count,
+    });
+    return false;
+  }
+  return true;
+}
+
+function incrementUserExecutions(userId) {
+  if (!userId) return;
+  const user = usersStore.getById(userId);
+  if (!user) return;
+  const now = new Date();
+  const resetDate = new Date(user.monthlyExecReset || now);
+  let count = user.monthlyExecutions || 0;
+  if (now.getMonth() !== resetDate.getMonth() || now.getFullYear() !== resetDate.getFullYear()) {
+    count = 0;
+  }
+  usersStore.update(userId, { monthlyExecutions: count + 1, monthlyExecReset: now.toISOString() });
+}
+
 router.get('/settings', (req, res) => {
   try {
     res.json(settingsStore.get());
@@ -109,6 +174,7 @@ router.get('/agents/:id', (req, res) => {
 
 router.post('/agents', (req, res) => {
   try {
+    if (!checkResourceLimit(req, res, 'agents', agentsStore)) return;
     const agent = manager.createAgent(req.body);
     invalidateAgentMapCache();
     res.status(201).json(agent);
@@ -119,6 +185,7 @@ router.post('/agents', (req, res) => {
 
 router.post('/agents/import', (req, res) => {
   try {
+    if (!checkResourceLimit(req, res, 'agents', agentsStore)) return;
     const agent = manager.importAgent(req.body);
     invalidateAgentMapCache();
     res.status(201).json(agent);
@@ -173,6 +240,7 @@ function buildContextFilesPrompt(contextFiles) {
 
 router.post('/agents/:id/execute', async (req, res) => {
   try {
+    if (!checkExecutionLimit(req, res)) return;
     const { task, instructions, contextFiles, workingDirectory, repoName, repoBranch } = req.body;
     if (!task) return res.status(400).json({ error: 'task é obrigatório' });
     const clientId = req.headers['x-client-id'] || null;
@@ -190,6 +258,7 @@ router.post('/agents/:id/execute', async (req, res) => {
     }
 
     const executionId = manager.executeTask(req.params.id, fullTask, instructions, (msg) => wsCallback(msg, clientId), metadata);
+    if (req.user) incrementUserExecutions(req.user.id);
     res.status(202).json({ executionId, status: 'started' });
   } catch (err) {
     const status = err.message.includes('não encontrado') ? 404 : 400;
@@ -451,6 +520,7 @@ router.get('/pipelines/:id', (req, res) => {
 
 router.post('/pipelines', (req, res) => {
   try {
+    if (!checkResourceLimit(req, res, 'pipelines', pipelinesStore)) return;
     res.status(201).json(pipeline.createPipeline(req.body));
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -479,6 +549,7 @@ router.delete('/pipelines/:id', (req, res) => {
 
 router.post('/pipelines/:id/execute', async (req, res) => {
   try {
+    if (!checkExecutionLimit(req, res)) return;
     const { input, workingDirectory, contextFiles, repoName, repoBranch } = req.body;
     if (!input) return res.status(400).json({ error: 'input é obrigatório' });
     const clientId = req.headers['x-client-id'] || null;
@@ -497,6 +568,7 @@ router.post('/pipelines/:id/execute', async (req, res) => {
     const fullInput = input + filesPrompt;
     const result = pipeline.executePipeline(req.params.id, fullInput, (msg) => wsCallback(msg, clientId), options);
     result.catch(() => {});
+    if (req.user) incrementUserExecutions(req.user.id);
     res.status(202).json({ pipelineId: req.params.id, status: 'started' });
   } catch (err) {
     const status = err.message.includes('não encontrado') || err.message.includes('desativado') ? 400 : 500;
@@ -556,6 +628,7 @@ router.get('/webhooks', (req, res) => {
 
 router.post('/webhooks', (req, res) => {
   try {
+    if (!checkResourceLimit(req, res, 'webhooks', webhooksStore)) return;
     const { name, targetType, targetId } = req.body;
     if (!name || !targetType || !targetId) {
       return res.status(400).json({ error: 'name, targetType e targetId são obrigatórios' });

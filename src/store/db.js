@@ -240,3 +240,4 @@ export const secretsStore = createStore(`${DATA_DIR}/secrets.json`);
 export const notificationsStore = createStore(`${DATA_DIR}/notifications.json`);
 notificationsStore.setMaxSize(200);
 export const agentVersionsStore = createStore(`${DATA_DIR}/agent_versions.json`);
+export const usersStore = createStore(`${DATA_DIR}/users.json`);

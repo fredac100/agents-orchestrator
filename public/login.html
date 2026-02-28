@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Agents Orchestrator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #09090b;
+      --bg2: #111118;
+      --bg3: #1a1a2e;
+      --bg-card: #111118;
+      --text: #e4e4e7;
+      --text2: #a1a1aa;
+      --text3: #71717a;
+      --border: #27272a;
+      --border-focus: #6366f1;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --accent-glow: rgba(99, 102, 241, 0.15);
+      --success: #22c55e;
+      --error: #ef4444;
+      --error-bg: rgba(239, 68, 68, 0.08);
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      left: -20%;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.06;
+      filter: blur(120px);
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      right: -10%;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: #8b5cf6;
+      opacity: 0.05;
+      filter: blur(120px);
+      pointer-events: none;
+    }
+
+    .auth-container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 440px;
+      padding: 24px;
+    }
+
+    .auth-logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .auth-logo-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 12px;
+      box-shadow: 0 8px 32px rgba(99, 102, 241, 0.25);
+    }
+
+    .auth-logo h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .auth-logo p {
+      color: var(--text3);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    .auth-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text3);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .auth-tab.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    }
+
+    .auth-tab:not(.active):hover {
+      color: var(--text);
+    }
+
+    .auth-form {
+      display: none;
+    }
+
+    .auth-form.active {
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .form-group input::placeholder {
+      color: var(--text3);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.35);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .auth-error {
+      display: none;
+      padding: 12px 16px;
+      background: var(--error-bg);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      color: var(--error);
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .auth-error.visible {
+      display: block;
+    }
+
+    .auth-footer {
+      text-align: center;
+      margin-top: 24px;
+      color: var(--text3);
+      font-size: 0.85rem;
+    }
+
+    .auth-footer a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .auth-footer a:hover {
+      color: var(--accent-hover);
+    }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: var(--text3);
+      font-size: 0.8rem;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .plan-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .plan-card {
+      padding: 14px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg);
+      position: relative;
+    }
+
+    .plan-card:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+
+    .plan-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .plan-card input[type="radio"] {
+      display: none;
+    }
+
+    .plan-card .plan-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 2px;
+    }
+
+    .plan-card .plan-price {
+      font-size: 0.8rem;
+      color: var(--text2);
+    }
+
+    .plan-card .plan-badge {
+      position: absolute;
+      top: -8px;
+      right: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .plan-details {
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 0.82rem;
+      color: var(--text2);
+      line-height: 1.7;
+    }
+
+    .plan-details strong {
+      color: var(--text);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 500px) {
+      .auth-container { padding: 16px; }
+      .auth-card { padding: 24px; }
+      .plan-cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="auth-container">
+  <div class="auth-logo">
+    <div class="auth-logo-icon">&#x2B21;</div>
+    <h1>Agents Orchestrator</h1>
+    <p>Orquestre agentes IA com precisão</p>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Entrar</button>
+      <button class="auth-tab" data-tab="register">Criar Conta</button>
+    </div>
+
+    <div class="auth-error" id="auth-error"></div>
+
+    <!-- LOGIN FORM -->
+    <form class="auth-form active" id="login-form">
+      <div class="form-group">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email" required>
+      </div>
+      <div class="form-group">
+        <label for="login-password">Senha</label>
+        <input type="password" id="login-password" placeholder="Sua senha" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-submit" id="login-btn">Entrar</button>
+    </form>
+
+    <!-- REGISTER FORM -->
+    <form class="auth-form" id="register-form">
+      <div class="form-group">
+        <label for="register-name">Nome</label>
+        <input type="text" id="register-name" placeholder="Seu nome" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label for="register-email">Email</label>
+        <input type="email" id="register-email" placeholder="seu@email.com" autocomplete="email" required>
+      </div>
+      <div class="form-group">
+        <label for="register-password">Senha</label>
+        <input type="password" id="register-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" required>
+      </div>
+
+      <div class="auth-divider">Escolha seu plano</div>
+
+      <div class="plan-cards" id="plan-cards">
+        <label class="plan-card selected" data-plan="free">
+          <input type="radio" name="plan" value="free" checked>
+          <div class="plan-name">Free</div>
+          <div class="plan-price">R$0/mês</div>
+        </label>
+        <label class="plan-card" data-plan="starter">
+          <input type="radio" name="plan" value="starter">
+          <div class="plan-name">Starter</div>
+          <div class="plan-price">R$197/mês</div>
+        </label>
+        <label class="plan-card" data-plan="pro">
+          <input type="radio" name="plan" value="pro">
+          <div class="plan-badge">Popular</div>
+          <div class="plan-name">Pro</div>
+          <div class="plan-price">R$497/mês</div>
+        </label>
+        <label class="plan-card" data-plan="enterprise">
+          <input type="radio" name="plan" value="enterprise">
+          <div class="plan-name">Enterprise</div>
+          <div class="plan-price">R$1.297/mês</div>
+        </label>
+      </div>
+
+      <div class="plan-details" id="plan-details">
+        <strong>Free</strong> — 2 agentes, 1 pipeline, 50 execuções/mês, 1 usuário
+      </div>
+
+      <button type="submit" class="btn-submit" id="register-btn">Criar Conta Gratuita</button>
+    </form>
+  </div>
+
+  <div class="auth-footer">
+    <a href="/index.html">Voltar para a página inicial</a>
+  </div>
+</div>
+
+<script>
+const planInfo = {
+  free: { label: 'Free', desc: '2 agentes, 1 pipeline, 50 execuções/mês, 1 usuário', btnText: 'Criar Conta Gratuita' },
+  starter: { label: 'Starter', desc: '3 agentes, 5 pipelines, 500 execuções/mês, 1 usuário', btnText: 'Criar Conta — R$197/mês' },
+  pro: { label: 'Pro', desc: '15 agentes, pipelines ilimitados, 5.000 execuções/mês, 5 usuários', btnText: 'Criar Conta — R$497/mês' },
+  enterprise: { label: 'Enterprise', desc: 'Tudo ilimitado, SLA 99.9%, suporte 24/7', btnText: 'Criar Conta — R$1.297/mês' },
+};
+
+let selectedPlan = 'free';
+
+if (localStorage.getItem('auth_token')) {
+  fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` } })
+    .then(r => { if (r.ok) window.location.href = '/app.html'; })
+    .catch(() => {});
+}
+
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`${tab.dataset.tab}-form`).classList.add('active');
+    hideError();
+  });
+});
+
+document.querySelectorAll('.plan-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    card.querySelector('input[type="radio"]').checked = true;
+    selectedPlan = card.dataset.plan;
+    const info = planInfo[selectedPlan];
+    document.getElementById('plan-details').innerHTML = `<strong>${info.label}</strong> — ${info.desc}`;
+    document.getElementById('register-btn').textContent = info.btnText;
+  });
+});
+
+function showError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function hideError() {
+  document.getElementById('auth-error').classList.remove('visible');
+}
+
+function setLoading(btn, loading) {
+  if (loading) {
+    btn.disabled = true;
+    btn.dataset.origText = btn.textContent;
+    btn.innerHTML = '<span class="spinner"></span>Aguarde...';
+  } else {
+    btn.disabled = false;
+    btn.textContent = btn.dataset.origText || 'Enviar';
+  }
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  const btn = document.getElementById('login-btn');
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  if (!email || !password) return showError('Preencha todos os campos');
+
+  setLoading(btn, true);
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    window.location.href = '/app.html';
+  } catch (err) {
+    showError(err.message);
+    setLoading(btn, false);
+  }
+});
+
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+  const btn = document.getElementById('register-btn');
+  const name = document.getElementById('register-name').value.trim();
+  const email = document.getElementById('register-email').value.trim();
+  const password = document.getElementById('register-password').value;
+
+  if (!email || !password) return showError('Email e senha são obrigatórios');
+  if (password.length < 6) return showError('Senha deve ter no mínimo 6 caracteres');
+
+  setLoading(btn, true);
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+
+    if (selectedPlan !== 'free') {
+      try {
+        const upgradeRes = await fetch('/api/auth/upgrade', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.token}`,
+          },
+          body: JSON.stringify({ planId: selectedPlan }),
+        });
+        const upgradeData = await upgradeRes.json();
+        if (upgradeRes.ok && upgradeData.checkoutUrl) {
+          window.location.href = upgradeData.checkoutUrl;
+          return;
+        }
+      } catch {}
+    }
+
+    window.location.href = '/app.html';
+  } catch (err) {
+    showError(err.message);
+    setLoading(btn, false);
+  }
+});
+
+const params = new URLSearchParams(window.location.search);
+if (params.get('tab') === 'register') {
+  document.querySelectorAll('.auth-tab')[1].click();
+}
+if (params.get('plan')) {
+  const planCard = document.querySelector(`[data-plan="${params.get('plan')}"]`);
+  if (planCard) planCard.click();
+}
+</script>
+</body>
+</html>

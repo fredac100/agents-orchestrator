@@ -22,6 +22,12 @@
         <span class="sidebar-logo-text">Agents Orchestrator</span>
       </div>
 
+      <div class="sidebar-plan-section">
+        <span class="sidebar-plan-badge plan-free" id="sidebar-plan-badge">Free</span>
+        <a href="#" class="sidebar-upgrade-link" id="sidebar-upgrade-btn" onclick="App.navigateTo('billing');return false;">Fazer Upgrade</a>
+        <div class="sidebar-usage" id="sidebar-usage"></div>
+      </div>
+
       <nav class="sidebar-nav">
         <ul class="sidebar-nav-list">
           <li class="sidebar-nav-item">
@@ -90,6 +96,12 @@
               <span>Configurações</span>
             </a>
           </li>
+          <li class="sidebar-nav-item">
+            <a href="#" class="sidebar-nav-link" data-section="billing">
+              <i data-lucide="credit-card"></i>
+              <span>Plano e Cobrança</span>
+            </a>
+          </li>
         </ul>
       </nav>
 
@@ -145,6 +157,13 @@
                 <div class="notification-empty">Nenhuma notificação</div>
               </div>
             </div>
+          </div>
+          <div class="header-user-menu">
+            <span class="header-user-name" id="header-user-name"></span>
+            <button class="btn btn--ghost btn--sm" id="header-logout-btn" type="button" onclick="App.logout()">
+              <i data-lucide="log-out"></i>
+              Sair
+            </button>
           </div>
         </div>
       </header>
@@ -732,6 +751,42 @@
                     <span class="system-info-value font-mono">9</span>
                   </li>
                 </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="billing" class="section" aria-label="Plano e Cobrança" hidden>
+          <div class="settings-grid">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Seu Plano</h2>
+              </div>
+              <div class="card-body" id="billing-current-plan">
+                <div class="billing-plan-info">
+                  <div class="billing-plan-name" id="billing-plan-name">Free</div>
+                  <div class="billing-plan-price" id="billing-plan-price">R$0/mês</div>
+                </div>
+                <div class="billing-usage" id="billing-usage"></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Alterar Plano</h2>
+              </div>
+              <div class="card-body">
+                <div class="billing-plans-grid" id="billing-plans-grid"></div>
+              </div>
+            </div>
+
+            <div class="card" id="billing-manage-card" style="display:none">
+              <div class="card-header">
+                <h2 class="card-title">Gerenciar Assinatura</h2>
+              </div>
+              <div class="card-body">
+                <p style="color:var(--text-secondary);margin-bottom:16px">Gerencie sua forma de pagamento, faturas e assinatura pelo portal do Stripe.</p>
+                <button class="btn btn--primary" id="billing-portal-btn" type="button" onclick="App._openBillingPortal()">Abrir Portal de Pagamento</button>
               </div>
             </div>
           </div>
@@ -1469,6 +1524,7 @@
   <script src="js/components/notifications.js"></script>
   <script src="js/components/files.js"></script>
   <script src="js/components/import.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/app.js"></script>
   <script>
     Utils.refreshIcons();

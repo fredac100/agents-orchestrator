@@ -7,6 +7,7 @@ const API = {
   })(),
 
   async request(method, path, body = null) {
+    const token = localStorage.getItem('auth_token');
     const options = {
       method,
       headers: {
@@ -14,6 +15,10 @@ const API = {
         'X-Client-Id': API.clientId,
       },
     };
+
+    if (token) {
+      options.headers['Authorization'] = `Bearer ${token}`;
+    }
 
     if (body !== null) {
       options.body = JSON.stringify(body);
@@ -24,6 +29,13 @@ const API = {
     if (response.status === 204) return null;
 
     const data = await response.json();
+
+    if (response.status === 401) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      window.location.href = '/login.html';
+      throw new Error('Sessão expirada');
+    }
 
     if (!response.ok) {
       throw new Error(data.error || `Erro HTTP ${response.status}`);
@@ -133,9 +145,12 @@ const API = {
     async send(files) {
       const form = new FormData();
       for (const f of files) form.append('files', f);
+      const hdrs = { 'X-Client-Id': API.clientId };
+      const tk = localStorage.getItem('auth_token');
+      if (tk) hdrs['Authorization'] = `Bearer ${tk}`;
       const response = await fetch('/api/uploads', {
         method: 'POST',
-        headers: { 'X-Client-Id': API.clientId },
+        headers: hdrs,
         body: form,
       });
       const data = await response.json();
@@ -157,9 +172,12 @@ const API = {
       form.append('repoName', repoName);
       form.append('paths', JSON.stringify(paths));
       for (const f of files) form.append('files', f);
+      const hdrs = { 'X-Client-Id': API.clientId };
+      const tk = localStorage.getItem('auth_token');
+      if (tk) hdrs['Authorization'] = `Bearer ${tk}`;
       const response = await fetch('/api/projects/upload', {
         method: 'POST',
-        headers: { 'X-Client-Id': API.clientId },
+        headers: hdrs,
         body: form,
       });
       const data = await response.json();
@@ -192,8 +210,11 @@ const API = {
     clearAll() { return API.request('DELETE', '/executions/history'); },
     retry(id) { return API.request('POST', `/executions/${id}/retry`); },
     async exportCsv() {
+      const hdrs = { 'X-Client-Id': API.clientId };
+      const tk = localStorage.getItem('auth_token');
+      if (tk) hdrs['Authorization'] = `Bearer ${tk}`;
       const response = await fetch('/api/executions/export', {
-        headers: { 'X-Client-Id': API.clientId },
+        headers: hdrs,
       });
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
