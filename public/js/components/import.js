@@ -5,7 +5,7 @@ const ImportUI = {
   _importing: false,
 
   _excludedDirs: ['.git', 'node_modules', '__pycache__', '.next', '.nuxt', 'venv', '.venv', '.cache', '.parcel-cache', 'dist', 'build', '.output', '.svelte-kit', 'vendor', 'target', '.gradle', '.idea', '.vs', 'coverage', '.nyc_output'],
-  _excludedFiles: ['.DS_Store', 'Thumbs.db', 'desktop.ini', '*.pyc', '*.pyo', '*.class', '*.o', '*.so', '*.dll'],
+  _excludedFiles: ['.git', '.DS_Store', 'Thumbs.db', 'desktop.ini', '*.pyc', '*.pyo', '*.class', '*.o', '*.so', '*.dll'],
 
   async load() {
     const container = document.getElementById('import-container');

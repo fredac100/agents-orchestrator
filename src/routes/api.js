@@ -1507,6 +1507,7 @@ router.post('/projects/upload', (req, res, next) => {
     for (let i = 0; i < files.length; i++) {
       const relativePath = paths[i].split('/').slice(1).join('/');
       if (!relativePath || relativePath.includes('..')) continue;
+      if (relativePath === '.git' || relativePath.startsWith('.git/')) continue;
       const dest = join(tmpDir, relativePath);
       mkdirSync(dirname(dest), { recursive: true });
       writeFileSync(dest, files[i].buffer);
