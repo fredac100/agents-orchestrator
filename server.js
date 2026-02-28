@@ -112,6 +112,7 @@ app.use(express.json({
   verify: (req, res, buf) => { req.rawBody = buf || Buffer.alloc(0); },
 }));
 app.use('/hook', hookLimiter, verifyWebhookSignature, hookRouter);
+app.get('/', (req, res) => res.redirect('https://agen.nitro-cloud.duckdns.org/'));
 app.use(express.static(join(__dirname, 'public'), {
   etag: true,
   setHeaders(res, filePath) {
