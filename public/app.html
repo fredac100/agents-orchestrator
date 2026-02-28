@@ -23,9 +23,20 @@
       </div>
 
       <div class="sidebar-plan-section">
-        <span class="sidebar-plan-badge plan-free" id="sidebar-plan-badge">Free</span>
-        <a href="#" class="sidebar-upgrade-link" id="sidebar-upgrade-btn" onclick="App.navigateTo('billing');return false;">Fazer Upgrade</a>
+        <div class="sidebar-plan-header">
+          <div class="sidebar-plan-icon-wrap">
+            <i data-lucide="zap"></i>
+          </div>
+          <div class="sidebar-plan-info">
+            <span class="sidebar-plan-badge plan-free" id="sidebar-plan-badge">Free</span>
+            <span class="sidebar-plan-tier">Plano atual</span>
+          </div>
+        </div>
         <div class="sidebar-usage" id="sidebar-usage"></div>
+        <a href="#" class="sidebar-upgrade-btn" id="sidebar-upgrade-btn" onclick="App.navigateTo('billing');return false;">
+          <i data-lucide="arrow-up-circle"></i>
+          <span>Fazer Upgrade</span>
+        </a>
       </div>
 
       <nav class="sidebar-nav">

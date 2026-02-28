@@ -1146,12 +1146,24 @@ const App = {
 
     const usageEl = document.getElementById('sidebar-usage');
     if (usageEl && data.usage) {
-      const exec = data.usage.executionsPerMonth;
-      const pct = exec.limit === -1 ? 0 : Math.round((exec.current / exec.limit) * 100);
-      usageEl.innerHTML = `
-        <div class="sidebar-usage-label">${exec.current}/${exec.limit === -1 ? '∞' : exec.limit} execuções/mês</div>
-        <div class="sidebar-usage-bar"><div class="sidebar-usage-fill" style="width:${Math.min(pct, 100)}%"></div></div>
-      `;
+      const items = [
+        { label: 'Agentes', icon: 'cpu', ...data.usage.agents },
+        { label: 'Execuções', icon: 'activity', ...data.usage.executionsPerMonth },
+        { label: 'Pipelines', icon: 'git-merge', ...data.usage.pipelines },
+      ];
+      usageEl.innerHTML = items.map(i => {
+        const limitText = i.limit === -1 ? '∞' : i.limit;
+        const pct = i.limit === -1 ? 0 : Math.round((i.current / i.limit) * 100);
+        const fillClass = pct >= 90 ? 'usage-danger' : pct >= 70 ? 'usage-warning' : '';
+        return `<div class="sidebar-usage-item">
+          <div class="sidebar-usage-label">
+            <span class="sidebar-usage-label-text"><i data-lucide="${i.icon}"></i>${i.label}</span>
+            <span class="sidebar-usage-value">${i.current}/${limitText}</span>
+          </div>
+          <div class="sidebar-usage-bar"><div class="sidebar-usage-fill ${fillClass}" style="width:${Math.min(pct, 100)}%"></div></div>
+        </div>`;
+      }).join('');
+      if (window.lucide) lucide.createIcons({ attrs: { class: 'lucide-icon' } });
     }
   },
 
