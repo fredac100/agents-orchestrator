@@ -102,7 +102,7 @@ const HistoryUI = {
             <i data-lucide="eye"></i>
             Ver detalhes
           </button>
-          ${(exec.status === 'error' && exec.type === 'pipeline' && exec.failedAtStep !== undefined) ? `
+          ${(exec.status === 'error' && exec.type === 'pipeline') ? `
           <button class="btn btn-ghost btn-sm" data-action="resume-pipeline" data-id="${exec.id}" type="button" title="Retomar do passo ${(exec.failedAtStep || 0) + 1}">
             <i data-lucide="play"></i>
             Retomar

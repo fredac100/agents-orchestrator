@@ -118,6 +118,7 @@ const API = {
     status() { return API.request('GET', '/system/status'); },
     info() { return API.request('GET', '/system/info'); },
     activeExecutions() { return API.request('GET', '/executions/active'); },
+    cancelAll() { return API.request('POST', '/executions/cancel-all'); },
   },
 
   settings: {

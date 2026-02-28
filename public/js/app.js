@@ -555,6 +555,18 @@ const App = {
 
     on('pipeline-execute-submit', 'click', () => PipelinesUI._executeFromModal());
 
+    on('terminal-stop-btn', 'click', async () => {
+      try {
+        await API.system.cancelAll();
+        Terminal.stopProcessing();
+        Terminal.addLine('Todas as execuções foram interrompidas.', 'error');
+        Toast.warning('Execuções interrompidas');
+        App._updateActiveBadge();
+      } catch (err) {
+        Toast.error(`Erro ao interromper: ${err.message}`);
+      }
+    });
+
     on('terminal-clear-btn', 'click', () => {
       Terminal.clear();
       Terminal.disableChat();
@@ -959,6 +971,9 @@ const App = {
 
       if (countEl) countEl.textContent = count;
       if (badge) badge.style.display = count > 0 ? 'flex' : 'none';
+
+      const stopBtn = document.getElementById('terminal-stop-btn');
+      if (stopBtn) stopBtn.hidden = count === 0;
 
       const terminalSelect = document.getElementById('terminal-execution-select');
       if (terminalSelect && Array.isArray(active)) {
