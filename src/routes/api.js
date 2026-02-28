@@ -1298,27 +1298,11 @@ router.post('/files/publish', async (req, res) => {
       }
     }
 
-    const composePath = `${VPS_COMPOSE_DIR}/docker-compose.yml`;
-    if (existsSync(composePath)) {
-      const composeContent = readFileSync(composePath, 'utf-8');
-      const volumeLine = `/home/projetos/${basename(targetPath)}:/srv/${projectName}:ro`;
-      if (!composeContent.includes(volumeLine)) {
-        const updated = composeContent.replace(
-          /(- .\/caddy\/config:\/config)/,
-          `$1\n      - ${volumeLine}`
-        );
-        writeFileSync(composePath, updated);
-        steps.push('Volume adicionado ao docker-compose');
-      } else {
-        steps.push('Volume já configurado');
-      }
-    }
-
     try {
-      await exec(`docker compose -f ${VPS_COMPOSE_DIR}/docker-compose.yml up -d --force-recreate --no-deps caddy`, { cwd: VPS_COMPOSE_DIR });
-      steps.push('Caddy reiniciado');
+      await exec('docker exec caddy caddy reload --config /etc/caddy/Caddyfile');
+      steps.push('Caddy recarregado');
     } catch (e) {
-      steps.push(`Caddy: reinício manual necessário (${e.message})`);
+      steps.push(`Caddy: reload necessário (${e.message})`);
     }
 
     const siteUrl = `https://${projectName}.${DOMAIN}`;
