@@ -1095,15 +1095,18 @@ textarea {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+  overflow-x: hidden;
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   line-height: 1.7;
+  min-width: 0;
 }
 
 .terminal-line {
   padding: 2px 0;
   display: flex;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .terminal-line .timestamp {
@@ -1117,7 +1120,9 @@ textarea {
 .terminal-line .content {
   color: #c8c8d8;
   word-break: break-all;
+  overflow-wrap: anywhere;
   flex: 1;
+  min-width: 0;
 }
 
 .terminal-line.error .content {
