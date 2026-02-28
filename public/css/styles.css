@@ -1104,25 +1104,23 @@ textarea {
 
 .terminal-line {
   padding: 2px 0;
-  display: flex;
-  align-items: flex-start;
-  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
 }
 
 .terminal-line .timestamp {
   color: var(--text-muted);
-  margin-right: 12px;
-  flex-shrink: 0;
   font-size: 12px;
   padding-top: 1px;
+  white-space: nowrap;
 }
 
 .terminal-line .content {
   color: #c8c8d8;
-  word-break: break-all;
+  word-break: break-word;
   overflow-wrap: anywhere;
-  flex: 1;
-  min-width: 0;
+  white-space: pre-wrap;
 }
 
 .terminal-line.error .content {
