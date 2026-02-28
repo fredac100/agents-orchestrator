@@ -1,1386 +1,544 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agents Orchestrator</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="css/styles.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AgentFlow — Orquestre Agentes IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#09090b;--bg2:#111118;--bg3:#1a1a2e;
+--text:#e4e4e7;--text2:#a1a1aa;--text3:#71717a;
+--indigo:#6366f1;--violet:#8b5cf6;--cyan:#06b6d4;
+--pink:#ec4899;--green:#10b981;
+--glass:rgba(255,255,255,.04);--glass-border:rgba(255,255,255,.08);
+--radius:16px;--radius-sm:10px;
+}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.025;
+background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+h1,h2,h3,h4{font-family:'Sora',sans-serif;font-weight:700;line-height:1.2}
+code,.mono{font-family:'JetBrains Mono',monospace}
+a{color:inherit;text-decoration:none}
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:50px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.95rem;cursor:pointer;border:none;transition:all .3s ease}
+.btn-primary{background:linear-gradient(135deg,var(--indigo),var(--violet));color:#fff;box-shadow:0 4px 24px rgba(99,102,241,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(99,102,241,.45)}
+.btn-outline{background:transparent;color:var(--text);border:1.5px solid var(--glass-border)}
+.btn-outline:hover{border-color:var(--indigo);color:var(--indigo)}
+.badge{display:inline-block;padding:6px 16px;border-radius:50px;font-size:.8rem;font-weight:600;background:rgba(99,102,241,.12);color:var(--indigo);border:1px solid rgba(99,102,241,.2)}
+.section-label{text-align:center;margin-bottom:12px}
+.section-title{text-align:center;font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:16px}
+.section-sub{text-align:center;color:var(--text2);max-width:600px;margin:0 auto 56px;font-size:1.05rem}
+
+/* Animations */
+.reveal{opacity:0;transform:translateY(40px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-left{opacity:0;transform:translateX(-40px);transition:opacity .7s ease,transform .7s ease}
+.reveal-left.visible{opacity:1;transform:translateX(0)}
+.reveal-right{opacity:0;transform:translateX(40px);transition:opacity .7s ease,transform .7s ease}
+.reveal-right.visible{opacity:1;transform:translateX(0)}
+.reveal-scale{opacity:0;transform:scale(.9);transition:opacity .7s ease,transform .7s ease}
+.reveal-scale.visible{opacity:1;transform:scale(1)}
+
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes pulse-glow{0%,100%{opacity:.4}50%{opacity:.8}}
+@keyframes gradient-shift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 0;transition:all .3s ease}
+nav.scrolled{background:rgba(9,9,11,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);padding:10px 0}
+nav .container{display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:'Sora',sans-serif;font-size:1.4rem;font-weight:800;background:linear-gradient(135deg,var(--indigo),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav-links{display:flex;gap:32px;align-items:center}
+.nav-links a{font-size:.9rem;color:var(--text2);transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{padding:10px 24px;font-size:.85rem}
+.nav-menu-btn{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer}
+
+/* HERO */
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;padding:120px 0 80px;overflow:hidden}
+.hero-bg{position:absolute;inset:0;z-index:0}
+.hero-grid{position:absolute;inset:0;background-image:radial-gradient(rgba(99,102,241,.15) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse 60% 60% at 50% 50%,#000 20%,transparent 70%)}
+.hero-glow{position:absolute;width:600px;height:600px;border-radius:50%;filter:blur(120px);opacity:.3}
+.hero-glow-1{top:-10%;left:20%;background:var(--indigo)}
+.hero-glow-2{bottom:-10%;right:15%;background:var(--violet)}
+.hero-glow-3{top:40%;left:60%;background:var(--cyan);width:400px;height:400px;opacity:.15}
+.hero-content{position:relative;z-index:1;max-width:800px}
+.hero h1{font-size:clamp(2.2rem,5.5vw,4rem);margin:20px 0 24px;letter-spacing:-.02em}
+.hero h1 span{background:linear-gradient(135deg,var(--indigo),var(--cyan),var(--violet));background-size:200% 200%;animation:gradient-shift 5s ease infinite;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:1.15rem;color:var(--text2);max-width:580px;margin-bottom:36px}
+.hero-btns{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:56px}
+.hero-metrics{display:flex;gap:48px;flex-wrap:wrap}
+.hero-metric .num{font-family:'Sora',sans-serif;font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--cyan),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-metric .label{font-size:.85rem;color:var(--text3)}
+
+/* FEATURES */
+.features{padding:100px 0;position:relative}
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.feature-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius);padding:36px 28px;transition:all .4s ease;position:relative;overflow:hidden}
+.feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--indigo),transparent);opacity:0;transition:opacity .4s}
+.feature-card:hover{transform:translateY(-8px);border-color:rgba(99,102,241,.25);box-shadow:0 20px 40px rgba(0,0,0,.3)}
+.feature-card:hover::before{opacity:1}
+.feature-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:1.3rem}
+.feature-icon.indigo{background:rgba(99,102,241,.12);color:var(--indigo)}
+.feature-icon.cyan{background:rgba(6,182,212,.12);color:var(--cyan)}
+.feature-icon.violet{background:rgba(139,92,246,.12);color:var(--violet)}
+.feature-icon.pink{background:rgba(236,72,153,.12);color:var(--pink)}
+.feature-icon.green{background:rgba(16,185,129,.12);color:var(--green)}
+.feature-card h3{font-size:1.15rem;margin-bottom:10px}
+.feature-card p{color:var(--text2);font-size:.92rem;line-height:1.7}
+
+/* HOW IT WORKS */
+.how{padding:100px 0;background:var(--bg2)}
+.steps{display:flex;gap:32px;position:relative;margin-top:16px}
+.steps::before{content:'';position:absolute;top:40px;left:80px;right:80px;height:2px;background:linear-gradient(90deg,var(--indigo),var(--violet),var(--cyan))}
+.step{flex:1;text-align:center;position:relative}
+.step-num{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-size:1.6rem;font-weight:800;margin:0 auto 24px;position:relative;z-index:1}
+.step:nth-child(1) .step-num{background:linear-gradient(135deg,var(--indigo),var(--violet));box-shadow:0 0 40px rgba(99,102,241,.3)}
+.step:nth-child(2) .step-num{background:linear-gradient(135deg,var(--violet),var(--pink));box-shadow:0 0 40px rgba(139,92,246,.3)}
+.step:nth-child(3) .step-num{background:linear-gradient(135deg,var(--cyan),var(--green));box-shadow:0 0 40px rgba(6,182,212,.3)}
+.step h3{font-size:1.1rem;margin-bottom:10px}
+.step p{color:var(--text2);font-size:.9rem;max-width:280px;margin:0 auto}
+
+/* PRICING */
+.pricing{padding:100px 0}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;align-items:start}
+.price-card{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius);padding:40px 32px;transition:all .4s ease;position:relative}
+.price-card:hover{transform:translateY(-4px)}
+.price-card.popular{border-color:var(--indigo);background:rgba(99,102,241,.06);transform:scale(1.04)}
+.price-card.popular:hover{transform:scale(1.04) translateY(-4px)}
+.popular-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);padding:6px 20px;border-radius:50px;font-size:.75rem;font-weight:700;background:linear-gradient(135deg,var(--indigo),var(--violet));color:#fff}
+.price-card h3{font-size:1.2rem;margin-bottom:8px}
+.price-card .desc{color:var(--text3);font-size:.85rem;margin-bottom:24px}
+.price-val{font-family:'Sora',sans-serif;font-size:2.8rem;font-weight:800;margin-bottom:4px}
+.price-val span{font-size:.95rem;font-weight:400;color:var(--text3)}
+.price-card .period{color:var(--text3);font-size:.85rem;margin-bottom:28px}
+.price-features{list-style:none;margin-bottom:32px;display:flex;flex-direction:column;gap:12px}
+.price-features li{display:flex;align-items:center;gap:10px;font-size:.9rem;color:var(--text2)}
+.price-features li::before{content:'✓';color:var(--green);font-weight:700;font-size:.85rem}
+.price-card .btn{width:100%;justify-content:center}
+
+/* FAQ */
+.faq{padding:100px 0;background:var(--bg2)}
+.faq-list{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.faq-item{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;transition:border-color .3s}
+.faq-item.open{border-color:rgba(99,102,241,.3)}
+.faq-q{padding:20px 24px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:600;font-size:.95rem;transition:color .2s}
+.faq-q:hover{color:var(--indigo)}
+.faq-q .arrow{transition:transform .3s;font-size:1.2rem;color:var(--text3)}
+.faq-item.open .faq-q .arrow{transform:rotate(180deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .4s ease,padding .4s ease}
+.faq-item.open .faq-a{max-height:200px}
+.faq-a-inner{padding:0 24px 20px;color:var(--text2);font-size:.9rem;line-height:1.8}
+
+/* CTA */
+.cta-section{padding:100px 0;position:relative;text-align:center;overflow:hidden}
+.cta-bg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.08),rgba(6,182,212,.08));z-index:0}
+.cta-section .container{position:relative;z-index:1}
+.cta-section h2{font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:16px}
+.cta-section p{color:var(--text2);max-width:500px;margin:0 auto 36px;font-size:1.05rem}
+
+/* FOOTER */
+footer{padding:48px 0 32px;border-top:1px solid var(--glass-border)}
+.footer-top{display:flex;justify-content:space-between;align-items:start;margin-bottom:40px;flex-wrap:wrap;gap:32px}
+.footer-brand .nav-logo{margin-bottom:12px;display:block}
+.footer-brand p{color:var(--text3);font-size:.85rem;max-width:280px}
+.footer-links{display:flex;gap:56px}
+.footer-col h4{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:14px}
+.footer-col a{display:block;font-size:.88rem;color:var(--text2);margin-bottom:8px;transition:color .2s}
+.footer-col a:hover{color:var(--text)}
+.footer-bottom{text-align:center;padding-top:24px;border-top:1px solid var(--glass-border);color:var(--text3);font-size:.8rem}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+.features-grid,.pricing-grid{grid-template-columns:1fr}
+.steps{flex-direction:column;gap:40px}
+.steps::before{display:none}
+.nav-links{display:none}
+.nav-menu-btn{display:block}
+.hero-metrics{gap:24px}
+.footer-links{gap:32px}
+.price-card.popular{transform:none}
+.price-card.popular:hover{transform:translateY(-4px)}
+}
+@media(max-width:600px){
+.hero h1{font-size:2rem}
+.hero-btns{flex-direction:column}
+.hero-btns .btn{width:100%;justify-content:center}
+.footer-top{flex-direction:column}
+}
+</style>
 </head>
 <body>
 
-  <div class="layout">
+<!-- NAV -->
+<nav id="nav">
+<div class="container">
+<a href="#" class="nav-logo">⬡ AgentFlow</a>
+<div class="nav-links">
+<a href="#features">Features</a>
+<a href="#how">Como Funciona</a>
+<a href="#pricing">Preços</a>
+<a href="#faq">FAQ</a>
+<a href="/app.html" class="btn btn-primary nav-cta" style="color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);font-weight:700">Começar Agora</a>
+</div>
+<button class="nav-menu-btn" onclick="document.querySelector('.nav-links').classList.toggle('show')" aria-label="Menu">☰</button>
+</div>
+</nav>
 
-    <aside class="sidebar">
-      <div class="sidebar-logo">
-        <div class="sidebar-logo-icon">
-          <i data-lucide="bot"></i>
-        </div>
-        <span class="sidebar-logo-text">Agents Orchestrator</span>
-      </div>
+<!-- HERO -->
+<section class="hero" id="hero">
+<div class="hero-bg">
+<div class="hero-grid"></div>
+<div class="hero-glow hero-glow-1"></div>
+<div class="hero-glow hero-glow-2"></div>
+<div class="hero-glow hero-glow-3"></div>
+</div>
+<div class="container hero-content">
+<div class="badge reveal">🚀 Plataforma #1 de Orquestração de Agentes IA</div>
+<h1 class="reveal">Orquestre Agentes IA<br>com <span>Precisão Cirúrgica</span></h1>
+<p class="reveal">Transforme o Claude Code em uma plataforma de automação completa. Pipelines visuais, execução em tempo real e controle total — sem escrever uma linha de código.</p>
+<div class="hero-btns reveal">
+<a href="/app.html" class="btn btn-primary">Começar Gratuitamente →</a>
+<a href="#how" class="btn btn-outline">▶ Ver Demo</a>
+</div>
+<div class="hero-metrics reveal">
+<div class="hero-metric"><div class="num" data-target="10000000" data-suffix="+">0</div><div class="label">Execuções</div></div>
+<div class="hero-metric"><div class="num" data-target="99.9" data-suffix="%" data-decimal="1">0</div><div class="label">Uptime</div></div>
+<div class="hero-metric"><div class="num" data-target="2.5" data-suffix="s" data-decimal="1">0</div><div class="label">Tempo Médio</div></div>
+</div>
+</div>
+</section>
 
-      <nav class="sidebar-nav">
-        <ul class="sidebar-nav-list">
-          <li class="sidebar-nav-item">
-            <a href="#" class="sidebar-nav-link" data-section="dashboard">
-              <i data-lucide="layout-dashboard"></i>
-              <span>Dashboard</span>
-            </a>
-          </li>
-          <li class="sidebar-nav-item">
-            <a href="#" class="sidebar-nav-link" data-section="agents">
-              <i data-lucide="cpu"></i>
-              <span>Agentes</span>
-            </a>
-          </li>
-          <li class="sidebar-nav-item">
-            <a href="#" class="sidebar-nav-link" data-section="tasks">
-              <i data-lucide="list-checks"></i>
-              <span>Tarefas</span>
-            </a>
-          </li>
-          <li class="sidebar-nav-item">
-            <a href="#" class="sidebar-nav-link" data-section="schedules">
-              <i data-lucide="clock"></i>
-              <span>Agendamentos</span>
-            </a>
-          </li>
-          <li class="sidebar-nav-item" data-section="pipelines">
-            <a class="sidebar-nav-link" href="#" data-section="pipelines">
-              <i data-lucide="git-merge" class="nav-icon"></i>
-              <span>Pipelines</span>
-            </a>
-          </li>
-          <li class="sidebar-nav-item">
-            <a href="#" class="sidebar-nav-link" data-section="webhooks">
-              <i data-lucide="webhook"></i>
-              <span>Webhooks</span>
-            </a>
-          </li>
-          <li class="sidebar-nav-item">
-            <a href="#" class="sidebar-nav-link" data-section="terminal">
-              <i data-lucide="terminal"></i>
-              <span>Terminal</span>
-            </a>
-          </li>
-          <li class="sidebar-nav-item">
-            <a href="#" class="sidebar-nav-link" data-section="history">
-              <i data-lucide="history"></i>
-              <span>Histórico</span>
-            </a>
-          </li>
-          <li class="sidebar-nav-item">
-            <a href="#" class="sidebar-nav-link" data-section="settings">
-              <i data-lucide="settings"></i>
-              <span>Configurações</span>
-            </a>
-          </li>
-        </ul>
-      </nav>
+<!-- FEATURES -->
+<section class="features" id="features">
+<div class="container">
+<div class="section-label"><span class="badge reveal">Funcionalidades</span></div>
+<h2 class="section-title reveal">Tudo que você precisa para<br>orquestrar agentes IA</h2>
+<p class="section-sub reveal">Uma plataforma completa para criar, executar e monitorar agentes inteligentes com controle total.</p>
+<div class="features-grid">
 
-      <div class="sidebar-footer">
-        <div class="ws-status" id="ws-status">
-          <span class="ws-indicator ws-indicator--disconnected" id="ws-indicator"></span>
-          <span class="ws-label" id="ws-label">Desconectado</span>
-        </div>
-      </div>
-    </aside>
+<div class="feature-card reveal">
+<div class="feature-icon indigo">⬡</div>
+<h3>Pipelines Visuais</h3>
+<p>Editor drag-and-drop com canvas HTML5. Monte fluxos complexos conectando agentes em sequência, com sumarização automática entre steps.</p>
+</div>
 
-    <div class="main-wrapper">
-      <header class="main-header">
-        <div class="header-breadcrumb">
-          <h1 class="header-title" id="header-title">Dashboard</h1>
-        </div>
-        <div class="header-actions">
-          <div class="header-badge" id="active-executions-badge" aria-label="Execuções ativas">
-            <i data-lucide="activity"></i>
-            <span id="active-executions-count">0</span>
-            <span class="header-badge-label">ativas</span>
-          </div>
-          <button class="btn btn--ghost btn--icon-text" id="system-status-btn" type="button" aria-label="Status do sistema">
-            <i data-lucide="server"></i>
-            <span>Sistema</span>
-          </button>
-          <button class="btn btn--ghost btn--icon-text" id="import-agent-btn" type="button">
-            <i data-lucide="file-down"></i>
-            <span>Importar</span>
-          </button>
-          <button class="btn btn--primary btn--icon-text" id="new-agent-btn" type="button">
-            <i data-lucide="plus"></i>
-            <span>Novo Agente</span>
-          </button>
-          <button id="theme-toggle" class="btn btn--icon" title="Alternar tema">
-            <i data-lucide="sun" class="theme-icon-light"></i>
-            <i data-lucide="moon" class="theme-icon-dark"></i>
-          </button>
-          <div class="notification-wrapper">
-            <button id="notification-bell" class="btn btn--icon" title="Notificações">
-              <i data-lucide="bell"></i>
-              <span id="notification-badge" class="notification-badge hidden">0</span>
-            </button>
-            <div id="notification-panel" class="notification-panel hidden">
-              <div class="notification-panel-header">
-                <h3>Notificações</h3>
-                <div class="notification-panel-actions">
-                  <button id="mark-all-read" class="btn btn--ghost btn--sm">Marcar lidas</button>
-                  <button id="clear-notifications" class="btn btn--ghost btn--sm">Limpar</button>
-                </div>
-              </div>
-              <div id="notification-list" class="notification-list">
-                <div class="notification-empty">Nenhuma notificação</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+<div class="feature-card reveal">
+<div class="feature-icon cyan">⚡</div>
+<h3>Execução em Tempo Real</h3>
+<p>Streaming via WebSocket com terminal integrado. Veja cada token sendo gerado, chamadas de ferramenta e custos ao vivo.</p>
+</div>
 
-      <main class="main-content">
+<div class="feature-card reveal">
+<div class="feature-icon violet">⏱</div>
+<h3>Agendamento Inteligente</h3>
+<p>Cron scheduling com retry automático e backoff exponencial. Agende execuções recorrentes e nunca mais esqueça uma tarefa.</p>
+</div>
 
-        <section id="dashboard" class="section active" aria-label="Dashboard">
-          <div class="metrics-grid">
-            <article class="metric-card">
-              <div class="metric-card-icon metric-card-icon--indigo">
-                <i data-lucide="cpu"></i>
-              </div>
-              <div class="metric-card-body">
-                <span class="metric-card-label">Total de Agentes</span>
-                <span class="metric-card-value" id="metric-total-agents">0</span>
-              </div>
-            </article>
-            <article class="metric-card">
-              <div class="metric-card-icon metric-card-icon--green">
-                <i data-lucide="zap"></i>
-              </div>
-              <div class="metric-card-body">
-                <span class="metric-card-label">Agentes Ativos</span>
-                <span class="metric-card-value" id="metric-active-agents">0</span>
-              </div>
-            </article>
-            <article class="metric-card">
-              <div class="metric-card-icon metric-card-icon--purple">
-                <i data-lucide="circle-play"></i>
-              </div>
-              <div class="metric-card-body">
-                <span class="metric-card-label">Execuções Hoje</span>
-                <span class="metric-card-value" id="metric-executions-today">0</span>
-              </div>
-            </article>
-            <article class="metric-card">
-              <div class="metric-card-icon metric-card-icon--orange">
-                <i data-lucide="clock"></i>
-              </div>
-              <div class="metric-card-body">
-                <span class="metric-card-label">Agendamentos</span>
-                <span class="metric-card-value" id="metric-schedules">0</span>
-              </div>
-            </article>
-            <article class="metric-card">
-              <div class="metric-card-icon metric-card-icon--yellow">
-                <i data-lucide="dollar-sign"></i>
-              </div>
-              <div class="metric-card-body">
-                <span class="metric-card-label">Custo Hoje</span>
-                <span class="metric-card-value metric-card-value--sm" id="metric-cost-today">$0.0000</span>
-              </div>
-            </article>
-            <article class="metric-card">
-              <div class="metric-card-icon metric-card-icon--cyan">
-                <i data-lucide="webhook"></i>
-              </div>
-              <div class="metric-card-body">
-                <span class="metric-card-label">Webhooks Ativos</span>
-                <span class="metric-card-value" id="metric-webhooks">0</span>
-              </div>
-            </article>
-          </div>
+<div class="feature-card reveal">
+<div class="feature-icon pink">👤</div>
+<h3>Human-in-the-Loop</h3>
+<p>Aprovação manual entre steps do pipeline. Defina pontos de controle onde um humano valida antes de prosseguir.</p>
+</div>
 
-          <div class="charts-row">
-            <div class="chart-container">
-              <div class="chart-header">
-                <h3>Execuções</h3>
-                <select id="chart-period" class="select-sm">
-                  <option value="7">7 dias</option>
-                  <option value="14">14 dias</option>
-                  <option value="30">30 dias</option>
-                </select>
-              </div>
-              <canvas id="executions-chart"></canvas>
-            </div>
-            <div class="chart-container">
-              <div class="chart-header">
-                <h3>Custo (USD)</h3>
-              </div>
-              <canvas id="cost-chart"></canvas>
-            </div>
-          </div>
-          <div class="charts-row charts-row--triple">
-            <div class="chart-container">
-              <div class="chart-header">
-                <h3>Status</h3>
-              </div>
-              <canvas id="status-chart"></canvas>
-            </div>
-            <div class="chart-container">
-              <div class="chart-header">
-                <h3>Top Agentes</h3>
-              </div>
-              <canvas id="agents-chart"></canvas>
-            </div>
-            <div class="chart-container">
-              <div class="chart-header">
-                <h3>Taxa de Sucesso</h3>
-              </div>
-              <canvas id="success-rate-chart"></canvas>
-            </div>
-          </div>
+<div class="feature-card reveal">
+<div class="feature-icon green">↩</div>
+<h3>Versionamento</h3>
+<p>Histórico completo de alterações com rollback instantâneo. Cada edição gera uma versão que pode ser restaurada.</p>
+</div>
 
-          <div class="dashboard-grid">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Atividade Recente</h2>
-                <button class="btn btn--ghost btn--sm" type="button" id="refresh-activity-btn">
-                  <i data-lucide="refresh-cw"></i>
-                </button>
-              </div>
-              <div class="card-body">
-                <ul class="activity-list" id="activity-list">
-                  <li class="activity-empty">
-                    <i data-lucide="inbox"></i>
-                    <span>Nenhuma execução recente</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+<div class="feature-card reveal">
+<div class="feature-icon indigo">🔗</div>
+<h3>Webhooks & Integrações</h3>
+<p>Conecte com GitHub, CI/CD ou qualquer endpoint HTTP. Assinatura HMAC-SHA256 compatível com GitHub Webhooks.</p>
+</div>
 
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Status do Sistema</h2>
-              </div>
-              <div class="card-body">
-                <ul class="system-status-list" id="system-status-list">
-                  <li class="system-status-item">
-                    <div class="system-status-info">
-                      <i data-lucide="server"></i>
-                      <span>Servidor HTTP</span>
-                    </div>
-                    <span class="badge badge--green">Online</span>
-                  </li>
-                  <li class="system-status-item">
-                    <div class="system-status-info">
-                      <i data-lucide="radio"></i>
-                      <span>WebSocket</span>
-                    </div>
-                    <span class="badge badge--red" id="system-ws-status-badge">Desconectado</span>
-                  </li>
-                  <li class="system-status-item">
-                    <div class="system-status-info">
-                      <i data-lucide="database"></i>
-                      <span>Armazenamento</span>
-                    </div>
-                    <span class="badge badge--green">OK</span>
-                  </li>
-                  <li class="system-status-item">
-                    <div class="system-status-info">
-                      <i data-lucide="terminal"></i>
-                      <span>Claude CLI</span>
-                    </div>
-                    <span class="badge badge--gray" id="system-claude-status-badge">Verificando...</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
+</div>
+</div>
+</section>
 
-        <section id="agents" class="section" aria-label="Agentes" hidden>
-          <div class="section-toolbar">
-            <div class="search-field">
-              <i data-lucide="search"></i>
-              <input type="search" placeholder="Buscar agentes..." id="agents-search" aria-label="Buscar agentes" />
-            </div>
-            <div class="section-toolbar-actions">
-              <select class="select" id="agents-filter-status" aria-label="Filtrar por status">
-                <option value="">Todos os status</option>
-                <option value="active">Ativo</option>
-                <option value="inactive">Inativo</option>
-              </select>
-            </div>
-          </div>
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+<div class="container">
+<div class="section-label"><span class="badge reveal">Como Funciona</span></div>
+<h2 class="section-title reveal">Três passos para a automação</h2>
+<p class="section-sub reveal">Do zero à produção em minutos. Configure, conecte e execute.</p>
+<div class="steps">
+<div class="step reveal">
+<div class="step-num">1</div>
+<h3>Configure seus Agentes</h3>
+<p>Defina modelos, system prompts, permissões, diretórios de trabalho e secrets. Cada agente é um especialista.</p>
+</div>
+<div class="step reveal">
+<div class="step-num">2</div>
+<h3>Monte Pipelines Visuais</h3>
+<p>Arraste e conecte agentes em sequência. Adicione aprovações humanas nos pontos críticos do fluxo.</p>
+</div>
+<div class="step reveal">
+<div class="step-num">3</div>
+<h3>Execute e Monitore</h3>
+<p>Acompanhe tudo em tempo real. Terminal ao vivo, métricas de custo, relatórios automáticos e histórico completo.</p>
+</div>
+</div>
+</div>
+</section>
 
-          <div class="agents-grid" id="agents-grid">
-            <div class="empty-state" id="agents-empty-state">
-              <div class="empty-state-icon">
-                <i data-lucide="bot"></i>
-              </div>
-              <h3 class="empty-state-title">Nenhum agente cadastrado</h3>
-              <p class="empty-state-desc">Crie seu primeiro agente para começar a orquestrar tarefas com Claude.</p>
-              <button class="btn btn--primary btn--icon-text" type="button" id="agents-empty-new-btn">
-                <i data-lucide="plus"></i>
-                <span>Criar Agente</span>
-              </button>
-            </div>
-          </div>
-        </section>
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+<div class="container">
+<div class="section-label"><span class="badge reveal">Preços</span></div>
+<h2 class="section-title reveal">Planos para cada necessidade</h2>
+<p class="section-sub reveal">Comece pequeno e escale conforme sua operação cresce. Sem surpresas.</p>
+<div class="pricing-grid">
 
-        <section id="tasks" class="section" aria-label="Tarefas" hidden>
-          <div class="section-toolbar">
-            <div class="search-field">
-              <i data-lucide="search"></i>
-              <input type="search" placeholder="Buscar tarefas..." id="tasks-search" aria-label="Buscar tarefas" />
-            </div>
-            <div class="section-toolbar-actions">
-              <select class="select" id="tasks-filter-category" aria-label="Filtrar por categoria">
-                <option value="">Todas as categorias</option>
-                <option value="code-review">Code Review</option>
-                <option value="security">Segurança</option>
-                <option value="refactor">Refatoração</option>
-                <option value="tests">Testes</option>
-                <option value="docs">Documentação</option>
-                <option value="performance">Performance</option>
-              </select>
-              <button class="btn btn--primary btn--icon-text" type="button" id="tasks-new-btn">
-                <i data-lucide="plus"></i>
-                <span>Nova Tarefa</span>
-              </button>
-            </div>
-          </div>
+<div class="price-card reveal">
+<h3>Starter</h3>
+<p class="desc">Para desenvolvedores individuais</p>
+<div class="price-val">R$197<span>/mês</span></div>
+<p class="period">Cobrado mensalmente</p>
+<ul class="price-features">
+<li>3 agentes configuráveis</li>
+<li>5 pipelines</li>
+<li>500 execuções/mês</li>
+<li>1 usuário</li>
+<li>Suporte por email</li>
+<li>Dashboard e métricas</li>
+</ul>
+<a href="/app.html" class="btn btn-outline">Escolher Starter</a>
+</div>
 
-          <div class="tasks-grid" id="tasks-grid">
-            <div class="empty-state" id="tasks-empty-state">
-              <div class="empty-state-icon">
-                <i data-lucide="list-checks"></i>
-              </div>
-              <h3 class="empty-state-title">Nenhuma tarefa cadastrada</h3>
-              <p class="empty-state-desc">Crie templates de tarefas para reutilizar em diferentes agentes.</p>
-              <button class="btn btn--primary btn--icon-text" type="button" id="tasks-empty-new-btn">
-                <i data-lucide="plus"></i>
-                <span>Criar Tarefa</span>
-              </button>
-            </div>
-          </div>
-        </section>
+<div class="price-card popular reveal-scale">
+<div class="popular-badge">Mais Popular</div>
+<h3>Pro</h3>
+<p class="desc">Para equipes de engenharia</p>
+<div class="price-val">R$497<span>/mês</span></div>
+<p class="period">Cobrado mensalmente</p>
+<ul class="price-features">
+<li>15 agentes configuráveis</li>
+<li>Pipelines ilimitados</li>
+<li>5.000 execuções/mês</li>
+<li>5 usuários</li>
+<li>Webhooks ilimitados</li>
+<li>Aprovação humana</li>
+<li>Relatórios avançados</li>
+<li>Suporte prioritário</li>
+</ul>
+<a href="/app.html" class="btn btn-primary">Escolher Pro</a>
+</div>
 
-        <section id="schedules" class="section" aria-label="Agendamentos" hidden>
-          <div class="section-toolbar">
-            <div class="search-field">
-              <i data-lucide="search"></i>
-              <input type="search" placeholder="Buscar agendamentos..." id="schedules-search" aria-label="Buscar agendamentos" />
-            </div>
-            <div class="section-toolbar-actions">
-              <select class="select" id="schedules-filter-status" aria-label="Filtrar por status">
-                <option value="">Todos</option>
-                <option value="active">Ativo</option>
-                <option value="paused">Pausado</option>
-              </select>
-              <button class="btn btn--primary btn--icon-text" type="button" id="schedules-new-btn">
-                <i data-lucide="plus"></i>
-                <span>Novo Agendamento</span>
-              </button>
-            </div>
-          </div>
+<div class="price-card reveal">
+<h3>Enterprise</h3>
+<p class="desc">Para operações em escala</p>
+<div class="price-val">R$1.297<span>/mês</span></div>
+<p class="period">Cobrado mensalmente</p>
+<ul class="price-features">
+<li>Agentes ilimitados</li>
+<li>Pipelines ilimitados</li>
+<li>Execuções ilimitadas</li>
+<li>Usuários ilimitados</li>
+<li>Suporte 24/7 prioritário</li>
+<li>SLA 99.9% garantido</li>
+<li>Deploy on-premise</li>
+<li>SSO / SAML</li>
+</ul>
+<a href="/app.html" class="btn btn-outline">Falar com Vendas</a>
+</div>
 
-          <div class="card">
-            <div class="table-wrapper">
-              <table class="table" id="schedules-table">
-                <colgroup>
-                  <col style="width: 15%">
-                  <col style="width: 30%">
-                  <col style="width: 18%">
-                  <col style="width: 17%">
-                  <col style="width: 8%">
-                  <col style="width: 12%">
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th scope="col">Agente</th>
-                    <th scope="col">Tarefa</th>
-                    <th scope="col">Expressão Cron</th>
-                    <th scope="col">Próxima Execução</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" aria-label="Ações"></th>
-                  </tr>
-                </thead>
-                <tbody id="schedules-tbody">
-                  <tr class="table-empty-row">
-                    <td colspan="6">
-                      <div class="empty-state empty-state--inline">
-                        <i data-lucide="clock"></i>
-                        <span>Nenhum agendamento configurado</span>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+</div>
+</div>
+</section>
 
-          <div class="card" style="margin-top: 1rem;">
-            <div class="card-header">
-              <h2 class="card-title">Histórico de Disparos</h2>
-            </div>
-            <div class="card-body" id="schedules-history">
-              <p class="empty-state-desc">Nenhum disparo registrado</p>
-            </div>
-          </div>
-        </section>
+<!-- FAQ -->
+<section class="faq" id="faq">
+<div class="container">
+<div class="section-label"><span class="badge reveal">FAQ</span></div>
+<h2 class="section-title reveal">Perguntas Frequentes</h2>
+<p class="section-sub reveal">Tudo o que você precisa saber antes de começar.</p>
+<div class="faq-list">
 
-        <section id="pipelines" class="section" aria-label="Pipelines" hidden>
-          <div class="page-title">Pipelines</div>
-          <div class="page-subtitle">Encadeie agentes para fluxos de trabalho automatizados</div>
+<div class="faq-item reveal">
+<div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+O que é o AgentFlow?
+<span class="arrow">▾</span>
+</div>
+<div class="faq-a"><div class="faq-a-inner">AgentFlow é uma plataforma web que transforma o Claude Code CLI em um sistema completo de orquestração de agentes IA. Você pode criar agentes especializados, conectá-los em pipelines visuais, agendar execuções automáticas e monitorar tudo em tempo real — sem precisar usar a linha de comando.</div></div>
+</div>
 
-          <div class="section-toolbar">
-            <div class="search-field">
-              <i data-lucide="search" class="search-icon" style="width:16px;height:16px"></i>
-              <input type="text" placeholder="Buscar pipelines..." id="pipelines-search">
-            </div>
-            <div class="section-toolbar-actions">
-              <button class="btn btn--primary btn--icon-text" type="button" id="pipelines-new-btn">
-                <i data-lucide="plus"></i>
-                <span>Novo Pipeline</span>
-              </button>
-            </div>
-          </div>
+<div class="faq-item reveal">
+<div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+Preciso saber programar para usar?
+<span class="arrow">▾</span>
+</div>
+<div class="faq-a"><div class="faq-a-inner">Não. A interface é totalmente visual. Você configura agentes por formulários, monta pipelines com drag-and-drop e acompanha execuções no terminal integrado. Desenvolvedores avançados podem usar webhooks e a API REST para integrações customizadas.</div></div>
+</div>
 
-          <div id="pipelines-grid" class="agents-grid">
-          </div>
-        </section>
+<div class="faq-item reveal">
+<div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+Como funciona a integração com Claude Code?
+<span class="arrow">▾</span>
+</div>
+<div class="faq-a"><div class="faq-a-inner">O AgentFlow executa o CLI do Claude Code como subprocesso, herdando todas as suas capacidades — ferramentas, permissões, sessões. O output é parseado em tempo real e transmitido via WebSocket para seu navegador. Isso significa que qualquer coisa que o Claude Code faz no terminal, o AgentFlow faz na interface web.</div></div>
+</div>
 
-        <section id="webhooks" class="section" aria-label="Webhooks" hidden>
-          <div class="section-toolbar">
-            <div class="search-field">
-              <i data-lucide="search"></i>
-              <input type="search" placeholder="Buscar webhooks..." id="webhooks-search" aria-label="Buscar webhooks" />
-            </div>
-            <div class="section-toolbar-actions">
-              <button class="btn btn--primary btn--icon-text" type="button" id="webhooks-new-btn">
-                <i data-lucide="plus"></i>
-                <span>Novo Webhook</span>
-              </button>
-            </div>
-          </div>
-          <div id="webhooks-list"></div>
-        </section>
+<div class="faq-item reveal">
+<div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+Posso cancelar a qualquer momento?
+<span class="arrow">▾</span>
+</div>
+<div class="faq-a"><div class="faq-a-inner">Sim. Todos os planos são mensais sem fidelidade. Você pode fazer upgrade, downgrade ou cancelar quando quiser. Seus dados ficam disponíveis por 30 dias após o cancelamento.</div></div>
+</div>
 
-        <section id="terminal" class="section" aria-label="Terminal" hidden>
-          <div class="terminal-wrapper">
-            <div class="terminal-toolbar">
-              <div class="terminal-toolbar-left">
-                <div class="terminal-dot terminal-dot--red"></div>
-                <div class="terminal-dot terminal-dot--yellow"></div>
-                <div class="terminal-dot terminal-dot--green"></div>
-                <span class="terminal-title">Output de Execução</span>
-              </div>
-              <div class="terminal-toolbar-right">
-                <select class="select select--sm" id="terminal-execution-select" aria-label="Selecionar execução">
-                  <option value="">Selecionar execução...</option>
-                </select>
-                <div class="terminal-ws-indicator" id="terminal-ws-indicator">
-                  <span class="ws-indicator ws-indicator--disconnected" id="terminal-ws-dot"></span>
-                  <span id="terminal-ws-label">Desconectado</span>
-                </div>
-                <button class="btn btn--danger btn--sm btn--icon-text" type="button" id="terminal-stop-btn" aria-label="Interromper execução" hidden>
-                  <i data-lucide="square"></i>
-                  <span>Interromper</span>
-                </button>
-                <button class="btn btn--ghost btn--sm btn--icon-text" type="button" id="terminal-clear-btn" aria-label="Limpar terminal">
-                  <i data-lucide="trash-2"></i>
-                  <span>Limpar</span>
-                </button>
-              </div>
-            </div>
-            <div class="terminal-action-toolbar">
-              <div class="terminal-toolbar-left">
-                <button id="terminal-search-toggle" class="btn btn--ghost btn--sm" title="Buscar (Ctrl+F)">
-                  <i data-lucide="search" style="width:14px;height:14px"></i>
-                </button>
-                <button id="terminal-download" class="btn btn--ghost btn--sm" title="Baixar saída">
-                  <i data-lucide="download" style="width:14px;height:14px"></i>
-                </button>
-                <button id="terminal-copy" class="btn btn--ghost btn--sm" title="Copiar saída">
-                  <i data-lucide="copy" style="width:14px;height:14px"></i>
-                </button>
-              </div>
-              <div class="terminal-toolbar-right">
-                <label class="terminal-toggle-label">
-                  <input type="checkbox" id="terminal-autoscroll" checked>
-                  <span>Auto-scroll</span>
-                </label>
-              </div>
-            </div>
-            <div id="terminal-search-bar" class="terminal-search-bar hidden">
-              <input type="text" id="terminal-search-input" placeholder="Buscar no terminal..." class="input input--sm">
-              <span id="terminal-search-count" class="terminal-search-count">0/0</span>
-              <button id="terminal-search-prev" class="btn btn--ghost btn--sm">▲</button>
-              <button id="terminal-search-next" class="btn btn--ghost btn--sm">▼</button>
-              <button id="terminal-search-close" class="btn btn--ghost btn--sm">✕</button>
-            </div>
-            <div class="approval-notification" id="approval-notification" hidden></div>
-            <div class="terminal-output" id="terminal-output" role="log" aria-live="polite" aria-label="Saída do terminal">
-              <div class="terminal-welcome">
-                <span class="terminal-prompt">$</span>
-                <span class="terminal-text">Aguardando execução de agente...</span>
-              </div>
-            </div>
-            <div class="terminal-input-bar" id="terminal-input-bar" hidden>
-              <div class="terminal-input-context" id="terminal-input-context"></div>
-              <div class="terminal-input-row">
-                <span class="terminal-input-prompt">❯</span>
-                <input
-                  type="text"
-                  class="terminal-input"
-                  id="terminal-input"
-                  placeholder="Continuar conversa com o agente..."
-                  aria-label="Enviar mensagem ao agente"
-                  autocomplete="off"
-                />
-                <button class="btn btn--primary btn--sm" id="terminal-send-btn" type="button" aria-label="Enviar">
-                  <i data-lucide="send"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
+<div class="faq-item reveal">
+<div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+Vocês oferecem teste gratuito?
+<span class="arrow">▾</span>
+</div>
+<div class="faq-a"><div class="faq-a-inner">Sim! Oferecemos 14 dias de teste gratuito no plano Pro, sem precisar de cartão de crédito. Você pode explorar todas as funcionalidades e decidir com calma qual plano faz mais sentido para sua operação.</div></div>
+</div>
 
-        <section id="history" class="section" aria-label="Histórico de Execuções" hidden>
-          <div class="section-toolbar">
-            <div class="toolbar-filters">
-              <div class="search-field">
-                <i data-lucide="search"></i>
-                <input type="text" placeholder="Buscar..." id="history-search" aria-label="Buscar no histórico" />
-              </div>
-              <select class="select" id="history-filter-type" aria-label="Filtrar por tipo">
-                <option value="">Todos os tipos</option>
-                <option value="agent">Agentes</option>
-                <option value="pipeline">Pipelines</option>
-              </select>
-              <select class="select" id="history-filter-status" aria-label="Filtrar por status">
-                <option value="">Todos os status</option>
-                <option value="completed">Concluído</option>
-                <option value="error">Erro</option>
-                <option value="running">Em execução</option>
-              </select>
-            </div>
-            <div class="toolbar-actions">
-              <button id="history-export-csv" class="btn btn--ghost btn--sm" title="Exportar CSV">
-                <i data-lucide="file-spreadsheet" style="width:14px;height:14px"></i>
-                Exportar
-              </button>
-              <button class="btn btn-ghost btn-sm btn-danger" id="history-clear-btn" type="button">
-                <i data-lucide="trash-2"></i>
-                Limpar Histórico
-              </button>
-            </div>
-          </div>
-          <div id="history-list"></div>
-          <div id="history-pagination"></div>
-        </section>
+</div>
+</div>
+</section>
 
-        <section id="settings" class="section" aria-label="Configurações" hidden>
-          <div class="settings-grid">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Configurações Gerais</h2>
-              </div>
-              <div class="card-body">
-                <form class="settings-form" id="settings-form" novalidate>
-                  <div class="form-group">
-                    <label class="form-label" for="settings-default-model">Modelo Padrão</label>
-                    <select class="select" id="settings-default-model" name="defaultModel">
-                      <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-                      <option value="claude-opus-4-6">claude-opus-4-6</option>
-                      <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label" for="settings-default-workdir">Diretório de Trabalho Padrão</label>
-                    <input
-                      type="text"
-                      class="input"
-                      id="settings-default-workdir"
-                      name="defaultWorkdir"
-                      placeholder="/home/fred/projetos"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label" for="settings-max-concurrent">Execuções Simultâneas Máximas</label>
-                    <input
-                      type="number"
-                      class="input"
-                      id="settings-max-concurrent"
-                      name="maxConcurrent"
-                      min="1"
-                      max="20"
-                      placeholder="5"
-                    />
-                  </div>
-                  <div class="form-actions">
-                    <button type="submit" class="btn btn--primary">Salvar Configurações</button>
-                  </div>
-                </form>
-              </div>
-            </div>
+<!-- CTA FINAL -->
+<section class="cta-section">
+<div class="cta-bg"></div>
+<div class="container">
+<h2 class="reveal">Pronto para Automatizar<br>seus Agentes IA?</h2>
+<p class="reveal">Junte-se a milhares de equipes que já usam AgentFlow para escalar suas operações com inteligência artificial.</p>
+<div class="reveal">
+<a href="/app.html" class="btn btn-primary" style="padding:18px 44px;font-size:1.05rem">Começar Gratuitamente →</a>
+</div>
+</div>
+</section>
 
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Informações do Sistema</h2>
-              </div>
-              <div class="card-body">
-                <ul class="system-info-list" id="system-info-list">
-                  <li class="system-info-item">
-                    <span class="system-info-label">Versão do Servidor</span>
-                    <span class="system-info-value" id="info-server-version">1.0.0</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Versão do Node.js</span>
-                    <span class="system-info-value font-mono" id="info-node-version">Carregando...</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Versão do Claude CLI</span>
-                    <span class="system-info-value font-mono" id="info-claude-version">Carregando...</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Plataforma</span>
-                    <span class="system-info-value font-mono" id="info-platform">Carregando...</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Tempo Online</span>
-                    <span class="system-info-value font-mono" id="info-uptime">Carregando...</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Tema Atual</span>
-                    <span class="system-info-value" id="info-current-theme">Escuro</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+<!-- FOOTER -->
+<footer>
+<div class="container">
+<div class="footer-top">
+<div class="footer-brand">
+<span class="nav-logo">⬡ AgentFlow</span>
+<p>A plataforma definitiva para orquestração de agentes IA. Do CLI à interface visual.</p>
+</div>
+<div class="footer-links">
+<div class="footer-col">
+<h4>Produto</h4>
+<a href="#features">Features</a>
+<a href="#pricing">Preços</a>
+<a href="#faq">FAQ</a>
+<a href="#">Changelog</a>
+</div>
+<div class="footer-col">
+<h4>Empresa</h4>
+<a href="#">Sobre</a>
+<a href="#">Blog</a>
+<a href="#">Carreiras</a>
+<a href="#">Contato</a>
+</div>
+<div class="footer-col">
+<h4>Legal</h4>
+<a href="#">Termos de Uso</a>
+<a href="#">Privacidade</a>
+<a href="#">SLA</a>
+</div>
+</div>
+</div>
+<div class="footer-bottom">© 2026 AgentFlow. Todos os direitos reservados.</div>
+</div>
+</footer>
 
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Atalhos do Teclado</h2>
-              </div>
-              <div class="card-body">
-                <ul class="system-info-list">
-                  <li class="system-info-item">
-                    <span class="system-info-label">Fechar modal</span>
-                    <span class="system-info-value font-mono">Esc</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Novo agente (em Agentes)</span>
-                    <span class="system-info-value font-mono">N</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Dashboard</span>
-                    <span class="system-info-value font-mono">1</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Agentes</span>
-                    <span class="system-info-value font-mono">2</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Tarefas</span>
-                    <span class="system-info-value font-mono">3</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Agendamentos</span>
-                    <span class="system-info-value font-mono">4</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Pipelines</span>
-                    <span class="system-info-value font-mono">5</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Terminal</span>
-                    <span class="system-info-value font-mono">6</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Histórico</span>
-                    <span class="system-info-value font-mono">7</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Webhooks</span>
-                    <span class="system-info-value font-mono">8</span>
-                  </li>
-                  <li class="system-info-item">
-                    <span class="system-info-label">Configurações</span>
-                    <span class="system-info-value font-mono">9</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
+<script>
+// Intersection Observer for scroll animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      if (entry.target.querySelector('[data-target]')) {
+        entry.target.querySelectorAll('[data-target]').forEach(animateCounter);
+      }
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 
-      </main>
-    </div>
-  </div>
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right,.reveal-scale').forEach(el => observer.observe(el));
 
-  <div class="modal-overlay" id="agent-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="agent-modal-title" hidden>
-    <div class="modal modal--lg">
-      <div class="modal-header">
-        <h2 class="modal-title" id="agent-modal-title">Novo Agente</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="agent-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form class="modal-form" id="agent-form" novalidate>
-          <input type="hidden" id="agent-form-id" name="id" />
-          <div class="form-row">
-            <div class="form-group form-group--grow">
-              <label class="form-label" for="agent-name">
-                Nome do Agente
-                <span class="form-required" aria-hidden="true">*</span>
-              </label>
-              <input
-                type="text"
-                class="input"
-                id="agent-name"
-                name="name"
-                placeholder="Ex: Revisor de Código"
-                required
-                autocomplete="off"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="agent-status-toggle">Status</label>
-              <div class="toggle-wrapper">
-                <input type="checkbox" class="toggle-input" id="agent-status-toggle" name="active" role="switch" />
-                <label class="toggle-label" for="agent-status-toggle">
-                  <span class="toggle-thumb"></span>
-                  <span class="toggle-text-on">Ativo</span>
-                  <span class="toggle-text-off">Inativo</span>
-                </label>
-              </div>
-            </div>
-          </div>
+// Staggered delays for grid items
+document.querySelectorAll('.features-grid .feature-card, .pricing-grid .price-card, .steps .step').forEach((el, i) => {
+  el.style.transitionDelay = `${i * 0.1}s`;
+});
 
-          <div class="form-group">
-            <label class="form-label" for="agent-description">Descrição</label>
-            <textarea
-              class="textarea"
-              id="agent-description"
-              name="description"
-              rows="2"
-              placeholder="Descreva brevemente o propósito deste agente"
-            ></textarea>
-          </div>
+// Counter animation
+function animateCounter(el) {
+  if (el.dataset.animated) return;
+  el.dataset.animated = '1';
+  const target = parseFloat(el.dataset.target);
+  const suffix = el.dataset.suffix || '';
+  const decimal = parseInt(el.dataset.decimal) || 0;
+  const duration = 2000;
+  const start = performance.now();
 
-          <div class="form-group">
-            <label class="form-label" for="agent-system-prompt">
-              System Prompt
-            </label>
-            <textarea
-              class="textarea textarea--code"
-              id="agent-system-prompt"
-              name="systemPrompt"
-              rows="6"
-              placeholder="Você é um especialista em... Seu objetivo é... Sempre responda em português..."
-            ></textarea>
-            <p class="form-hint">Instruções base que definem o comportamento, personalidade e restrições do agente.</p>
-          </div>
+  function format(n) {
+    if (target >= 1000000) return (n / 1000000).toFixed(n >= target ? 0 : 0) + 'M';
+    if (target >= 1000) return (n / 1000).toFixed(0) + 'K';
+    return decimal ? n.toFixed(decimal) : Math.floor(n).toString();
+  }
 
-          <div class="form-row">
-            <div class="form-group form-group--grow">
-              <label class="form-label" for="agent-model">Modelo</label>
-              <select class="select" id="agent-model" name="model">
-                <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-                <option value="claude-opus-4-6">claude-opus-4-6</option>
-                <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001</option>
-              </select>
-            </div>
-            <div class="form-group form-group--grow">
-              <label class="form-label" for="agent-workdir">Diretório de Trabalho</label>
-              <input
-                type="text"
-                class="input"
-                id="agent-workdir"
-                name="workdir"
-                placeholder="/home/fred/projetos"
-                autocomplete="off"
-              />
-            </div>
-          </div>
+  function update(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const current = ease * target;
+    el.textContent = format(current) + suffix;
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
 
-          <div class="form-row">
-            <div class="form-group form-group--grow">
-              <label class="form-label" for="agent-allowed-tools">Ferramentas Permitidas</label>
-              <input
-                type="text"
-                class="input"
-                id="agent-allowed-tools"
-                name="allowedTools"
-                placeholder="Bash,Read,Write,Glob,Grep"
-                autocomplete="off"
-              />
-              <p class="form-hint">Lista separada por vírgula. Vazio = todas permitidas.</p>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="agent-max-turns">Max Turns</label>
-              <input
-                type="number"
-                class="input"
-                id="agent-max-turns"
-                name="maxTurns"
-                min="0"
-                max="100"
-                value="0"
-              />
-              <p class="form-hint">Limite de turnos agênticos. 0 = sem limite.</p>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="agent-permission-mode">Permission Mode</label>
-              <select class="select" id="agent-permission-mode" name="permissionMode">
-                <option value="">Padrão</option>
-                <option value="default">default</option>
-                <option value="plan">plan</option>
-                <option value="acceptEdits">acceptEdits</option>
-                <option value="bypassPermissions">bypassPermissions</option>
-              </select>
-            </div>
-          </div>
+// Also trigger counters in hero-metrics
+document.querySelectorAll('.hero-metrics .num').forEach(el => {
+  const heroObs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) { animateCounter(entry.target); heroObs.unobserve(entry.target); }
+    });
+  }, { threshold: 0.5 });
+  heroObs.observe(el);
+});
 
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Retry em caso de falha</label>
-              <div class="toggle-wrapper">
-                <input type="checkbox" class="toggle-input" id="agent-retry-toggle" name="retryOnFailure" role="switch" />
-                <label class="toggle-label" for="agent-retry-toggle">
-                  <span class="toggle-thumb"></span>
-                  <span class="toggle-text-on">Sim</span>
-                  <span class="toggle-text-off">Não</span>
-                </label>
-              </div>
-            </div>
-            <div class="form-group" id="agent-retry-max-group" style="display:none;">
-              <label class="form-label" for="agent-retry-max">Máximo de tentativas</label>
-              <select class="select" id="agent-retry-max" name="maxRetries">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3" selected>3</option>
-              </select>
-            </div>
-          </div>
+// Nav scroll effect
+let lastScroll = 0;
+window.addEventListener('scroll', () => {
+  const nav = document.getElementById('nav');
+  nav.classList.toggle('scrolled', window.scrollY > 40);
+  lastScroll = window.scrollY;
+}, { passive: true });
 
-          <div class="form-group">
-            <label class="form-label" for="agent-tags-input">Tags</label>
-            <div class="tags-input-wrapper" id="agent-tags-wrapper">
-              <div class="tags-chips" id="agent-tags-chips"></div>
-              <input
-                type="text"
-                class="tags-input"
-                id="agent-tags-input"
-                placeholder="Digite e pressione Enter para adicionar"
-                autocomplete="off"
-              />
-            </div>
-            <input type="hidden" id="agent-tags" name="tags" value="[]" />
-          </div>
+// Parallax on hero glows
+window.addEventListener('scroll', () => {
+  requestAnimationFrame(() => {
+    const s = window.scrollY;
+    const glows = document.querySelectorAll('.hero-glow');
+    glows.forEach((g, i) => {
+      const speed = [0.15, 0.1, 0.2][i] || 0.1;
+      g.style.transform = `translateY(${s * speed}px)`;
+    });
+    const grid = document.querySelector('.hero-grid');
+    if (grid) grid.style.transform = `translateY(${s * 0.05}px)`;
+  });
+}, { passive: true });
 
-          <div class="form-divider"></div>
-          <div class="form-section" id="agent-secrets-section" hidden>
-            <h3 class="form-section-title">
-              <i data-lucide="key-round"></i>
-              Variáveis de Ambiente (Secrets)
-            </h3>
-            <p class="form-hint mb-12">Secrets são injetados como variáveis de ambiente na execução. Valores nunca são exibidos após salvos.</p>
-            <div id="agent-secrets-list" class="secrets-list"></div>
-            <div class="secrets-add-form">
-              <input type="text" class="input" id="agent-secret-name" placeholder="NOME_DA_VARIAVEL" autocomplete="off" />
-              <input type="password" class="input" id="agent-secret-value" placeholder="valor secreto" autocomplete="new-password" />
-              <button type="button" class="btn btn--primary btn--sm" id="agent-secret-add-btn">
-                <i data-lucide="plus"></i>
-                Adicionar
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="agent-modal-overlay">Cancelar</button>
-        <button class="btn btn--primary" type="submit" form="agent-form" id="agent-form-submit">Salvar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="agent-versions-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="agent-versions-title" hidden>
-    <div class="modal modal--lg">
-      <div class="modal-header">
-        <h2 class="modal-title" id="agent-versions-title">Histórico de Versões</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="agent-versions-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body" id="agent-versions-content">
-        <div class="empty-state">
-          <i data-lucide="history"></i>
-          <p>Carregando versões...</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="execute-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="execute-modal-title" hidden>
-    <div class="modal modal--md">
-      <div class="modal-header">
-        <h2 class="modal-title" id="execute-modal-title">Executar Tarefa</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="execute-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form class="modal-form" id="execute-form" novalidate>
-          <input type="hidden" id="execute-agent-id" name="agentId" />
-
-          <div class="form-group" id="execute-agent-select-group">
-            <label class="form-label" for="execute-agent-select">
-              Agente
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <select class="select" id="execute-agent-select" name="agentSelect" required>
-              <option value="">Selecionar agente...</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="execute-saved-task">Tarefa Salva</label>
-            <select class="select" id="execute-saved-task" name="savedTask">
-              <option value="">Digitar manualmente...</option>
-            </select>
-            <p class="form-hint">Selecione uma tarefa salva ou digite manualmente abaixo</p>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="execute-task-desc">
-              Descrição da Tarefa
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <textarea
-              class="textarea"
-              id="execute-task-desc"
-              name="task"
-              rows="3"
-              placeholder="Descreva o que o agente deve fazer..."
-              required
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="execute-instructions">Instruções Adicionais</label>
-            <textarea
-              class="textarea textarea--code"
-              id="execute-instructions"
-              name="instructions"
-              rows="3"
-              placeholder="Contexto adicional, restrições ou preferências..."
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Arquivos de Contexto</label>
-            <div class="dropzone" id="execute-dropzone">
-              <input type="file" id="execute-files" multiple hidden />
-              <div class="dropzone-content">
-                <i data-lucide="upload-cloud"></i>
-                <p>Arraste arquivos aqui ou <button type="button" class="dropzone-browse">selecione</button></p>
-                <span class="dropzone-hint">Até 20 arquivos, 10MB cada</span>
-              </div>
-              <ul class="dropzone-list" id="execute-file-list"></ul>
-            </div>
-          </div>
-
-          <div class="quick-templates">
-            <p class="quick-templates-label">Templates rápidos</p>
-            <div class="quick-templates-grid">
-              <button class="template-btn" type="button" data-template="Analisar código e detectar bugs, vulnerabilidades e problemas de qualidade. Forneça um relatório detalhado com sugestões de correção.">
-                <i data-lucide="bug"></i>
-                <span>Detectar Bugs</span>
-              </button>
-              <button class="template-btn" type="button" data-template="Realizar revisão de segurança seguindo as diretrizes OWASP Top 10. Identificar vulnerabilidades, inputs não validados e problemas de autenticação/autorização.">
-                <i data-lucide="shield"></i>
-                <span>Revisão OWASP</span>
-              </button>
-              <button class="template-btn" type="button" data-template="Refatorar o código para melhorar legibilidade, manutenibilidade e aderência às boas práticas. Manter comportamento funcional intacto.">
-                <i data-lucide="wand"></i>
-                <span>Refatorar Código</span>
-              </button>
-              <button class="template-btn" type="button" data-template="Escrever testes unitários e de integração abrangentes. Garantir cobertura dos casos de sucesso, erro e edge cases.">
-                <i data-lucide="test-tube"></i>
-                <span>Escrever Testes</span>
-              </button>
-              <button class="template-btn" type="button" data-template="Documentar o código com JSDoc/docstrings, README atualizado, exemplos de uso e descrição de APIs públicas.">
-                <i data-lucide="book-open"></i>
-                <span>Documentar Código</span>
-              </button>
-              <button class="template-btn" type="button" data-template="Analisar e otimizar a performance do código. Identificar gargalos, reduzir complexidade algorítmica e melhorar uso de memória.">
-                <i data-lucide="gauge"></i>
-                <span>Otimizar Performance</span>
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="execute-modal-overlay">Cancelar</button>
-        <button class="btn btn--primary btn--icon-text" type="submit" form="execute-form" id="execute-form-submit">
-          <i data-lucide="play"></i>
-          <span>Executar</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="schedule-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" hidden>
-    <div class="modal modal--md">
-      <div class="modal-header">
-        <h2 class="modal-title" id="schedule-modal-title">Novo Agendamento</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="schedule-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form class="modal-form" id="schedule-form" novalidate>
-          <input type="hidden" id="schedule-form-id" name="id" />
-
-          <div class="form-group">
-            <label class="form-label" for="schedule-agent">
-              Agente
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <select class="select" id="schedule-agent" name="agentId" required>
-              <option value="">Selecionar agente...</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="schedule-task">
-              Descrição da Tarefa
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <textarea
-              class="textarea"
-              id="schedule-task"
-              name="task"
-              rows="3"
-              placeholder="Descreva a tarefa que será executada automaticamente..."
-              required
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="schedule-cron">
-              Expressão Cron
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <input
-              type="text"
-              class="input input--mono"
-              id="schedule-cron"
-              name="cron"
-              placeholder="0 * * * *"
-              required
-              autocomplete="off"
-              aria-describedby="schedule-cron-hint"
-            />
-            <p class="form-hint" id="schedule-cron-hint">Formato: minuto hora dia-mês mês dia-semana</p>
-          </div>
-
-          <div class="cron-presets">
-            <p class="cron-presets-label">Presets</p>
-            <div class="cron-presets-list">
-              <button class="cron-preset-btn" type="button" data-cron="0 * * * *">
-                <span class="cron-preset-name">A cada hora</span>
-                <span class="cron-preset-expr">0 * * * *</span>
-              </button>
-              <button class="cron-preset-btn" type="button" data-cron="0 9 * * *">
-                <span class="cron-preset-name">Diário (09:00)</span>
-                <span class="cron-preset-expr">0 9 * * *</span>
-              </button>
-              <button class="cron-preset-btn" type="button" data-cron="0 9 * * 1">
-                <span class="cron-preset-name">Semanal (seg 09:00)</span>
-                <span class="cron-preset-expr">0 9 * * 1</span>
-              </button>
-              <button class="cron-preset-btn" type="button" data-cron="0 0 1 * *">
-                <span class="cron-preset-name">Mensal (dia 1)</span>
-                <span class="cron-preset-expr">0 0 1 * *</span>
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="schedule-modal-overlay">Cancelar</button>
-        <button class="btn btn--primary btn--icon-text" type="submit" form="schedule-form" id="schedule-form-submit">
-          <i data-lucide="clock"></i>
-          <span>Agendar</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="pipeline-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="pipeline-modal-title" hidden>
-    <div class="modal modal--lg">
-      <div class="modal-header">
-        <h2 class="modal-title" id="pipeline-modal-title">Novo Pipeline</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="pipeline-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form class="modal-form" id="pipeline-form" novalidate>
-          <input type="hidden" id="pipeline-form-id">
-          <div class="form-group">
-            <label class="form-label" for="pipeline-name">
-              Nome
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <input class="input" type="text" id="pipeline-name" placeholder="Ex: Análise e Correção de Bugs" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="pipeline-description">Descrição</label>
-            <textarea class="textarea" id="pipeline-description" rows="2" placeholder="Descreva o objetivo do pipeline..."></textarea>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="pipeline-workdir">
-              <i data-lucide="folder" style="width:14px;height:14px"></i>
-              Diretório do Projeto
-            </label>
-            <input class="input" type="text" id="pipeline-workdir" autocomplete="off">
-            <p class="form-hint">Caminho onde o projeto será criado/trabalhado. Todos os passos usarão este diretório.</p>
-          </div>
-          <div class="form-group">
-            <label class="form-label">
-              Passos do Pipeline
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <p class="form-hint mb-8">Cada passo usa um agente. O output de um passo vira o input do próximo.</p>
-            <div id="pipeline-steps-container"></div>
-            <button class="btn btn--ghost btn--sm mt-8" type="button" id="pipeline-add-step-btn">
-              <i data-lucide="plus" style="width:14px;height:14px"></i>
-              Adicionar Passo
-            </button>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="pipeline-modal-overlay">Cancelar</button>
-        <button class="btn btn--primary" type="button" id="pipeline-form-submit">Salvar Pipeline</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="pipeline-execute-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="pipeline-execute-title" hidden>
-    <div class="modal modal--md">
-      <div class="modal-header">
-        <h2 class="modal-title" id="pipeline-execute-title">Executar Pipeline</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="pipeline-execute-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="pipeline-execute-id">
-        <div class="form-group">
-          <label class="form-label" for="pipeline-execute-input">
-            Input Inicial
-            <span class="form-required" aria-hidden="true">*</span>
-          </label>
-          <textarea class="textarea" id="pipeline-execute-input" rows="4" placeholder="Descreva a tarefa inicial para o pipeline..." autofocus></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Arquivos de Contexto</label>
-          <div class="dropzone" id="pipeline-execute-dropzone">
-            <input type="file" id="pipeline-execute-files" multiple hidden />
-            <div class="dropzone-content">
-              <i data-lucide="upload-cloud"></i>
-              <p>Arraste arquivos aqui ou <button type="button" class="dropzone-browse">selecione</button></p>
-              <span class="dropzone-hint">Até 20 arquivos, 10MB cada</span>
-            </div>
-            <ul class="dropzone-list" id="pipeline-execute-file-list"></ul>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="pipeline-execute-workdir">Diretório de Trabalho (opcional)</label>
-          <input
-            type="text"
-            class="input"
-            id="pipeline-execute-workdir"
-            placeholder="/home/projetos/meu-projeto"
-            autocomplete="off"
-          />
-          <p class="form-hint">Se vazio, cada agente usa seu próprio diretório configurado.</p>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="pipeline-execute-modal-overlay">Cancelar</button>
-        <button class="btn btn--primary btn--icon-text" type="button" id="pipeline-execute-submit">
-          <i data-lucide="play" style="width:14px;height:14px"></i>
-          <span>Executar</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="execution-detail-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="execution-detail-title" hidden>
-    <div class="modal modal-lg">
-      <div class="modal-header">
-        <h2 class="modal-title" id="execution-detail-title">Detalhe da Execução</h2>
-        <button class="modal-close" data-modal-close="execution-detail-modal-overlay" aria-label="Fechar" type="button">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body" id="execution-detail-content">
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="confirm-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" hidden>
-    <div class="modal modal--sm">
-      <div class="modal-header">
-        <div class="confirm-modal-icon" id="confirm-modal-icon">
-          <i data-lucide="triangle-alert"></i>
-        </div>
-        <h2 class="modal-title" id="confirm-modal-title">Confirmar Ação</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="confirm-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <p class="confirm-modal-message" id="confirm-modal-message"></p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="confirm-modal-overlay">Cancelar</button>
-        <button class="btn btn--danger" type="button" id="confirm-modal-confirm-btn">Confirmar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="export-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="export-modal-title" hidden>
-    <div class="modal modal--md">
-      <div class="modal-header">
-        <h2 class="modal-title" id="export-modal-title">Exportar Agente</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="export-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="export-code-wrapper">
-          <div class="export-code-toolbar">
-            <span class="export-code-label">JSON</span>
-            <button class="btn btn--ghost btn--sm btn--icon-text" type="button" id="export-copy-btn" aria-label="Copiar JSON">
-              <i data-lucide="copy"></i>
-              <span>Copiar</span>
-            </button>
-          </div>
-          <pre class="export-code" id="export-code-content" tabindex="0" aria-label="Dados do agente em formato JSON"></pre>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="export-modal-overlay">Fechar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="import-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="import-modal-title" hidden>
-    <div class="modal modal--md">
-      <div class="modal-header">
-        <h2 class="modal-title" id="import-modal-title">Importar Agente</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="import-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label" for="import-json-content">JSON do Agente</label>
-          <textarea
-            class="textarea textarea--code"
-            id="import-json-content"
-            rows="10"
-            placeholder="Cole aqui o JSON exportado do agente..."
-          ></textarea>
-          <p class="form-hint">Cole o JSON gerado pela função de exportar agente.</p>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="import-modal-overlay">Cancelar</button>
-        <button class="btn btn--primary btn--icon-text" type="button" id="import-confirm-btn">
-          <i data-lucide="file-down"></i>
-          <span>Importar</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="webhook-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="webhook-modal-title" hidden>
-    <div class="modal modal--md">
-      <div class="modal-header">
-        <h2 class="modal-title" id="webhook-modal-title">Novo Webhook</h2>
-        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="webhook-modal-overlay">
-          <i data-lucide="x"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form class="modal-form" id="webhook-form" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="webhook-name">
-              Nome
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <input type="text" class="input" id="webhook-name" placeholder="Ex: Deploy Trigger" required autocomplete="off" />
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="webhook-target-type">Tipo de Destino</label>
-            <select class="select" id="webhook-target-type">
-              <option value="agent">Agente</option>
-              <option value="pipeline">Pipeline</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="webhook-target-id">
-              Destino
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <select class="select" id="webhook-target-id" required>
-              <option value="">Selecionar...</option>
-            </select>
-          </div>
-          <div class="form-hint-block">
-            <p>Após criar, você receberá uma URL única para disparar este webhook via POST.</p>
-            <p><strong>Payload aceito:</strong></p>
-            <pre class="form-hint-code">{ "task": "descrição", "instructions": "..." }</pre>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn--ghost" type="button" data-modal-close="webhook-modal-overlay">Cancelar</button>
-        <button class="btn btn--primary" type="button" id="webhook-form-submit">Criar Webhook</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="toast-container" id="toast-container" aria-live="assertive" aria-atomic="false" role="region" aria-label="Notificações"></div>
-
-  <script src="js/lucide.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/components/toast.js"></script>
-  <script src="js/components/modal.js"></script>
-  <script src="js/components/terminal.js"></script>
-  <script src="js/components/agents.js"></script>
-  <script src="js/components/dashboard.js"></script>
-  <script src="js/components/tasks.js"></script>
-  <script src="js/components/schedules.js"></script>
-  <script src="js/components/pipelines.js"></script>
-  <script src="js/components/flow-editor.js"></script>
-  <script src="js/components/settings.js"></script>
-  <script src="js/components/history.js"></script>
-  <script src="js/components/webhooks.js"></script>
-  <script src="js/components/notifications.js"></script>
-  <script src="js/app.js"></script>
-  <script>
-    Utils.refreshIcons();
-    App.init();
-  </script>
+// Mobile nav
+const style = document.createElement('style');
+style.textContent = `
+@media(max-width:900px){
+  .nav-links.show{display:flex!important;flex-direction:column;position:absolute;top:100%;left:0;right:0;background:rgba(9,9,11,.95);backdrop-filter:blur(20px);padding:24px;gap:16px;border-bottom:1px solid var(--glass-border)}
+}`;
+document.head.appendChild(style);
+</script>
 </body>
 </html>
