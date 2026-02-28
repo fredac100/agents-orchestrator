@@ -9,6 +9,7 @@ export class ContainerManager {
     this.idleTimeoutMin = opts.idleTimeoutMin || 60;
     this.sharedBinds = opts.sharedBinds || [];
     this.workerEnv = opts.workerEnv || [];
+    this.projectsDir = opts.projectsDir || '';
     this.cache = new Map();
     this.locks = new Map();
     this._cleanupTimer = null;
@@ -71,10 +72,15 @@ export class ContainerManager {
 
     console.log(`[containers] Criando container ${name} para usuário ${userId.substring(0, 8)}...`);
 
+    const shortId = userId.substring(0, 8);
     const binds = [
-      `orch-data-${userId.substring(0, 8)}:/app/data`,
+      `orch-data-${shortId}:/app/data`,
       ...this.sharedBinds,
     ];
+
+    if (this.projectsDir) {
+      binds.push(`${this.projectsDir}/${shortId}:/home/projetos`);
+    }
 
     await docker.createContainer({
       Image: this.image,

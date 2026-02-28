@@ -23,6 +23,7 @@ const containerManager = new ContainerManager({
   idleTimeoutMin: parseInt(process.env.IDLE_TIMEOUT_MIN || '60', 10),
   sharedBinds: (process.env.CONTAINER_BINDS || '').split(',').filter(Boolean),
   workerEnv: (process.env.WORKER_ENV || '').split(',').filter(Boolean),
+  projectsDir: process.env.PROJECTS_DIR || '',
 });
 
 const app = express();
