@@ -854,6 +854,16 @@
 
           <div class="form-row">
             <div class="form-group">
+              <label class="form-label" for="agent-delegate-to">Delegar para (auto)</label>
+              <select class="select" id="agent-delegate-to" name="delegateTo">
+                <option value="">Nenhum</option>
+              </select>
+              <p class="form-hint">Ao concluir, delega automaticamente o resultado para este agente.</p>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
               <label class="form-label">Retry em caso de falha</label>
               <div class="toggle-wrapper">
                 <input type="checkbox" class="toggle-input" id="agent-retry-toggle" name="retryOnFailure" role="switch" />

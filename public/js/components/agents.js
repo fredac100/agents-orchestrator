@@ -192,6 +192,8 @@ const AgentsUI = {
     const retryMax = document.getElementById('agent-retry-max');
     if (retryMax) retryMax.value = '3';
 
+    AgentsUI._populateDelegateSelect('');
+
     const secretsSection = document.getElementById('agent-secrets-section');
     if (secretsSection) secretsSection.hidden = true;
 
@@ -250,6 +252,8 @@ const AgentsUI = {
       const retryMax = document.getElementById('agent-retry-max');
       if (retryMax) retryMax.value = (agent.config && agent.config.maxRetries) || '3';
 
+      AgentsUI._populateDelegateSelect(agent.config?.delegateTo || '', agent.id);
+
       const secretsSection = document.getElementById('agent-secrets-section');
       if (secretsSection) secretsSection.hidden = false;
 
@@ -296,6 +300,7 @@ const AgentsUI = {
         permissionMode: document.getElementById('agent-permission-mode')?.value || '',
         retryOnFailure: !!document.getElementById('agent-retry-toggle')?.checked,
         maxRetries: parseInt(document.getElementById('agent-retry-max')?.value) || 3,
+        delegateTo: document.getElementById('agent-delegate-to')?.value || '',
       },
     };
 
@@ -466,6 +471,14 @@ const AgentsUI = {
       hour: '2-digit',
       minute: '2-digit',
     });
+  },
+
+  _populateDelegateSelect(currentValue, excludeId) {
+    const select = document.getElementById('agent-delegate-to');
+    if (!select) return;
+    const activeAgents = AgentsUI.agents.filter(a => a.status === 'active' && a.id !== excludeId);
+    select.innerHTML = '<option value="">Nenhum</option>' +
+      activeAgents.map(a => `<option value="${a.id}" ${a.id === currentValue ? 'selected' : ''}>${Utils.escapeHtml(a.agent_name || a.name)}</option>`).join('');
   },
 
   _setupModalListeners() {

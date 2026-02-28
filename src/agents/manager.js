@@ -172,9 +172,17 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
 
   const agentSecrets = loadAgentSecrets(agentId);
 
+  let effectiveInstructions = instructions || '';
+  const tags = agent.tags || [];
+  if (tags.includes('coordinator')) {
+    const allAgents = agentsStore.getAll().filter(a => a.id !== agentId && a.status === 'active');
+    const agentList = allAgents.map(a => `- **${a.agent_name}**: ${a.description || 'Sem descrição'}`).join('\n');
+    effectiveInstructions += `\n\n<agentes_disponiveis>\n${agentList}\n</agentes_disponiveis>`;
+  }
+
   const executionId = executor.execute(
     agent.config,
-    { description: task, instructions },
+    { description: task, instructions: effectiveInstructions },
     {
       onData: (parsed, execId) => {
         if (cb) cb({ type: 'execution_output', executionId: execId, agentId, data: parsed });
@@ -234,6 +242,32 @@ export function executeTask(agentId, task, instructions, wsCallback, metadata = 
           }
         } catch (e) { console.error('[manager] Erro ao gerar relatório:', e.message); }
         if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
+
+        const isPipelineStep = !!metadata.pipelineExecutionId;
+        const delegateTo = agent.config?.delegateTo;
+        if (!isPipelineStep && delegateTo && result.result) {
+          const delegateAgent = agentsStore.getById(delegateTo);
+          if (delegateAgent && delegateAgent.status === 'active') {
+            console.log(`[manager] Auto-delegando de "${agent.agent_name}" para "${delegateAgent.agent_name}"`);
+            if (cb) cb({
+              type: 'execution_output',
+              executionId: execId,
+              agentId,
+              data: { type: 'system', content: `Delegando para ${delegateAgent.agent_name}...` },
+            });
+            setTimeout(() => {
+              try {
+                executeTask(delegateTo, result.result, null, wsCallback, {
+                  delegatedFrom: agent.agent_name,
+                  originalTask: taskText,
+                });
+              } catch (delegateErr) {
+                console.error(`[manager] Erro ao delegar para "${delegateAgent.agent_name}":`, delegateErr.message);
+                if (cb) cb({ type: 'execution_error', executionId: execId, agentId: delegateTo, data: { error: delegateErr.message } });
+              }
+            }, 3000);
+          }
+        }
       },
     },
     agentSecrets
