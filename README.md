@@ -19,6 +19,13 @@ Painel administrativo web para orquestração de agentes [Claude Code](https://d
 - Ative, desative, edite, **duplique** ou exclua a qualquer momento
 - Exporte/importe configurações completas em JSON
 
+### Catálogo de Tarefas
+- Crie e gerencie tarefas reutilizáveis com nome, categoria e descrição detalhada
+- Categorias: Code Review, Segurança, Refatoração, Testes, Documentação, Performance
+- Filtro por texto e categoria
+- Execute qualquer tarefa diretamente no agente escolhido
+- Cards com truncamento inteligente e tooltip com descrição completa
+
 ### Execução de Tarefas
 - Execute tarefas sob demanda em qualquer agente ativo
 - Templates rápidos incluídos (detecção de bugs, revisão OWASP, refatoração, testes, documentação, performance)
@@ -27,6 +34,7 @@ Painel administrativo web para orquestração de agentes [Claude Code](https://d
 
 ### Terminal em Tempo Real
 - Streaming chunk-a-chunk via WebSocket com indicador de conexão
+- **Botão Interromper** para cancelar todas as execuções ativas
 - **Busca** no output do terminal com navegação entre ocorrências
 - **Download** da saída completa como `.txt`
 - **Copiar** saída para a área de transferência
@@ -50,7 +58,9 @@ Painel administrativo web para orquestração de agentes [Claude Code](https://d
 ### Pipelines
 - Encadeie múltiplos agentes em fluxos sequenciais
 - Saída de cada passo alimenta o próximo via template `{{input}}`
+- **Diretório de trabalho** configurável por pipeline (pré-preenchido com base path)
 - Portões de aprovação humana entre passos (human-in-the-loop)
+- **Retomar pipelines falhas** a partir do passo onde pararam
 - Ideal para fluxos como "analisar → corrigir → testar"
 
 ### Webhooks
@@ -87,18 +97,29 @@ Painel administrativo web para orquestração de agentes [Claude Code](https://d
 
 A aplicação roda em container Docker na infraestrutura Nitro Cloud com HTTPS automático via Caddy + Let's Encrypt.
 
-### Atualizar o sistema em produção
+### Deploy automático (recomendado)
+
+Um único comando faz push e deploy completo:
 
 ```bash
-# 1. Push das alterações para o Gitea
-git push nitro main
+git deploy
+```
 
-# 2. Conectar no servidor
-ssh -p 2222 fred@192.168.1.151
+O script `scripts/deploy.sh` executa automaticamente:
 
-# 3. Atualizar código e rebuild do container
-cd ~/vps/apps/agents-orchestrator && git pull
-cd ~/vps && docker compose up -d --build agents-orchestrator
+1. Push para GitHub (origin) e Gitea (nitro)
+2. Backup dos dados no VPS (`data-backup-YYYYMMDD-HHMMSS`)
+3. Sincronização via rsync (exclui `data/`, `.git`, `node_modules`)
+4. Correção de permissões do diretório de dados
+5. Rebuild do container Docker
+6. Verificação do container e integridade dos dados
+7. Limpeza de backups antigos (mantém os 3 mais recentes)
+
+Opções:
+
+```bash
+git deploy                  # Push + deploy completo
+bash scripts/deploy.sh --skip-push   # Apenas deploy, sem push
 ```
 
 ### Verificar status
@@ -121,6 +142,7 @@ ssh -p 2222 fred@192.168.1.151 "cd ~/vps && docker compose restart agents-orches
 | `HOST` | Endereço de bind | `0.0.0.0` |
 | `AUTH_TOKEN` | Token Bearer para autenticação da API | _(desabilitado)_ |
 | `ALLOWED_ORIGIN` | Origin permitida para CORS | `https://agents.nitro-cloud.duckdns.org` |
+| `ALLOWED_DIRECTORIES` | Diretórios permitidos para working directory (CSV) | _(todos)_ |
 | `WEBHOOK_SECRET` | Segredo HMAC para assinatura de webhooks | _(desabilitado)_ |
 | `CLAUDE_BIN` | Caminho para o binário do Claude CLI | _(auto-detectado)_ |
 | `REDIS_URL` | URL do Redis para cache L2 (opcional) | _(somente memória)_ |
@@ -252,6 +274,7 @@ O executor invoca o binário `claude` com `--output-format stream-json`, parseia
 | `POST` | `/api/pipelines/:id/cancel` | Cancelar pipeline |
 | `POST` | `/api/pipelines/:id/approve` | Aprovar passo pendente |
 | `POST` | `/api/pipelines/:id/reject` | Rejeitar passo pendente |
+| `POST` | `/api/pipelines/resume/:execId` | Retomar pipeline falha |
 
 ### Webhooks
 
@@ -274,6 +297,7 @@ O executor invoca o binário `claude` com `--output-format stream-json`, parseia
 | `GET` | `/api/executions/:id` | Detalhes de uma execução |
 | `DELETE` | `/api/executions/:id` | Excluir execução do histórico |
 | `POST` | `/api/executions/:id/retry` | Reexecutar execução falha |
+| `POST` | `/api/executions/cancel-all` | Cancelar todas as execuções ativas |
 | `DELETE` | `/api/executions` | Limpar histórico |
 
 ### Notificações
