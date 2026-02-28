@@ -17,11 +17,12 @@ const App = {
     webhooks: 'Webhooks',
     terminal: 'Terminal',
     history: 'Histórico',
+    import: 'Importar Projeto',
     files: 'Projetos',
     settings: 'Configurações',
   },
 
-  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'files', 'settings'],
+  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'import', 'files', 'settings'],
 
   init() {
     if (App._initialized) return;
@@ -115,6 +116,7 @@ const App = {
         case 'pipelines': await PipelinesUI.load(); break;
         case 'webhooks': await WebhooksUI.load(); break;
         case 'history': await HistoryUI.load(); break;
+        case 'import': await ImportUI.load(); break;
         case 'files': await FilesUI.load(); break;
         case 'settings': await SettingsUI.load(); break;
       }

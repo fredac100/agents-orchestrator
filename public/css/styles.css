@@ -5358,3 +5358,160 @@ body, .sidebar, .header, .card, .modal-content, .input, .select, textarea, .metr
     width: 70px;
   }
 }
+
+.import-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.import-card .card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.import-desc {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.import-desc code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+.import-path-row {
+  display: flex;
+  gap: 8px;
+}
+
+.import-path-row .form-input {
+  flex: 1;
+}
+
+.import-browser {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.import-browser-header {
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.import-browser-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.import-browser-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  transition: background 0.15s;
+}
+
+.import-browser-item:last-child {
+  border-bottom: none;
+}
+
+.import-browser-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.import-browser-dir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 13px;
+  flex: 1;
+  min-width: 0;
+}
+
+.import-browser-dir:hover {
+  color: var(--accent);
+}
+
+.import-browser-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.import-select-btn {
+  flex-shrink: 0;
+}
+
+.import-repos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.import-repo-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 14px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.import-repo-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+}
+
+.import-repo-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.import-repo-name {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.import-repo-name:hover {
+  text-decoration: underline;
+}
+
+.import-repo-desc {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.import-repo-meta {
+  display: flex;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.import-repo-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}

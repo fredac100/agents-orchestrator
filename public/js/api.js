@@ -149,6 +149,11 @@ const API = {
     branches(name) { return API.request('GET', `/repos/${encodeURIComponent(name)}/branches`); },
   },
 
+  projects: {
+    browse(path) { return API.request('GET', `/browse?path=${encodeURIComponent(path || '/home')}`); },
+    import(sourcePath, repoName) { return API.request('POST', '/projects/import', { sourcePath, repoName }); },
+  },
+
   files: {
     list(path) { return API.request('GET', `/files${path ? '?path=' + encodeURIComponent(path) : ''}`); },
     delete(path) { return API.request('DELETE', `/files?path=${encodeURIComponent(path)}`); },
