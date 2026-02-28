@@ -1202,6 +1202,47 @@ router.get('/repos/:name/branches', async (req, res) => {
   }
 });
 
+router.post('/files/commit-push', async (req, res) => {
+  const { path: projectPath, message } = req.body;
+  if (!projectPath) return res.status(400).json({ error: 'path é obrigatório' });
+
+  const targetPath = resolveProjectPath(projectPath);
+  if (!targetPath) return res.status(400).json({ error: 'Caminho inválido' });
+  if (!existsSync(targetPath)) return res.status(404).json({ error: 'Projeto não encontrado' });
+  if (!statSync(targetPath).isDirectory()) return res.status(400).json({ error: 'Caminho não é uma pasta' });
+
+  const gitDir = `${targetPath}/.git`;
+  if (!existsSync(gitDir)) return res.status(400).json({ error: 'Projeto não possui repositório git inicializado' });
+
+  const exec = (cmd, opts = {}) => new Promise((resolve, reject) => {
+    const proc = spawnProcess('sh', ['-c', cmd], { cwd: opts.cwd || targetPath, env: { ...process.env, HOME: '/tmp', GIT_TERMINAL_PROMPT: '0' } });
+    let stdout = '', stderr = '';
+    proc.stdout.on('data', d => stdout += d);
+    proc.stderr.on('data', d => stderr += d);
+    proc.on('close', code => code === 0 ? resolve(stdout.trim()) : reject(new Error(stderr.trim() || `exit ${code}`)));
+  });
+
+  try {
+    const status = await exec('git status --porcelain');
+    if (!status) return res.json({ status: 'clean', message: 'Nenhuma alteração para commitar', changes: 0 });
+
+    const changes = status.split('\n').filter(l => l.trim()).length;
+
+    await exec('git add -A');
+
+    const commitMsg = message || `Atualização automática - ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    await exec(`git -c user.name="Agents Orchestrator" -c user.email="agents@nitro-cloud" commit -m "${commitMsg.replace(/"/g, '\\"')}"`);
+
+    await exec('git push origin HEAD:main');
+
+    const log = await exec('git log -1 --format="%h %s"');
+
+    res.json({ status: 'pushed', message: `Commit e push realizados: ${log}`, changes, commit: log });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/files/publish', async (req, res) => {
   const { path: projectPath } = req.body;
   if (!projectPath) return res.status(400).json({ error: 'path é obrigatório' });

@@ -783,6 +783,7 @@ const App = {
         case 'navigate-files': FilesUI.navigate(path || ''); break;
         case 'download-file': FilesUI.downloadFile(path); break;
         case 'download-folder': FilesUI.downloadFolder(path); break;
+        case 'commit-push': FilesUI.commitPush(path); break;
         case 'publish-project': FilesUI.publishProject(path); break;
         case 'delete-entry': FilesUI.deleteEntry(path, el.dataset.entryType); break;
       }

@@ -232,6 +232,8 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
         durationApiMs: parsed.duration_api_ms || 0,
         numTurns: parsed.num_turns || 0,
         sessionId: parsed.session_id || sessionIdOverride || '',
+        isError: parsed.is_error || false,
+        errors: parsed.errors || [],
       };
     }
   }
@@ -267,6 +269,13 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
     activeExecutions.delete(executionId);
     if (hadError) return;
     if (outputBuffer.trim()) processEvent(parseStreamLine(outputBuffer));
+
+    if (resultMeta?.isError && resultMeta.errors?.length > 0) {
+      const errorMsg = resultMeta.errors.join('; ');
+      if (onError) onError(new Error(errorMsg), executionId);
+      return;
+    }
+
     if (onComplete) {
       onComplete({
         executionId,

@@ -1327,6 +1327,25 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="prompt-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="prompt-modal-title" hidden>
+    <div class="modal modal--sm">
+      <div class="modal-header">
+        <h2 class="modal-title" id="prompt-modal-title">Prompt</h2>
+        <button class="modal-close" type="button" aria-label="Fechar modal" data-modal-close="prompt-modal-overlay">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="prompt-modal-message"></p>
+        <input type="text" class="form-input" id="prompt-modal-input" autocomplete="off">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn--ghost" type="button" id="prompt-modal-cancel-btn">Cancelar</button>
+        <button class="btn btn--primary" type="button" id="prompt-modal-confirm-btn">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="export-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="export-modal-title" hidden>
     <div class="modal modal--md">
       <div class="modal-header">

@@ -5320,6 +5320,8 @@ body, .sidebar, .header, .card, .modal-content, .input, .select, textarea, .metr
 .repo-selector { display: flex; gap: 8px; }
 .repo-selector .select { flex: 1; }
 
+.btn-commit-push { color: var(--warning); }
+.btn-commit-push:hover { background: rgba(245, 158, 11, 0.1); }
 .btn-publish { color: var(--success); }
 .btn-publish:hover { background: rgba(16, 185, 129, 0.1); }
 

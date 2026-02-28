@@ -420,42 +420,70 @@ export function continueConversation(agentId, sessionId, message, wsCallback) {
     parentSessionId: sessionId,
   });
 
+  const onData = (parsed, execId) => {
+    if (cb) cb({ type: 'execution_output', executionId: execId, agentId, data: parsed });
+  };
+
+  const onComplete = (result, execId) => {
+    const endedAt = new Date().toISOString();
+    executionsStore.update(historyRecord.id, {
+      status: 'completed',
+      result: result.result || '',
+      exitCode: result.exitCode,
+      endedAt,
+      costUsd: result.costUsd || 0,
+      totalCostUsd: result.totalCostUsd || 0,
+      durationMs: result.durationMs || 0,
+      numTurns: result.numTurns || 0,
+      sessionId: result.sessionId || sessionId,
+    });
+    try {
+      const updated = executionsStore.getById(historyRecord.id);
+      if (updated) {
+        const report = generateAgentReport(updated);
+        if (cb) cb({ type: 'report_generated', executionId: execId, agentId, reportFile: report.filename });
+      }
+    } catch (e) { console.error('[manager] Erro ao gerar relatório:', e.message); }
+    if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, agentName: agent.agent_name, data: result });
+  };
+
+  const onError = (err, execId) => {
+    const isSessionLost = err.message.includes('No conversation found') || err.message.includes('not a valid');
+
+    if (isSessionLost) {
+      console.log(`[manager] Sessão perdida (${sessionId}), iniciando nova execução para agente ${agentId}`);
+      if (cb) cb({ type: 'execution_output', executionId: execId, agentId, data: { type: 'system', content: 'Sessão anterior expirou. Iniciando nova execução...' } });
+
+      const secrets = secretsStore.getByAgent(agentId);
+      const newExecId = executor.execute(
+        agent.config,
+        { description: message },
+        { onData, onError: onErrorFinal, onComplete },
+        Object.keys(secrets).length > 0 ? secrets : null,
+      );
+
+      if (newExecId) {
+        executionsStore.update(historyRecord.id, { executionId: newExecId, parentSessionId: null });
+      } else {
+        onErrorFinal(new Error('Falha ao iniciar nova execução'), execId);
+      }
+      return;
+    }
+
+    onErrorFinal(err, execId);
+  };
+
+  const onErrorFinal = (err, execId) => {
+    const endedAt = new Date().toISOString();
+    executionsStore.update(historyRecord.id, { status: 'error', error: err.message, endedAt });
+    if (cb) cb({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
+  };
+
   const executionId = executor.resume(
     agent.config,
     sessionId,
     message,
-    {
-      onData: (parsed, execId) => {
-        if (cb) cb({ type: 'execution_output', executionId: execId, agentId, data: parsed });
-      },
-      onError: (err, execId) => {
-        const endedAt = new Date().toISOString();
-        executionsStore.update(historyRecord.id, { status: 'error', error: err.message, endedAt });
-        if (cb) cb({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
-      },
-      onComplete: (result, execId) => {
-        const endedAt = new Date().toISOString();
-        executionsStore.update(historyRecord.id, {
-          status: 'completed',
-          result: result.result || '',
-          exitCode: result.exitCode,
-          endedAt,
-          costUsd: result.costUsd || 0,
-          totalCostUsd: result.totalCostUsd || 0,
-          durationMs: result.durationMs || 0,
-          numTurns: result.numTurns || 0,
-          sessionId: result.sessionId || sessionId,
-        });
-        try {
-          const updated = executionsStore.getById(historyRecord.id);
-          if (updated) {
-            const report = generateAgentReport(updated);
-            if (cb) cb({ type: 'report_generated', executionId: execId, agentId, reportFile: report.filename });
-          }
-        } catch (e) { console.error('[manager] Erro ao gerar relatório:', e.message); }
-        if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, data: result });
-      },
-    }
+    { onData, onError, onComplete }
   );
 
   if (!executionId) {

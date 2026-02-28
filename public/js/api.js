@@ -172,6 +172,7 @@ const API = {
     list(path) { return API.request('GET', `/files${path ? '?path=' + encodeURIComponent(path) : ''}`); },
     delete(path) { return API.request('DELETE', `/files?path=${encodeURIComponent(path)}`); },
     publish(path) { return API.request('POST', '/files/publish', { path }); },
+    commitPush(path, message) { return API.request('POST', '/files/commit-push', { path, message }); },
   },
 
   reports: {

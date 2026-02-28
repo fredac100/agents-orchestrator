@@ -91,11 +91,14 @@ const FilesUI = {
       ? `<button class="btn btn--ghost btn--sm" data-action="download-folder" data-path="${Utils.escapeHtml(fullPath)}" title="Baixar pasta"><i data-lucide="download" style="width:14px;height:14px"></i></button>`
       : `<button class="btn btn--ghost btn--sm" data-action="download-file" data-path="${Utils.escapeHtml(fullPath)}" title="Baixar arquivo"><i data-lucide="download" style="width:14px;height:14px"></i></button>`;
     const isRootDir = entry.type === 'directory' && !currentPath;
+    const commitPushBtn = isRootDir
+      ? `<button class="btn btn--ghost btn--sm btn-commit-push" data-action="commit-push" data-path="${Utils.escapeHtml(fullPath)}" title="Commit & Push para o Gitea"><i data-lucide="git-commit-horizontal" style="width:14px;height:14px"></i></button>`
+      : '';
     const publishBtn = isRootDir
       ? `<button class="btn btn--ghost btn--sm btn-publish" data-action="publish-project" data-path="${Utils.escapeHtml(fullPath)}" title="Publicar projeto"><i data-lucide="rocket" style="width:14px;height:14px"></i></button>`
       : '';
     const deleteBtn = `<button class="btn btn--ghost btn--sm btn-danger" data-action="delete-entry" data-path="${Utils.escapeHtml(fullPath)}" data-entry-type="${entry.type}" title="Excluir"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button>`;
-    const actions = `${downloadBtn}${publishBtn}${deleteBtn}`;
+    const actions = `${downloadBtn}${commitPushBtn}${publishBtn}${deleteBtn}`;
 
     return `
       <tr class="files-row">
@@ -185,6 +188,29 @@ const FilesUI = {
       await FilesUI.navigate(FilesUI.currentPath);
     } catch (err) {
       Toast.error(`Erro ao publicar: ${err.message}`);
+    }
+  },
+
+  async commitPush(path) {
+    const name = path.split('/').pop();
+    const message = await Modal.prompt(
+      'Commit & Push',
+      `Mensagem do commit para <strong>${name}</strong>:`,
+      `Atualização - ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+    );
+    if (message === null) return;
+
+    try {
+      Toast.info('Realizando commit e push...');
+      const result = await API.files.commitPush(path, message || undefined);
+
+      if (result.status === 'clean') {
+        Toast.info(result.message);
+      } else {
+        Toast.success(`${result.changes} arquivo(s) enviados ao Gitea`);
+      }
+    } catch (err) {
+      Toast.error(`Erro no commit/push: ${err.message}`);
     }
   },
 
