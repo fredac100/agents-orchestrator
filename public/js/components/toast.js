@@ -24,7 +24,7 @@ const Toast = {
 
     toast.innerHTML = `
       <span class="toast-icon" data-lucide="${iconName}"></span>
-      <span class="toast-message">${message}</span>
+      <span class="toast-message">${Utils.escapeHtml(message)}</span>
       <button class="toast-close" aria-label="Fechar notificação">
         <i data-lucide="x"></i>
       </button>

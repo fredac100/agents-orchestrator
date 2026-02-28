@@ -119,7 +119,7 @@ const AgentsUI = {
           <div class="agent-meta">
             <span class="agent-meta-item">
               <i data-lucide="cpu"></i>
-              ${model}
+              ${Utils.escapeHtml(model)}
             </span>
             <span class="agent-meta-item">
               <i data-lucide="clock"></i>
@@ -241,7 +241,7 @@ const AgentsUI = {
       const tagsChips = document.getElementById('agent-tags-chips');
       if (tagsChips) {
         tagsChips.innerHTML = tags.map((t) =>
-          `<span class="tag-chip">${t}<button type="button" data-tag="${t}" class="tag-remove" aria-label="Remover tag ${t}">×</button></span>`
+          `<span class="tag-chip">${Utils.escapeHtml(t)}<button type="button" data-tag="${Utils.escapeHtml(t)}" class="tag-remove" aria-label="Remover tag ${Utils.escapeHtml(t)}">×</button></span>`
         ).join('');
       }
 

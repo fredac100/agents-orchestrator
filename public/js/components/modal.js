@@ -69,7 +69,7 @@ const Modal = {
       const inputEl = document.getElementById('prompt-modal-input');
 
       if (titleEl) titleEl.textContent = title;
-      if (messageEl) messageEl.innerHTML = message;
+      if (messageEl) messageEl.textContent = message;
       if (inputEl) inputEl.value = defaultValue;
 
       Modal.open('prompt-modal-overlay');

@@ -47,7 +47,7 @@ const SchedulesUI = {
           <td>${Utils.escapeHtml(schedule.agentName || '—')}</td>
           <td class="schedule-task-cell" title="${Utils.escapeHtml(schedule.taskDescription || '')}">${Utils.escapeHtml(schedule.taskDescription || '—')}</td>
           <td>
-            <code class="font-mono">${cronExpr}</code>
+            <code class="font-mono">${Utils.escapeHtml(cronExpr)}</code>
           </td>
           <td>${nextRun}</td>
           <td><span class="badge ${statusClass}">${statusLabel}</span></td>
