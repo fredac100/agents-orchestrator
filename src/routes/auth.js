@@ -123,7 +123,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', authMiddleware, (req, res) => {
+router.get('/me', authMiddleware, async (req, res) => {
   const user = req.user;
   const owner = usersStore.filter(u => u.role === 'owner')[0];
   const activePlan = getPlan((owner || user).plan);
@@ -143,6 +143,17 @@ router.get('/me', authMiddleware, (req, res) => {
     executionsPerMonth: { current: monthlyExecutions, limit: activePlan.limits.executionsPerMonth },
     users: { current: usersStore.count(), limit: activePlan.limits.users },
   };
+
+  const getUsageCounts = req.app.get('getUsageCounts');
+  if (getUsageCounts) {
+    try {
+      const counts = await getUsageCounts(user.id);
+      usage.agents.current = counts.agents || 0;
+      usage.pipelines.current = counts.pipelines || 0;
+      usage.webhooks.current = counts.webhooks || 0;
+      usage.executionsPerMonth.current = counts.executionsPerMonth || 0;
+    } catch {}
+  }
 
   res.json({
     user: {

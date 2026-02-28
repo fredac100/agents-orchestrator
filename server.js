@@ -16,9 +16,10 @@ import * as manager from './src/agents/manager.js';
 import { setGlobalBroadcast } from './src/agents/manager.js';
 import { cancelAllExecutions } from './src/agents/executor.js';
 import { stopAll as stopAllSchedules } from './src/agents/scheduler.js';
-import { flushAllStores, usersStore } from './src/store/db.js';
+import { flushAllStores, usersStore, agentsStore, pipelinesStore, webhooksStore } from './src/store/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const MODE = process.env.MODE || 'standalone';
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || '';
@@ -105,17 +106,58 @@ app.use('/api/auth', (req, res, next) => {
   next();
 });
 
-app.use('/api', (req, res, next) => {
-  if (req.path.startsWith('/auth')) return next();
+if (MODE === 'worker') {
+  app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/auth')) return next();
 
-  if (AUTH_TOKEN) {
-    const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : req.query.token;
-    if (timingSafeCompare(token, AUTH_TOKEN)) return next();
-  }
+    const userId = req.headers['x-user-id'];
+    if (!userId) return res.status(401).json({ error: 'Acesso negado' });
 
-  return authMiddleware(req, res, next);
-});
+    let user = usersStore.getById(userId);
+    if (!user) {
+      user = usersStore.create({
+        id: userId,
+        name: req.headers['x-user-name'] || 'User',
+        email: req.headers['x-user-email'] || 'user@local',
+        passwordHash: '',
+        role: 'owner',
+        plan: req.headers['x-user-plan'] || 'free',
+        active: true,
+        monthlyExecutions: 0,
+        monthlyExecReset: new Date().toISOString(),
+      });
+    } else if (req.headers['x-user-plan'] && user.plan !== req.headers['x-user-plan']) {
+      usersStore.update(user.id, { plan: req.headers['x-user-plan'] });
+      user.plan = req.headers['x-user-plan'];
+    }
+
+    req.user = user;
+    next();
+  });
+
+  app.get('/api/internal/stats', (req, res) => {
+    const users = usersStore.getAll();
+    const user = users[0];
+    res.json({
+      agents: agentsStore.count(),
+      pipelines: pipelinesStore.count(),
+      webhooks: webhooksStore.count(),
+      executionsPerMonth: user?.monthlyExecutions || 0,
+    });
+  });
+} else {
+  app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/auth')) return next();
+
+    if (AUTH_TOKEN) {
+      const header = req.headers.authorization || '';
+      const token = header.startsWith('Bearer ') ? header.slice(7) : req.query.token;
+      if (timingSafeCompare(token, AUTH_TOKEN)) return next();
+    }
+
+    return authMiddleware(req, res, next);
+  });
+}
 
 app.use(express.json({
   verify: (req, res, buf) => { req.rawBody = buf || Buffer.alloc(0); },
@@ -143,17 +185,21 @@ const connectedClients = new Map();
 wss.on('connection', (ws, req) => {
   const params = new URL(req.url, 'http://localhost').searchParams;
   const clientId = params.get('clientId') || uuidv4();
-  const wsToken = params.get('token');
 
-  if (AUTH_TOKEN && wsToken && timingSafeCompare(wsToken, AUTH_TOKEN)) {
-    // OK via AUTH_TOKEN legado
-  } else if (usersStore.count() > 0) {
-    const user = verifyWsToken(wsToken);
-    if (!user) {
-      ws.close(4001, 'Token inválido');
-      return;
+  if (MODE === 'worker') {
+    ws.user = { id: req.headers['x-user-id'] || 'worker' };
+  } else {
+    const wsToken = params.get('token');
+    if (AUTH_TOKEN && wsToken && timingSafeCompare(wsToken, AUTH_TOKEN)) {
+      // OK via AUTH_TOKEN legado
+    } else if (usersStore.count() > 0) {
+      const user = verifyWsToken(wsToken);
+      if (!user) {
+        ws.close(4001, 'Token inválido');
+        return;
+      }
+      ws.user = user;
     }
-    ws.user = user;
   }
 
   ws.clientId = clientId;
