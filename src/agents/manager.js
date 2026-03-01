@@ -528,11 +528,12 @@ export async function pauseExecution(executionId, wsCallback) {
         agentId,
         agentName,
         sessionId,
+        historyId: historyRecord?.id || null,
         canResume: !!sessionId,
       });
     }
 
-    return { paused: true, sessionId, canResume: !!sessionId };
+    return { paused: true, sessionId, canResume: !!sessionId, historyId: historyRecord?.id || null };
   } catch (err) {
     throw err;
   }

@@ -385,6 +385,7 @@ const App = {
           agentId: data.agentId,
           agentName: data.agentName,
           sessionId: data.sessionId,
+          historyId: data.historyId,
         });
         Terminal._hideTimer();
         break;
@@ -1105,6 +1106,7 @@ const App = {
       Terminal.setExecutionState('paused', {
         sessionId: result.sessionId,
         canResume: result.canResume,
+        historyId: result.historyId,
       });
       Terminal._hideTimer();
       Toast.success('Execução pausada');
