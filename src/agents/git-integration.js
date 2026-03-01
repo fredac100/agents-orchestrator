@@ -28,7 +28,7 @@ function authHeader() {
 }
 
 function repoCloneUrl(repoName) {
-  return `${GITEA_URL().replace('://', `://${GITEA_USER()}:${GITEA_PASS()}@`)}/${GITEA_USER()}/${repoName}.git`;
+  return `${GITEA_URL().replace('://', `://${encodeURIComponent(GITEA_USER())}:${encodeURIComponent(GITEA_PASS())}@`)}/${GITEA_USER()}/${repoName}.git`;
 }
 
 export async function listRepos() {

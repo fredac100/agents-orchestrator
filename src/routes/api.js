@@ -10,7 +10,7 @@ import { getPlan } from '../auth/plans.js';
 import * as scheduler from '../agents/scheduler.js';
 import * as pipeline from '../agents/pipeline.js';
 import * as gitIntegration from '../agents/git-integration.js';
-import { getBinPath, updateMaxConcurrent, cancelAllExecutions, getActiveExecutions } from '../agents/executor.js';
+import { getBinPath, updateMaxConcurrent, cancelAllExecutions, getActiveExecutions, pause as executorPause, getExecutionOutput, cleanupOldOutput } from '../agents/executor.js';
 import { invalidateAgentMapCache } from '../agents/pipeline.js';
 import { cached } from '../cache/index.js';
 import { readdirSync, readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync, statSync, createReadStream, rmSync } from 'fs';
@@ -285,6 +285,62 @@ router.post('/agents/:id/cancel/:executionId', (req, res) => {
     const cancelled = manager.cancelExecution(req.params.executionId);
     if (!cancelled) return res.status(404).json({ error: 'Execução não encontrada ou já finalizada' });
     res.json({ cancelled: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/executions/:executionId/pause', async (req, res) => {
+  try {
+    const result = await manager.pauseExecution(req.params.executionId, (msg) => wsCallback(msg, req.headers['x-client-id']));
+    res.json(result);
+  } catch (err) {
+    const status = err.message.includes('não encontrada') ? 404 : 400;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+router.post('/executions/:executionId/resume', (req, res) => {
+  try {
+    const { message, historyId } = req.body;
+    if (!historyId) return res.status(400).json({ error: 'historyId é obrigatório' });
+    const executionId = manager.resumeExecution(historyId, message || null, (msg) => wsCallback(msg, req.headers['x-client-id']));
+    if (req.user) incrementUserExecutions(req.user.id);
+    res.status(202).json({ executionId, status: 'started' });
+  } catch (err) {
+    const status = err.message.includes('não encontrad') ? 404 : 400;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+router.post('/executions/:executionId/message', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'message é obrigatório' });
+    const executionId = await manager.sendMessage(req.params.executionId, message, (msg) => wsCallback(msg, req.headers['x-client-id']));
+    res.status(202).json({ executionId, status: 'started' });
+  } catch (err) {
+    const status = err.message.includes('não encontrad') ? 404 : 400;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+router.get('/executions/:executionId/output', (req, res) => {
+  try {
+    const since = parseInt(req.query.since) || 0;
+    const data = manager.getExecutionOutputData(req.params.executionId, since);
+
+    const historyRecords = executionsStore.getAll();
+    const historyRecord = historyRecords.find(e => e.executionId === req.params.executionId);
+
+    res.json({
+      ...data,
+      status: historyRecord?.status || 'unknown',
+      agentId: historyRecord?.agentId || '',
+      agentName: historyRecord?.agentName || '',
+      historyId: historyRecord?.id || '',
+      sessionId: historyRecord?.sessionId || '',
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1345,7 +1401,7 @@ router.post('/files/publish', async (req, res) => {
   const steps = [];
 
   try {
-    const authUrl = `${GITEA_URL.replace('://', `://${GITEA_USER}:${GITEA_PASS}@`)}`;
+    const authUrl = `${GITEA_URL.replace('://', `://${encodeURIComponent(GITEA_USER)}:${encodeURIComponent(GITEA_PASS)}@`)}`;
     const repoApiUrl = `${GITEA_URL}/api/v1/repos/${GITEA_USER}/${projectName}`;
     const createUrl = `${GITEA_URL}/api/v1/user/repos`;
     const authHeader = 'Basic ' + Buffer.from(`${GITEA_USER}:${GITEA_PASS}`).toString('base64');
@@ -1405,7 +1461,8 @@ router.post('/files/publish', async (req, res) => {
       const marker = `@${projectName} host ${projectName}.${DOMAIN}`;
 
       if (!caddyContent.includes(marker)) {
-        const block = `\n    @${projectName} host ${projectName}.${DOMAIN}\n    handle @${projectName} {\n        root * /srv/${projectName}\n        file_server\n        try_files {path} /index.html\n    }\n`;
+        const srvPath = relative(PROJECTS_DIR, targetPath);
+        const block = `\n    @${projectName} host ${projectName}.${DOMAIN}\n    handle @${projectName} {\n        root * /srv/${srvPath}\n        file_server\n        try_files {path} /index.html\n    }\n`;
         const updated = caddyContent.replace(
           /(\n? {4}handle \{[\s\S]*?respond.*?200[\s\S]*?\})/,
           block + '$1'
@@ -1539,7 +1596,7 @@ router.post('/projects/import', async (req, res) => {
       steps.push(hasGitignore ? 'Arquivos copiados respeitando .gitignore' : 'Arquivos copiados (sem .gitignore encontrado)');
     }
 
-    const repoUrl = `${GITEA_URL.replace('://', `://${GITEA_USER}:${GITEA_PASS}@`)}/${GITEA_USER}/${sanitizedName}.git`;
+    const repoUrl = `${GITEA_URL.replace('://', `://${encodeURIComponent(GITEA_USER)}:${encodeURIComponent(GITEA_PASS)}@`)}/${GITEA_USER}/${sanitizedName}.git`;
     await exec('git init');
     await exec('git add -A');
     await exec(`git -c user.name="Agents Orchestrator" -c user.email="agents@${DOMAIN}" commit -m "Import do projeto ${sanitizedName}"`);
@@ -1647,7 +1704,7 @@ router.post('/projects/upload', (req, res, next) => {
       steps.push('Repositório já existe no Gitea');
     }
 
-    const repoUrl = `${GITEA_URL.replace('://', `://${GITEA_USER}:${GITEA_PASS}@`)}/${GITEA_USER}/${repoName}.git`;
+    const repoUrl = `${GITEA_URL.replace('://', `://${encodeURIComponent(GITEA_USER)}:${encodeURIComponent(GITEA_PASS)}@`)}/${GITEA_USER}/${repoName}.git`;
     await exec('git init');
     await exec('git add -A');
     await exec(`git -c user.name="Agents Orchestrator" -c user.email="agents@${DOMAIN}" commit -m "Import do projeto ${repoName}"`);
@@ -1689,5 +1746,7 @@ router.post('/projects/upload', (req, res, next) => {
     res.status(500).json({ error: err.message, steps });
   }
 });
+
+setInterval(() => cleanupOldOutput(), 60 * 60 * 1000);
 
 export default router;

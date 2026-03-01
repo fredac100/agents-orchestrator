@@ -179,6 +179,7 @@ const App = {
           clearTimeout(App.wsReconnectTimer);
           App.wsReconnectTimer = null;
         }
+        Terminal.restoreIfActive();
       };
 
       App.ws.onclose = () => {
@@ -240,6 +241,7 @@ const App = {
 
       case 'execution_complete': {
         Terminal.stopProcessing();
+        Terminal._clearExecutionState();
         const result = data.data?.result || '';
         if (result) {
           Terminal.addLine(result, 'success', data.executionId);
@@ -280,6 +282,7 @@ const App = {
 
       case 'execution_error':
         Terminal.stopProcessing();
+        Terminal._clearExecutionState();
         Terminal.addLine(data.data?.error || 'Erro na execução', 'error', data.executionId);
 
         if (typeof NotificationsUI !== 'undefined') {
@@ -324,6 +327,7 @@ const App = {
         Terminal.stopProcessing();
         if (data.resumed) Terminal.addLine('(retomando execução anterior)', 'system');
         Terminal.addLine(`Pipeline passo ${data.stepIndex + 1}/${data.totalSteps}: Executando agente "${data.agentName}"...`, 'system');
+        Terminal.setExecutionState('running', { agentName: data.agentName });
         Terminal.startProcessing(data.agentName);
         break;
 
@@ -336,6 +340,7 @@ const App = {
       case 'pipeline_complete':
         Terminal.stopProcessing();
         Terminal._hideTimer();
+        Terminal._clearExecutionState();
         Terminal.addLine('Pipeline concluído com sucesso.', 'success');
         if (data.lastSessionId && data.lastAgentId) {
           Terminal.enableChat(data.lastAgentId, data.lastAgentName || 'Agente', data.lastSessionId);
@@ -347,6 +352,7 @@ const App = {
       case 'pipeline_error':
         Terminal.stopProcessing();
         Terminal._hideTimer();
+        Terminal._clearExecutionState();
         Terminal.addLine(`Erro no passo ${data.stepIndex + 1}: ${data.error}`, 'error');
         Toast.error('Erro no pipeline');
         break;
@@ -370,6 +376,30 @@ const App = {
         break;
 
       case 'pipeline_status':
+        break;
+
+      case 'execution_paused':
+        Terminal.stopProcessing();
+        Terminal.addLine('Execução pausada.', 'system', data.executionId);
+        Terminal.setExecutionState('paused', {
+          executionId: data.executionId,
+          agentId: data.agentId,
+          agentName: data.agentName,
+          sessionId: data.sessionId,
+        });
+        Terminal._hideTimer();
+        break;
+
+      case 'execution_resumed':
+        Terminal.addLine('Execução retomada.', 'system', data.executionId);
+        Terminal.setExecutionState('running', {
+          executionId: data.executionId,
+          agentId: data.agentId,
+          agentName: data.agentName,
+          historyId: data.historyId,
+        });
+        Terminal._startTimer();
+        Terminal.startProcessing(data.agentName || 'Agente');
         break;
 
       case 'report_generated':
@@ -617,8 +647,10 @@ const App = {
 
     on('terminal-clear-btn', 'click', () => {
       Terminal.clear();
-      Terminal.disableChat();
     });
+
+    on('terminal-pause-btn', 'click', () => App._pauseExecution());
+    on('terminal-resume-btn', 'click', () => App._resumeExecution());
 
     on('terminal-send-btn', 'click', () => App._sendChatMessage());
 
@@ -997,11 +1029,16 @@ const App = {
       Terminal.disableChat();
       App._lastAgentName = agentName;
 
-      await API.agents.execute(agentId, task, instructions, contextFiles, workingDirectory, repoName, repoBranch);
+      const result = await API.agents.execute(agentId, task, instructions, contextFiles, workingDirectory, repoName, repoBranch);
 
       if (dropzone) dropzone.reset();
       Modal.close('execute-modal-overlay');
       App.navigateTo('terminal');
+      Terminal.setExecutionState('running', {
+        executionId: result?.executionId,
+        agentId: agentId,
+        agentName: agentName,
+      });
       Toast.info('Execução iniciada');
       Terminal.startProcessing(agentName);
     } catch (err) {
@@ -1010,6 +1047,33 @@ const App = {
   },
 
   async _sendChatMessage() {
+    const execState = Terminal.getExecutionState();
+
+    if (execState.state === 'running' && execState.executionId) {
+      const input = document.getElementById('terminal-input');
+      const message = input?.value.trim();
+      if (!message) return;
+      input.value = '';
+
+      Terminal.addLine(`❯ ${message}`, 'user-message', execState.executionId);
+
+      try {
+        Toast.info('Enviando mensagem...');
+        const result = await API.executions.message(execState.executionId, message);
+        Terminal.setExecutionState('running', { executionId: result.executionId });
+        Terminal.startProcessing(execState.agentName || 'Agente');
+      } catch (err) {
+        Terminal.addLine(`Erro ao enviar: ${err.message}`, 'error');
+        Toast.error(`Erro: ${err.message}`);
+      }
+      return;
+    }
+
+    if (execState.state === 'paused' && execState.historyId) {
+      await App._resumeExecution();
+      return;
+    }
+
     const session = Terminal.getChatSession();
     if (!session) return;
 
@@ -1027,6 +1091,64 @@ const App = {
     } catch (err) {
       Terminal.addLine(`Erro: ${err.message}`, 'error');
       Toast.error(`Erro ao continuar conversa: ${err.message}`);
+    }
+  },
+
+  async _pauseExecution() {
+    const state = Terminal.getExecutionState();
+    if (!state.executionId) return;
+
+    try {
+      Toast.info('Pausando execução...');
+      const result = await API.executions.pause(state.executionId);
+      Terminal.stopProcessing();
+      Terminal.addLine('Execução pausada pelo usuário.', 'system', state.executionId);
+      Terminal.setExecutionState('paused', {
+        sessionId: result.sessionId,
+        canResume: result.canResume,
+      });
+      Terminal._hideTimer();
+      Toast.success('Execução pausada');
+    } catch (err) {
+      Toast.error(`Erro ao pausar: ${err.message}`);
+    }
+  },
+
+  async _resumeExecution() {
+    const state = Terminal.getExecutionState();
+    if (!state.historyId) {
+      Terminal.addLine('Sessão anterior perdida (servidor foi reiniciado). Inicie uma nova execução.', 'error');
+      Terminal._clearExecutionState();
+      Toast.error('Sessão expirada. Inicie uma nova execução.');
+      return;
+    }
+
+    const input = document.getElementById('terminal-input');
+    const message = input?.value.trim() || null;
+    if (input) input.value = '';
+
+    try {
+      Toast.info('Retomando execução...');
+      if (message) {
+        Terminal.addLine(`❯ ${message}`, 'user-message', state.executionId);
+      }
+      Terminal.addLine('Retomando execução...', 'system');
+
+      const result = await API.executions.resume(state.executionId, state.historyId, message);
+      Terminal.setExecutionState('running', {
+        executionId: result.executionId,
+      });
+      Terminal._startTimer();
+      Terminal.startProcessing(state.agentName || 'Agente');
+      Toast.success('Execução retomada');
+    } catch (err) {
+      if (err.message.includes('não encontrad') || err.message.includes('não está pausada')) {
+        Terminal.addLine('Sessão anterior perdida (servidor foi reiniciado). Inicie uma nova execução.', 'error');
+        Terminal._clearExecutionState();
+        Toast.error('Sessão expirada. Inicie uma nova execução.');
+      } else {
+        Toast.error(`Erro ao retomar: ${err.message}`);
+      }
     }
   },
 

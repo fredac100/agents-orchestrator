@@ -209,6 +209,14 @@ const API = {
     delete(id) { return API.request('DELETE', `/executions/history/${id}`); },
     clearAll() { return API.request('DELETE', '/executions/history'); },
     retry(id) { return API.request('POST', `/executions/${id}/retry`); },
+    pause(executionId) { return API.request('POST', `/executions/${executionId}/pause`); },
+    resume(executionId, historyId, message) {
+      const body = { historyId };
+      if (message) body.message = message;
+      return API.request('POST', `/executions/${executionId}/resume`, body);
+    },
+    message(executionId, message) { return API.request('POST', `/executions/${executionId}/message`, { message }); },
+    output(executionId, since) { return API.request('GET', `/executions/${executionId}/output${since ? '?since=' + since : ''}`); },
     async exportCsv() {
       const hdrs = { 'X-Client-Id': API.clientId };
       const tk = localStorage.getItem('auth_token');

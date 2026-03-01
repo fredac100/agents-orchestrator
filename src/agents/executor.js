@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, appendFileSync, readdirSync, statSync, unlinkSync, readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,6 +13,20 @@ const executionOutputBuffers = new Map();
 const MAX_OUTPUT_SIZE = 512 * 1024;
 const MAX_ERROR_SIZE = 100 * 1024;
 const MAX_BUFFER_LINES = 1000;
+const OUTPUT_DIR = path.resolve(__dirname, '..', '..', 'data', 'execution-output');
+
+function ensureOutputDir() {
+  if (!existsSync(OUTPUT_DIR)) mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+function persistOutput(executionId, data) {
+  try {
+    ensureOutputDir();
+    const file = path.join(OUTPUT_DIR, `${executionId}.jsonl`);
+    appendFileSync(file, JSON.stringify(data) + '\n');
+  } catch {}
+}
+
 const ALLOWED_DIRECTORIES = (process.env.ALLOWED_DIRECTORIES || '').split(',').map(d => d.trim()).filter(Boolean);
 
 let maxConcurrent = settingsStore.get().maxConcurrent || 5;
@@ -189,13 +203,16 @@ function bufferLine(executionId, data) {
     buf = [];
     executionOutputBuffers.set(executionId, buf);
   }
-  buf.push(data);
+  const enriched = { ...data, timestamp: new Date().toISOString() };
+  buf.push(enriched);
   if (buf.length > MAX_BUFFER_LINES) buf.shift();
+  persistOutput(executionId, enriched);
 }
 
 function processChildOutput(child, executionId, callbacks, options = {}) {
   const { onData, onError, onComplete } = callbacks;
   const timeoutMs = options.timeout || 1800000;
+  const idleTimeoutMs = options.idleTimeout || 300000;
   const sessionIdOverride = options.sessionIdOverride || null;
   let outputBuffer = '';
   let errorBuffer = '';
@@ -204,13 +221,29 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
   let turnCount = 0;
   let hadError = false;
 
-  const timeout = setTimeout(() => {
+  function killChild(reason) {
+    const data = { type: 'system', content: `Execução encerrada: ${reason}` };
+    bufferLine(executionId, data);
+    if (callbacks.onData) callbacks.onData(data, executionId);
     child.kill('SIGTERM');
     setTimeout(() => { if (!child.killed) child.kill('SIGKILL'); }, 5000);
-  }, timeoutMs);
+  }
+
+  const timeout = setTimeout(() => killChild('tempo limite total excedido'), timeoutMs);
+
+  let idleTimer = setTimeout(() => killChild('sem atividade por 5 minutos'), idleTimeoutMs);
+  function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => killChild('sem atividade por 5 minutos'), idleTimeoutMs);
+  }
 
   function processEvent(parsed) {
     if (!parsed) return;
+
+    if (parsed.session_id) {
+      const exec = activeExecutions.get(executionId);
+      if (exec) exec.sessionId = parsed.session_id;
+    }
 
     const tools = extractToolInfo(parsed);
     if (tools) {
@@ -246,6 +279,17 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
       if (onData) onData(data, executionId);
     }
 
+    if (parsed.type === 'rate_limit_event') {
+      const info = parsed.rate_limit_info || {};
+      const resetAt = info.resetsAt ? new Date(info.resetsAt * 1000).toLocaleTimeString('pt-BR') : '?';
+      const msg = info.status === 'rate_limited'
+        ? `Rate limit atingido. Reinicia às ${resetAt}`
+        : `Rate limit: ${info.status || 'ok'} (reinicia ${resetAt})`;
+      const data = { type: 'system', content: msg };
+      bufferLine(executionId, data);
+      if (onData) onData(data, executionId);
+    }
+
     if (parsed.type === 'result') {
       resultMeta = {
         costUsd: parsed.cost_usd || 0,
@@ -261,12 +305,14 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
   }
 
   child.stdout.on('data', (chunk) => {
+    resetIdleTimer();
     const lines = (outputBuffer + chunk.toString()).split('\n');
     outputBuffer = lines.pop();
     for (const line of lines) processEvent(parseStreamLine(line));
   });
 
   child.stderr.on('data', (chunk) => {
+    resetIdleTimer();
     const str = chunk.toString();
     if (errorBuffer.length < MAX_ERROR_SIZE) {
       errorBuffer += str;
@@ -281,6 +327,7 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
 
   child.on('error', (err) => {
     clearTimeout(timeout);
+    clearTimeout(idleTimer);
     console.log(`[executor][error] ${err.message}`);
     hadError = true;
     activeExecutions.delete(executionId);
@@ -290,7 +337,26 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
 
   child.on('close', (code) => {
     clearTimeout(timeout);
-    const wasCanceled = activeExecutions.get(executionId)?.canceled || false;
+    clearTimeout(idleTimer);
+
+    const execution = activeExecutions.get(executionId);
+    const wasCanceled = execution?.canceled || false;
+    const wasPaused = execution?.pauseRequested || false;
+
+    if (wasPaused) {
+      const sid = execution?.sessionId || resultMeta?.sessionId || null;
+      activeExecutions.delete(executionId);
+      if (execution?.pauseResolve) {
+        execution.pauseResolve({
+          executionId,
+          sessionId: sid,
+          fullText,
+          resultMeta,
+        });
+      }
+      return;
+    }
+
     activeExecutions.delete(executionId);
     executionOutputBuffers.delete(executionId);
     if (hadError) return;
@@ -302,6 +368,12 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
       return;
     }
 
+    const earlySessionId = execution?.sessionId || null;
+    const completeMeta = resultMeta || {};
+    if (!completeMeta.sessionId && earlySessionId) {
+      completeMeta.sessionId = earlySessionId;
+    }
+
     if (onComplete) {
       onComplete({
         executionId,
@@ -309,7 +381,7 @@ function processChildOutput(child, executionId, callbacks, options = {}) {
         result: fullText,
         stderr: errorBuffer,
         canceled: wasCanceled,
-        ...(resultMeta || {}),
+        ...completeMeta,
       }, executionId);
     }
   });
@@ -373,6 +445,7 @@ export function execute(agentConfig, task, callbacks = {}, secrets = null) {
     task,
     startedAt: new Date().toISOString(),
     executionId,
+    sessionId: null,
   });
 
   processChildOutput(child, executionId, { onData, onError, onComplete }, {
@@ -431,6 +504,7 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
     task: { description: message },
     startedAt: new Date().toISOString(),
     executionId,
+    sessionId: sessionId,
   });
 
   processChildOutput(child, executionId, { onData, onError, onComplete }, {
@@ -449,6 +523,55 @@ export function cancel(executionId) {
   return true;
 }
 
+export function pause(executionId) {
+  return new Promise((resolve, reject) => {
+    const execution = activeExecutions.get(executionId);
+    if (!execution) return reject(new Error('Execução não encontrada ou já finalizada'));
+    if (execution.pauseRequested) return reject(new Error('Pausa já solicitada'));
+
+    execution.pauseRequested = true;
+    execution.pauseResolve = resolve;
+
+    execution.process.kill('SIGTERM');
+    setTimeout(() => {
+      if (!execution.process.killed) execution.process.kill('SIGKILL');
+    }, 5000);
+  });
+}
+
+export function getExecutionOutput(executionId, since = 0) {
+  const file = path.join(OUTPUT_DIR, `${executionId}.jsonl`);
+  if (!existsSync(file)) {
+    const buf = executionOutputBuffers.get(executionId) || [];
+    return { lines: buf.slice(since), total: buf.length };
+  }
+  try {
+    const content = readFileSync(file, 'utf8');
+    const lines = content.split('\n').filter(Boolean).map(l => {
+      try { return JSON.parse(l); } catch { return null; }
+    }).filter(Boolean);
+    return { lines: lines.slice(since), total: lines.length };
+  } catch {
+    return { lines: [], total: 0 };
+  }
+}
+
+export function cleanupOldOutput(maxAgeMs = 24 * 60 * 60 * 1000) {
+  try {
+    ensureOutputDir();
+    const files = readdirSync(OUTPUT_DIR);
+    const now = Date.now();
+    for (const file of files) {
+      if (!file.endsWith('.jsonl')) continue;
+      const filePath = path.join(OUTPUT_DIR, file);
+      try {
+        const stat = statSync(filePath);
+        if (now - stat.mtimeMs > maxAgeMs) unlinkSync(filePath);
+      } catch {}
+    }
+  } catch {}
+}
+
 export function cancelAllExecutions() {
   for (const [, exec] of activeExecutions) exec.process.kill('SIGTERM');
   activeExecutions.clear();
@@ -460,6 +583,7 @@ export function getActiveExecutions() {
     executionId: exec.executionId,
     startedAt: exec.startedAt,
     agentConfig: exec.agentConfig,
+    sessionId: exec.sessionId || null,
     outputBuffer: executionOutputBuffers.get(exec.executionId) || [],
   }));
 }

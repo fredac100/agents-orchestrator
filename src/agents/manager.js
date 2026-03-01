@@ -500,6 +500,142 @@ export function cancelExecution(executionId) {
   return executor.cancel(executionId);
 }
 
+export async function pauseExecution(executionId, wsCallback) {
+  const cb = getWsCallback(wsCallback);
+
+  const historyRecords = executionsStore.getAll();
+  const historyRecord = historyRecords.find(e => e.executionId === executionId && e.status === 'running');
+
+  try {
+    const result = await executor.pause(executionId);
+    const sessionId = result.sessionId || null;
+
+    if (historyRecord) {
+      executionsStore.update(historyRecord.id, {
+        status: 'paused',
+        sessionId: sessionId || historyRecord.sessionId || '',
+        pausedAt: new Date().toISOString(),
+      });
+    }
+
+    const agentId = historyRecord?.agentId || '';
+    const agentName = historyRecord?.agentName || '';
+
+    if (cb) {
+      cb({
+        type: 'execution_paused',
+        executionId,
+        agentId,
+        agentName,
+        sessionId,
+        canResume: !!sessionId,
+      });
+    }
+
+    return { paused: true, sessionId, canResume: !!sessionId };
+  } catch (err) {
+    throw err;
+  }
+}
+
+export function resumeExecution(historyId, message, wsCallback, metadata = {}) {
+  const historyRecord = executionsStore.getById(historyId);
+  if (!historyRecord) throw new Error('Execução não encontrada');
+  if (historyRecord.status !== 'paused') throw new Error('Execução não está pausada');
+
+  const agentId = historyRecord.agentId;
+  const agent = agentsStore.getById(agentId);
+  if (!agent) throw new Error(`Agente ${agentId} não encontrado`);
+
+  const sessionId = historyRecord.sessionId;
+  const cb = getWsCallback(wsCallback);
+  const startedAt = new Date().toISOString();
+  const resumeMessage = message || historyRecord.task || 'Continuar';
+
+  executionsStore.update(historyId, { status: 'running', resumedAt: startedAt });
+
+  const onData = (parsed, execId) => {
+    if (cb) cb({ type: 'execution_output', executionId: execId, agentId, data: parsed });
+  };
+
+  const onComplete = (result, execId) => {
+    const endedAt = new Date().toISOString();
+    executionsStore.update(historyId, {
+      status: 'completed',
+      result: result.result || '',
+      exitCode: result.exitCode,
+      endedAt,
+      costUsd: (historyRecord.costUsd || 0) + (result.costUsd || 0),
+      totalCostUsd: (historyRecord.totalCostUsd || 0) + (result.totalCostUsd || 0),
+      durationMs: (historyRecord.durationMs || 0) + (result.durationMs || 0),
+      numTurns: (historyRecord.numTurns || 0) + (result.numTurns || 0),
+      sessionId: result.sessionId || sessionId || '',
+      executionId: execId,
+    });
+    createNotification('success', 'Execução concluída', `Agente "${agent.agent_name}" finalizou a tarefa (retomada)`, { agentId, executionId: execId });
+    if (cb) cb({ type: 'execution_complete', executionId: execId, agentId, agentName: agent.agent_name, data: result });
+  };
+
+  const onError = (err, execId) => {
+    const endedAt = new Date().toISOString();
+    executionsStore.update(historyId, { status: 'error', error: err.message, endedAt, executionId: execId });
+    if (cb) cb({ type: 'execution_error', executionId: execId, agentId, data: { error: err.message } });
+  };
+
+  let executionId;
+
+  if (sessionId) {
+    executionId = executor.resume(agent.config, sessionId, resumeMessage, { onData, onError, onComplete });
+  } else {
+    const agentSecrets = loadAgentSecrets(agentId);
+    executionId = executor.execute(
+      agent.config,
+      { description: resumeMessage, instructions: historyRecord.instructions || '' },
+      { onData, onError, onComplete },
+      agentSecrets
+    );
+  }
+
+  if (!executionId) {
+    executionsStore.update(historyId, { status: 'error', error: 'Limite de execuções simultâneas', endedAt: new Date().toISOString() });
+    throw new Error('Limite de execuções simultâneas atingido');
+  }
+
+  executionsStore.update(historyId, { executionId });
+  incrementDailyCount();
+
+  if (cb) {
+    cb({
+      type: 'execution_resumed',
+      executionId,
+      agentId,
+      agentName: agent.agent_name,
+      previousExecutionId: historyRecord.executionId,
+      historyId,
+    });
+  }
+
+  return executionId;
+}
+
+export async function sendMessage(executionId, message, wsCallback) {
+  const pauseResult = await pauseExecution(executionId, wsCallback);
+
+  const historyRecords = executionsStore.getAll();
+  const historyRecord = historyRecords.find(e =>
+    (e.executionId === executionId || e.executionId === pauseResult.previousExecutionId) &&
+    e.status === 'paused'
+  );
+
+  if (!historyRecord) throw new Error('Registro de execução não encontrado após pausa');
+
+  return resumeExecution(historyRecord.id, message, wsCallback);
+}
+
+export function getExecutionOutputData(executionId, since = 0) {
+  return executor.getExecutionOutput(executionId, since);
+}
+
 export function getActiveExecutions() {
   return executor.getActiveExecutions();
 }

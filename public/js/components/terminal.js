@@ -13,6 +13,125 @@ const Terminal = {
   _timerInterval: null,
   _timerStart: null,
   _timerStorageKey: 'terminal_timer_start',
+  _executionState: 'idle',
+  _currentExecutionId: null,
+  _currentHistoryId: null,
+  _currentAgentId: null,
+  _currentAgentName: null,
+  _currentSessionId: null,
+  _execStateKey: 'terminal_exec_state',
+
+  setExecutionState(state, data = {}) {
+    Terminal._executionState = state;
+    Terminal._currentExecutionId = data.executionId || Terminal._currentExecutionId;
+    Terminal._currentHistoryId = data.historyId || Terminal._currentHistoryId;
+    Terminal._currentAgentId = data.agentId || Terminal._currentAgentId;
+    Terminal._currentAgentName = data.agentName || Terminal._currentAgentName;
+    Terminal._currentSessionId = data.sessionId || Terminal._currentSessionId;
+
+    try {
+      localStorage.setItem(Terminal._execStateKey, JSON.stringify({
+        state,
+        executionId: Terminal._currentExecutionId,
+        historyId: Terminal._currentHistoryId,
+        agentId: Terminal._currentAgentId,
+        agentName: Terminal._currentAgentName,
+        sessionId: Terminal._currentSessionId,
+      }));
+    } catch {}
+
+    Terminal._updateControlButtons();
+    Terminal._updateStatusBar();
+  },
+
+  getExecutionState() {
+    return {
+      state: Terminal._executionState,
+      executionId: Terminal._currentExecutionId,
+      historyId: Terminal._currentHistoryId,
+      agentId: Terminal._currentAgentId,
+      agentName: Terminal._currentAgentName,
+      sessionId: Terminal._currentSessionId,
+    };
+  },
+
+  _restoreExecutionState() {
+    try {
+      const saved = localStorage.getItem(Terminal._execStateKey);
+      if (saved) {
+        const data = JSON.parse(saved);
+        Terminal._executionState = data.state || 'idle';
+        Terminal._currentExecutionId = data.executionId || null;
+        Terminal._currentHistoryId = data.historyId || null;
+        Terminal._currentAgentId = data.agentId || null;
+        Terminal._currentAgentName = data.agentName || null;
+        Terminal._currentSessionId = data.sessionId || null;
+        return true;
+      }
+    } catch {}
+    return false;
+  },
+
+  _clearExecutionState() {
+    Terminal._executionState = 'idle';
+    Terminal._currentExecutionId = null;
+    Terminal._currentHistoryId = null;
+    Terminal._currentAgentId = null;
+    Terminal._currentAgentName = null;
+    Terminal._currentSessionId = null;
+    try { localStorage.removeItem(Terminal._execStateKey); } catch {}
+    Terminal._updateControlButtons();
+    Terminal._updateStatusBar();
+  },
+
+  _updateControlButtons() {
+    const pauseBtn = document.getElementById('terminal-pause-btn');
+    const resumeBtn = document.getElementById('terminal-resume-btn');
+    const stopBtn = document.getElementById('terminal-stop-btn');
+    const inputBar = document.getElementById('terminal-input-bar');
+    const inputCtx = document.getElementById('terminal-input-context');
+
+    if (pauseBtn) pauseBtn.hidden = Terminal._executionState !== 'running';
+    if (resumeBtn) resumeBtn.hidden = Terminal._executionState !== 'paused';
+    if (stopBtn) stopBtn.hidden = Terminal._executionState !== 'running' && Terminal._executionState !== 'paused';
+
+    if (Terminal._executionState === 'running') {
+      if (inputBar) inputBar.hidden = false;
+      if (inputCtx) inputCtx.textContent = `Enviando para: ${Terminal._currentAgentName || 'Agente'} (em execução)`;
+    } else if (Terminal._executionState === 'paused') {
+      if (inputBar) inputBar.hidden = false;
+      if (inputCtx) inputCtx.textContent = `Retomar com mensagem: ${Terminal._currentAgentName || 'Agente'} (pausado)`;
+    } else if (Terminal._chatSession) {
+    } else {
+      if (inputBar && !Terminal._chatSession) inputBar.hidden = true;
+    }
+  },
+
+  _updateStatusBar() {
+    const bar = document.getElementById('terminal-status-bar');
+    const indicator = document.getElementById('terminal-status-indicator');
+    const text = document.getElementById('terminal-status-text');
+    const info = document.getElementById('terminal-status-info');
+
+    if (!bar) return;
+
+    if (Terminal._executionState === 'idle') {
+      bar.hidden = true;
+      return;
+    }
+
+    bar.hidden = false;
+
+    if (Terminal._executionState === 'running') {
+      if (indicator) { indicator.className = 'terminal-status-indicator status-running'; }
+      if (text) text.textContent = 'Executando';
+      if (info) info.textContent = Terminal._currentAgentName || '';
+    } else if (Terminal._executionState === 'paused') {
+      if (indicator) { indicator.className = 'terminal-status-indicator status-paused'; }
+      if (text) text.textContent = 'Pausado';
+      if (info) info.textContent = `${Terminal._currentAgentName || ''} — Clique "Retomar" para continuar`;
+    }
+  },
 
   _saveToStorage() {
     try {
@@ -41,41 +160,73 @@ const Terminal = {
 
   async restoreIfActive() {
     try {
+      const restored = Terminal._restoreExecutionState();
+
       const active = await API.system.activeExecutions();
       const hasActive = Array.isArray(active) && active.length > 0;
+
       if (hasActive) {
         const exec = active[0];
-        const serverBuffer = Array.isArray(exec.outputBuffer) ? exec.outputBuffer : [];
+        Terminal.setExecutionState('running', {
+          executionId: exec.executionId,
+          agentId: exec.agentConfig?.agentId || Terminal._currentAgentId,
+          agentName: exec.agentConfig?.agent_name || Terminal._currentAgentName || 'Agente',
+          sessionId: exec.sessionId || Terminal._currentSessionId,
+        });
 
-        if (serverBuffer.length > 0) {
-          Terminal.lines = serverBuffer.map((item) => {
-            const time = new Date();
-            return {
+        try {
+          const outputData = await API.executions.output(exec.executionId);
+          if (outputData && outputData.lines && outputData.lines.length > 0) {
+            Terminal.lines = outputData.lines.map((item) => ({
               content: item.content || '',
               type: item.type || 'default',
-              timestamp: time.toTimeString().slice(0, 8),
+              timestamp: item.timestamp ? new Date(item.timestamp).toTimeString().slice(0, 8) : new Date().toTimeString().slice(0, 8),
               executionId: exec.executionId,
-            };
-          });
-          Terminal._saveToStorage();
-        } else {
-          Terminal._restoreFromStorage();
-        }
+            }));
+            if (outputData.historyId) Terminal._currentHistoryId = outputData.historyId;
+          }
+        } catch {}
 
         Terminal.render();
         const startedAt = exec.startedAt ? new Date(exec.startedAt).getTime() : null;
         const savedStart = sessionStorage.getItem(Terminal._timerStorageKey);
         Terminal._startTimer(savedStart ? Number(savedStart) : startedAt);
-        Terminal.startProcessing(exec.agentConfig?.agent_name || 'Agente');
+        Terminal.startProcessing(exec.agentConfig?.agent_name || Terminal._currentAgentName || 'Agente');
+
+      } else if (restored && Terminal._executionState === 'paused' && Terminal._currentExecutionId) {
+        let valid = false;
         try {
-          const chatData = sessionStorage.getItem(Terminal._chatStorageKey);
-          if (chatData) Terminal._chatSession = JSON.parse(chatData);
+          const outputData = await API.executions.output(Terminal._currentExecutionId);
+          if (outputData && outputData.status === 'paused' && outputData.lines && outputData.lines.length > 0) {
+            Terminal.lines = outputData.lines.map((item) => ({
+              content: item.content || '',
+              type: item.type || 'default',
+              timestamp: item.timestamp ? new Date(item.timestamp).toTimeString().slice(0, 8) : new Date().toTimeString().slice(0, 8),
+              executionId: Terminal._currentExecutionId,
+            }));
+            if (outputData.historyId) Terminal._currentHistoryId = outputData.historyId;
+            if (outputData.sessionId) Terminal._currentSessionId = outputData.sessionId;
+            valid = true;
+          }
         } catch {}
+        if (valid) {
+          Terminal.render();
+          Terminal._updateControlButtons();
+          Terminal._updateStatusBar();
+        } else {
+          Terminal._clearExecutionState();
+          Terminal._clearStorage();
+          Terminal._hideTimer();
+        }
+
       } else {
+        Terminal._clearExecutionState();
         Terminal._clearStorage();
         Terminal._hideTimer();
       }
-    } catch {}
+    } catch {
+      Terminal._clearExecutionState();
+    }
   },
 
   enableChat(agentId, agentName, sessionId) {
@@ -185,9 +336,11 @@ const Terminal = {
   clear() {
     Terminal.stopProcessing();
     Terminal._hideTimer();
+    Terminal._clearExecutionState();
     Terminal.lines = [];
     Terminal.executionFilter = null;
     Terminal._clearStorage();
+    Terminal.disableChat();
     Terminal.render();
   },
 
