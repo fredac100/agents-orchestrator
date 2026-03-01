@@ -448,8 +448,10 @@ export function execute(agentConfig, task, callbacks = {}, secrets = null) {
     sessionId: null,
   });
 
+  const globalSettings = settingsStore.get();
   processChildOutput(child, executionId, { onData, onError, onComplete }, {
-    timeout: agentConfig.timeout || 1800000,
+    timeout: agentConfig.timeout || globalSettings.executionTimeout || 1800000,
+    idleTimeout: globalSettings.idleTimeout || 300000,
   });
 
   return executionId;
@@ -507,8 +509,10 @@ export function resume(agentConfig, sessionId, message, callbacks = {}) {
     sessionId: sessionId,
   });
 
+  const globalSettings2 = settingsStore.get();
   processChildOutput(child, executionId, { onData, onError, onComplete }, {
-    timeout: agentConfig.timeout || 1800000,
+    timeout: agentConfig.timeout || globalSettings2.executionTimeout || 1800000,
+    idleTimeout: globalSettings2.idleTimeout || 300000,
     sessionIdOverride: sessionId,
   });
 

@@ -138,7 +138,11 @@ router.get('/settings', (req, res) => {
 
 router.put('/settings', (req, res) => {
   try {
-    const allowed = ['defaultModel', 'defaultWorkdir', 'maxConcurrent'];
+    const allowed = [
+      'defaultModel', 'defaultWorkdir', 'maxConcurrent',
+      'executionMode', 'llmProvider', 'llmApiKeys', 'llmModels',
+      'llmTemperature', 'llmMaxOutputTokens', 'executionTimeout', 'idleTimeout',
+    ];
     const data = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) data[key] = req.body[key];
@@ -147,10 +151,161 @@ router.put('/settings', (req, res) => {
       data.maxConcurrent = Math.max(1, Math.min(20, parseInt(data.maxConcurrent) || 5));
       updateMaxConcurrent(data.maxConcurrent);
     }
+    if (data.llmTemperature !== undefined) {
+      data.llmTemperature = Math.max(0, Math.min(2, parseFloat(data.llmTemperature) || 1));
+    }
+    if (data.llmMaxOutputTokens !== undefined) {
+      data.llmMaxOutputTokens = Math.max(1024, Math.min(200000, parseInt(data.llmMaxOutputTokens) || 128000));
+    }
+    if (data.executionTimeout !== undefined) {
+      data.executionTimeout = Math.max(60000, Math.min(7200000, parseInt(data.executionTimeout) || 1800000));
+    }
+    if (data.idleTimeout !== undefined) {
+      data.idleTimeout = Math.max(60000, Math.min(1800000, parseInt(data.idleTimeout) || 300000));
+    }
+    if (data.llmApiKeys && typeof data.llmApiKeys === 'object') {
+      const current = settingsStore.get();
+      data.llmApiKeys = { ...(current.llmApiKeys || {}), ...data.llmApiKeys };
+    }
+    if (data.llmModels && typeof data.llmModels === 'object') {
+      const current = settingsStore.get();
+      data.llmModels = { ...(current.llmModels || {}), ...data.llmModels };
+    }
     const saved = settingsStore.save(data);
     res.json(saved);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/settings/providers', (req, res) => {
+  const providers = {
+    anthropic: {
+      name: 'Anthropic',
+      models: [
+        { id: 'claude-opus-4-6', name: 'Claude Opus 4.6', maxTokens: 200000 },
+        { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', maxTokens: 200000 },
+        { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', maxTokens: 200000 },
+      ],
+      keyPlaceholder: 'sk-ant-...',
+      keyPattern: '^sk-ant-',
+    },
+    openai: {
+      name: 'OpenAI',
+      models: [
+        { id: 'gpt-4o', name: 'GPT-4o', maxTokens: 16384 },
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini', maxTokens: 16384 },
+        { id: 'o3', name: 'o3', maxTokens: 100000 },
+        { id: 'o3-mini', name: 'o3 Mini', maxTokens: 100000 },
+        { id: 'o4-mini', name: 'o4 Mini', maxTokens: 100000 },
+      ],
+      keyPlaceholder: 'sk-...',
+      keyPattern: '^sk-',
+    },
+    google: {
+      name: 'Google (Gemini)',
+      models: [
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', maxTokens: 65536 },
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', maxTokens: 65536 },
+        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', maxTokens: 8192 },
+      ],
+      keyPlaceholder: 'AIza...',
+      keyPattern: '^AIza',
+    },
+    openrouter: {
+      name: 'OpenRouter',
+      models: [
+        { id: 'anthropic/claude-opus-4-6', name: 'Claude Opus 4.6', maxTokens: 200000 },
+        { id: 'anthropic/claude-sonnet-4-6', name: 'Claude Sonnet 4.6', maxTokens: 200000 },
+        { id: 'openai/gpt-4o', name: 'GPT-4o', maxTokens: 16384 },
+        { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', maxTokens: 65536 },
+        { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', maxTokens: 64000 },
+      ],
+      keyPlaceholder: 'sk-or-...',
+      keyPattern: '^sk-or-',
+    },
+  };
+  res.json(providers);
+});
+
+router.get('/settings/safe', (req, res) => {
+  try {
+    const settings = settingsStore.get();
+    const safe = { ...settings };
+    if (safe.llmApiKeys) {
+      const masked = {};
+      for (const [provider, key] of Object.entries(safe.llmApiKeys)) {
+        if (key && key.length > 8) {
+          masked[provider] = key.slice(0, 4) + '...' + key.slice(-4);
+        } else if (key) {
+          masked[provider] = '****';
+        } else {
+          masked[provider] = '';
+        }
+      }
+      safe.llmApiKeys = masked;
+    }
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/settings/test-connection', async (req, res) => {
+  const { provider } = req.body;
+  if (!provider) return res.status(400).json({ error: 'Provider não informado' });
+
+  const settings = settingsStore.get();
+  const apiKey = settings.llmApiKeys?.[provider];
+  if (!apiKey) return res.json({ success: false, error: 'API key não configurada' });
+
+  try {
+    const endpoints = {
+      anthropic: {
+        url: 'https://api.anthropic.com/v1/messages',
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 10, messages: [{ role: 'user', content: 'ping' }] }),
+      },
+      openai: {
+        url: 'https://api.openai.com/v1/chat/completions',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 10, messages: [{ role: 'user', content: 'ping' }] }),
+      },
+      google: {
+        url: `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+        headers: {},
+        method: 'GET',
+      },
+      openrouter: {
+        url: 'https://openrouter.ai/api/v1/models',
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        method: 'GET',
+      },
+    };
+
+    const config = endpoints[provider];
+    if (!config) return res.json({ success: false, error: 'Provider não suportado' });
+
+    const fetchOpts = {
+      method: config.method || 'POST',
+      headers: config.headers,
+    };
+    if (config.body) fetchOpts.body = config.body;
+
+    const response = await fetch(config.url, fetchOpts);
+    if (response.ok || response.status === 200) {
+      res.json({ success: true });
+    } else {
+      const text = await response.text().catch(() => '');
+      let errorMsg = `HTTP ${response.status}`;
+      try {
+        const json = JSON.parse(text);
+        errorMsg = json.error?.message || json.error || errorMsg;
+      } catch {}
+      res.json({ success: false, error: errorMsg });
+    }
+  } catch (err) {
+    res.json({ success: false, error: err.message });
   }
 });
 

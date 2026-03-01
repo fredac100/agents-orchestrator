@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { usersStore, agentsStore, pipelinesStore, webhooksStore } from '../store/db.js';
+import { usersStore, agentsStore, pipelinesStore, webhooksStore, userProfilesStore } from '../store/db.js';
 import { generateToken, authMiddleware } from '../auth/middleware.js';
 import { getPlan, PLANS } from '../auth/plans.js';
 import {
@@ -273,6 +273,45 @@ router.put('/profile', authMiddleware, async (req, res) => {
     }
 
     res.json({ message: 'Perfil atualizado' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/user-profile', authMiddleware, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const profiles = userProfilesStore.filter(p => p.userId === userId);
+    const profile = profiles.length > 0 ? profiles[0] : null;
+    res.json(profile || { userId, fullName: '', cpf: '', phone: '', birthDate: '', address: '', addressNumber: '', complement: '', neighborhood: '', city: '', state: '', zipCode: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/user-profile', authMiddleware, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const allowed = ['fullName', 'cpf', 'phone', 'birthDate', 'address', 'addressNumber', 'complement', 'neighborhood', 'city', 'state', 'zipCode'];
+    const data = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) data[key] = String(req.body[key]).trim();
+    }
+    data.userId = userId;
+
+    const profiles = userProfilesStore.filter(p => p.userId === userId);
+    let profile;
+    if (profiles.length > 0) {
+      profile = userProfilesStore.update(profiles[0].id, data);
+    } else {
+      profile = userProfilesStore.create(data);
+    }
+
+    if (data.fullName) {
+      usersStore.update(userId, { name: data.fullName });
+    }
+
+    res.json(profile);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

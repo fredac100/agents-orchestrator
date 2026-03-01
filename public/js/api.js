@@ -44,6 +44,11 @@ const API = {
     return data;
   },
 
+  auth: {
+    getProfile() { return API.request('GET', '/auth/user-profile'); },
+    saveProfile(data) { return API.request('PUT', '/auth/user-profile', data); },
+  },
+
   agents: {
     list() { return API.request('GET', '/agents'); },
     get(id) { return API.request('GET', `/agents/${id}`); },
@@ -138,7 +143,9 @@ const API = {
 
   settings: {
     get() { return API.request('GET', '/settings'); },
+    getSafe() { return API.request('GET', '/settings/safe'); },
     save(data) { return API.request('PUT', '/settings', data); },
+    providers() { return API.request('GET', '/settings/providers'); },
   },
 
   uploads: {

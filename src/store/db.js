@@ -11,6 +11,14 @@ const DEFAULT_SETTINGS = {
   defaultModel: 'claude-sonnet-4-6',
   defaultWorkdir: '',
   maxConcurrent: 5,
+  executionMode: 'cli',
+  llmProvider: 'anthropic',
+  llmApiKeys: {},
+  llmModels: {},
+  llmTemperature: 1,
+  llmMaxOutputTokens: 128000,
+  executionTimeout: 1800000,
+  idleTimeout: 300000,
 };
 
 const DEBOUNCE_MS = 300;
@@ -240,6 +248,7 @@ export const secretsStore = createStore(`${DATA_DIR}/secrets.json`);
 export const notificationsStore = createStore(`${DATA_DIR}/notifications.json`);
 notificationsStore.setMaxSize(200);
 export const agentVersionsStore = createStore(`${DATA_DIR}/agent_versions.json`);
+export const userProfilesStore = createStore(`${DATA_DIR}/user_profiles.json`);
 let _usersImpl = createStore(`${DATA_DIR}/users.json`);
 
 export const usersStore = {

@@ -21,9 +21,10 @@ const App = {
     files: 'Projetos',
     settings: 'Configurações',
     billing: 'Plano e Cobrança',
+    profile: 'Meu Perfil',
   },
 
-  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'import', 'files', 'settings', 'billing'],
+  sections: ['dashboard', 'agents', 'tasks', 'schedules', 'pipelines', 'webhooks', 'terminal', 'history', 'import', 'files', 'settings', 'billing', 'profile'],
 
   _authData: null,
 
@@ -84,14 +85,11 @@ const App = {
       if (App.sections.includes(section)) App.navigateTo(section);
     });
 
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-      themeToggle.addEventListener('click', () => {
-        const current = document.documentElement.getAttribute('data-theme') || 'dark';
-        const next = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        localStorage.setItem('theme', next);
-        Utils.refreshIcons();
+    const userLink = document.getElementById('header-user-link');
+    if (userLink) {
+      userLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        App.navigateTo('profile');
       });
     }
 
@@ -157,6 +155,7 @@ const App = {
         case 'files': await FilesUI.load(); break;
         case 'settings': await SettingsUI.load(); break;
         case 'billing': await App._loadBilling(); break;
+        case 'profile': await ProfileUI.load(); break;
       }
     } catch (err) {
       Toast.error(`Erro ao carregar seção: ${err.message}`);

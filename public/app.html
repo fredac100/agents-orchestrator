@@ -143,14 +143,6 @@
             <i data-lucide="file-down"></i>
             <span>Importar</span>
           </button>
-          <button class="btn btn--primary btn--icon-text" id="new-agent-btn" type="button">
-            <i data-lucide="plus"></i>
-            <span>Novo Agente</span>
-          </button>
-          <button id="theme-toggle" class="btn btn--icon" title="Alternar tema">
-            <i data-lucide="sun" class="theme-icon-light"></i>
-            <i data-lucide="moon" class="theme-icon-dark"></i>
-          </button>
           <div class="notification-wrapper">
             <button id="notification-bell" class="btn btn--icon" title="Notificações">
               <i data-lucide="bell"></i>
@@ -170,7 +162,10 @@
             </div>
           </div>
           <div class="header-user-menu">
-            <span class="header-user-name" id="header-user-name"></span>
+            <a href="#profile" class="header-user-link" id="header-user-link" data-section="profile">
+              <i data-lucide="user"></i>
+              <span class="header-user-name" id="header-user-name"></span>
+            </a>
             <button class="btn btn--ghost btn--sm" id="header-logout-btn" type="button" onclick="App.logout()">
               <i data-lucide="log-out"></i>
               Sair
@@ -647,14 +642,126 @@
 
         <section id="settings" class="section" aria-label="Configurações" hidden>
           <div class="settings-grid">
+            <div class="card settings-card-full">
+              <div class="card-header">
+                <h2 class="card-title">Modo de Execução</h2>
+              </div>
+              <div class="card-body">
+                <div class="execution-mode-selector">
+                  <label class="mode-option" data-mode="cli">
+                    <input type="radio" name="executionMode" value="cli" checked />
+                    <div class="mode-option-content">
+                      <div class="mode-option-icon">
+                        <i data-lucide="terminal"></i>
+                      </div>
+                      <div class="mode-option-info">
+                        <span class="mode-option-title">Claude Code CLI</span>
+                        <span class="mode-option-desc">Usa o CLI local instalado na máquina. Suporte a ferramentas, permissões e sessões.</span>
+                      </div>
+                    </div>
+                  </label>
+                  <label class="mode-option" data-mode="api">
+                    <input type="radio" name="executionMode" value="api" />
+                    <div class="mode-option-content">
+                      <div class="mode-option-icon">
+                        <i data-lucide="cloud"></i>
+                      </div>
+                      <div class="mode-option-info">
+                        <span class="mode-option-title">API Direta</span>
+                        <span class="mode-option-desc">Conecta diretamente via API do provider. Suporte multi-provider (Anthropic, OpenAI, Google, OpenRouter).</span>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="card settings-card-full" id="settings-api-config" style="display: none">
+              <div class="card-header">
+                <h2 class="card-title">Configuração do Provider</h2>
+              </div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label class="form-label" for="settings-llm-provider">Provider</label>
+                  <select class="select" id="settings-llm-provider" name="llmProvider">
+                    <option value="anthropic">Anthropic</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="google">Google (Gemini)</option>
+                    <option value="openrouter">OpenRouter</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="settings-api-key">
+                    API Key
+                    <span class="api-key-status" id="settings-api-key-status"></span>
+                  </label>
+                  <div class="input-with-action">
+                    <input
+                      type="password"
+                      class="input font-mono"
+                      id="settings-api-key"
+                      placeholder="sk-ant-..."
+                      autocomplete="new-password"
+                    />
+                    <button type="button" class="btn btn--ghost btn--sm" id="settings-toggle-key-visibility" title="Mostrar/ocultar">
+                      <i data-lucide="eye"></i>
+                    </button>
+                  </div>
+                  <p class="form-hint" id="settings-api-key-hint">Chave para o provider selecionado. Armazenada de forma segura no servidor.</p>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="settings-llm-model">Modelo</label>
+                  <select class="select" id="settings-llm-model" name="llmModel">
+                  </select>
+                </div>
+
+                <div class="settings-row">
+                  <div class="form-group">
+                    <label class="form-label" for="settings-llm-temperature">Temperatura</label>
+                    <div class="range-with-value">
+                      <input
+                        type="range"
+                        class="range-input"
+                        id="settings-llm-temperature"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value="1"
+                      />
+                      <span class="range-value" id="settings-temperature-value">1.0</span>
+                    </div>
+                    <p class="form-hint">0 = determinístico, 2 = criativo</p>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="settings-llm-max-tokens">Max Output Tokens</label>
+                    <input
+                      type="number"
+                      class="input"
+                      id="settings-llm-max-tokens"
+                      min="1024"
+                      max="200000"
+                      value="128000"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button type="button" class="btn btn--primary" id="settings-save-llm">Salvar Configurações do Provider</button>
+                  <button type="button" class="btn btn--ghost" id="settings-test-connection">Testar Conexão</button>
+                </div>
+              </div>
+            </div>
+
             <div class="card">
               <div class="card-header">
                 <h2 class="card-title">Configurações Gerais</h2>
               </div>
               <div class="card-body">
                 <form class="settings-form" id="settings-form" novalidate>
-                  <div class="form-group">
-                    <label class="form-label" for="settings-default-model">Modelo Padrão</label>
+                  <div class="form-group" id="settings-default-model-group">
+                    <label class="form-label" for="settings-default-model">Modelo Padrão (CLI)</label>
                     <select class="select" id="settings-default-model" name="defaultModel">
                       <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
                       <option value="claude-opus-4-6">claude-opus-4-6</option>
@@ -682,6 +789,27 @@
                       max="20"
                       placeholder="5"
                     />
+                  </div>
+                  <div class="settings-row">
+                    <div class="form-group">
+                      <label class="form-label" for="settings-execution-timeout">Timeout da Execução</label>
+                      <select class="select" id="settings-execution-timeout" name="executionTimeout">
+                        <option value="600000">10 minutos</option>
+                        <option value="1800000">30 minutos</option>
+                        <option value="3600000">1 hora</option>
+                        <option value="7200000">2 horas</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="settings-idle-timeout">Timeout de Inatividade</label>
+                      <select class="select" id="settings-idle-timeout" name="idleTimeout">
+                        <option value="60000">1 minuto</option>
+                        <option value="180000">3 minutos</option>
+                        <option value="300000">5 minutos</option>
+                        <option value="600000">10 minutos</option>
+                        <option value="1800000">30 minutos</option>
+                      </select>
+                    </div>
                   </div>
                   <div class="form-actions">
                     <button type="submit" class="btn btn--primary">Salvar Configurações</button>
@@ -715,6 +843,10 @@
                   <li class="system-info-item">
                     <span class="system-info-label">Tempo Online</span>
                     <span class="system-info-value font-mono" id="info-uptime">Carregando...</span>
+                  </li>
+                  <li class="system-info-item">
+                    <span class="system-info-label">Modo de Execução</span>
+                    <span class="system-info-value" id="info-execution-mode">CLI</span>
                   </li>
                   <li class="system-info-item">
                     <span class="system-info-label">Tema Atual</span>
@@ -773,6 +905,167 @@
                   <li class="system-info-item">
                     <span class="system-info-label">Configurações</span>
                     <span class="system-info-value font-mono">9</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="profile" class="section" aria-label="Perfil do Usuário" hidden>
+          <div class="settings-grid">
+            <div class="card settings-card-full">
+              <div class="card-header">
+                <h2 class="card-title">Dados Pessoais</h2>
+              </div>
+              <div class="card-body">
+                <form class="settings-form" id="profile-form" novalidate>
+                  <div class="settings-row">
+                    <div class="form-group">
+                      <label class="form-label" for="profile-fullname">
+                        Nome Completo
+                        <span class="form-required" aria-hidden="true">*</span>
+                      </label>
+                      <input type="text" class="input" id="profile-fullname" placeholder="Seu nome completo" autocomplete="name" />
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="profile-cpf">CPF</label>
+                      <input type="text" class="input" id="profile-cpf" placeholder="000.000.000-00" maxlength="14" autocomplete="off" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="form-group">
+                      <label class="form-label" for="profile-phone">Telefone</label>
+                      <input type="tel" class="input" id="profile-phone" placeholder="(00) 00000-0000" maxlength="15" autocomplete="tel" />
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="profile-birthdate">Data de Nascimento</label>
+                      <input type="date" class="input" id="profile-birthdate" />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="profile-zipcode">CEP</label>
+                    <div class="input-with-action" style="max-width: 260px">
+                      <input type="text" class="input" id="profile-zipcode" placeholder="00000-000" maxlength="9" autocomplete="postal-code" />
+                      <button type="button" class="btn btn--ghost btn--sm" id="profile-search-cep" title="Buscar CEP">
+                        <i data-lucide="search"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="form-group" style="flex: 3">
+                      <label class="form-label" for="profile-address">Endereço</label>
+                      <input type="text" class="input" id="profile-address" placeholder="Rua, Avenida..." autocomplete="street-address" />
+                    </div>
+                    <div class="form-group" style="flex: 1">
+                      <label class="form-label" for="profile-address-number">Número</label>
+                      <input type="text" class="input" id="profile-address-number" placeholder="Nº" autocomplete="off" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="form-group">
+                      <label class="form-label" for="profile-complement">Complemento</label>
+                      <input type="text" class="input" id="profile-complement" placeholder="Apto, Bloco..." autocomplete="off" />
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="profile-neighborhood">Bairro</label>
+                      <input type="text" class="input" id="profile-neighborhood" placeholder="Bairro" autocomplete="off" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="form-group">
+                      <label class="form-label" for="profile-city">Cidade</label>
+                      <input type="text" class="input" id="profile-city" placeholder="Cidade" autocomplete="address-level2" />
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="profile-state">Estado</label>
+                      <select class="select" id="profile-state" autocomplete="address-level1">
+                        <option value="">Selecione...</option>
+                        <option value="AC">Acre</option>
+                        <option value="AL">Alagoas</option>
+                        <option value="AP">Amapá</option>
+                        <option value="AM">Amazonas</option>
+                        <option value="BA">Bahia</option>
+                        <option value="CE">Ceará</option>
+                        <option value="DF">Distrito Federal</option>
+                        <option value="ES">Espírito Santo</option>
+                        <option value="GO">Goiás</option>
+                        <option value="MA">Maranhão</option>
+                        <option value="MT">Mato Grosso</option>
+                        <option value="MS">Mato Grosso do Sul</option>
+                        <option value="MG">Minas Gerais</option>
+                        <option value="PA">Pará</option>
+                        <option value="PB">Paraíba</option>
+                        <option value="PR">Paraná</option>
+                        <option value="PE">Pernambuco</option>
+                        <option value="PI">Piauí</option>
+                        <option value="RJ">Rio de Janeiro</option>
+                        <option value="RN">Rio Grande do Norte</option>
+                        <option value="RS">Rio Grande do Sul</option>
+                        <option value="RO">Rondônia</option>
+                        <option value="RR">Roraima</option>
+                        <option value="SC">Santa Catarina</option>
+                        <option value="SP">São Paulo</option>
+                        <option value="SE">Sergipe</option>
+                        <option value="TO">Tocantins</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-actions">
+                    <button type="submit" class="btn btn--primary">Salvar Perfil</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Segurança</h2>
+              </div>
+              <div class="card-body">
+                <form class="settings-form" id="profile-password-form" novalidate>
+                  <div class="form-group">
+                    <label class="form-label" for="profile-email">Email</label>
+                    <input type="email" class="input" id="profile-email" disabled />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="profile-current-password">Senha Atual</label>
+                    <input type="password" class="input" id="profile-current-password" placeholder="Senha atual" autocomplete="current-password" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="profile-new-password">Nova Senha</label>
+                    <input type="password" class="input" id="profile-new-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" class="btn btn--primary">Alterar Senha</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Informações da Conta</h2>
+              </div>
+              <div class="card-body">
+                <ul class="system-info-list">
+                  <li class="system-info-item">
+                    <span class="system-info-label">ID do Usuário</span>
+                    <span class="system-info-value font-mono" id="profile-user-id">—</span>
+                  </li>
+                  <li class="system-info-item">
+                    <span class="system-info-label">Plano</span>
+                    <span class="system-info-value" id="profile-plan">—</span>
+                  </li>
+                  <li class="system-info-item">
+                    <span class="system-info-label">Papel</span>
+                    <span class="system-info-value" id="profile-role">—</span>
+                  </li>
+                  <li class="system-info-item">
+                    <span class="system-info-label">Membro desde</span>
+                    <span class="system-info-value" id="profile-created-at">—</span>
                   </li>
                 </ul>
               </div>
@@ -1543,6 +1836,7 @@
   <script src="js/components/pipelines.js"></script>
   <script src="js/components/flow-editor.js"></script>
   <script src="js/components/settings.js"></script>
+  <script src="js/components/profile.js"></script>
   <script src="js/components/history.js"></script>
   <script src="js/components/webhooks.js"></script>
   <script src="js/components/notifications.js"></script>
