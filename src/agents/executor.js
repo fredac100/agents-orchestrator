@@ -436,8 +436,14 @@ export function execute(agentConfig, task, callbacks = {}, secrets = null) {
   console.log(`[executor] Iniciando: ${executionId} | Modelo: ${agentConfig.model || 'claude-sonnet-4-6'}`);
 
   const child = spawn(CLAUDE_BIN, args, spawnOptions);
-  child.stdin.write(prompt);
-  child.stdin.end();
+
+  const ok = child.stdin.write(prompt, 'utf8');
+  if (ok) {
+    child.stdin.end();
+  } else {
+    child.stdin.once('drain', () => child.stdin.end());
+  }
+  child.stdin.on('error', () => {});
 
   activeExecutions.set(executionId, {
     process: child,
@@ -628,17 +634,32 @@ ${text}
       env: cleanEnv(),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    child.stdin.write(prompt);
-    child.stdin.end();
+
+    const ok = child.stdin.write(prompt, 'utf8');
+    if (ok) {
+      child.stdin.end();
+    } else {
+      child.stdin.once('drain', () => child.stdin.end());
+    }
+    child.stdin.on('error', () => {});
 
     let output = '';
+    let lastActivity = Date.now();
     const timer = setTimeout(() => {
       child.kill('SIGTERM');
     }, 120000);
 
-    child.stdout.on('data', (chunk) => { output += chunk.toString(); });
+    const idleCheck = setInterval(() => {
+      if (Date.now() - lastActivity > 60000) {
+        clearInterval(idleCheck);
+        child.kill('SIGTERM');
+      }
+    }, 5000);
+
+    child.stdout.on('data', (chunk) => { lastActivity = Date.now(); output += chunk.toString(); });
 
     child.on('close', () => {
+      clearInterval(idleCheck);
       clearTimeout(timer);
       const result = output.trim();
       console.log(`[executor] Sumarização: ${text.length} → ${result.length} chars`);
@@ -646,6 +667,7 @@ ${text}
     });
 
     child.on('error', () => {
+      clearInterval(idleCheck);
       clearTimeout(timer);
       resolve(text);
     });
