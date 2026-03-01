@@ -1616,7 +1616,11 @@ router.post('/files/publish', async (req, res) => {
       const marker = `@${projectName} host ${projectName}.${DOMAIN}`;
 
       if (!caddyContent.includes(marker)) {
-        const srvPath = relative(PROJECTS_DIR, targetPath);
+        const userId = process.env.USER_ID || '';
+        const shortId = userId.substring(0, 8);
+        const srvPath = shortId
+          ? `${shortId}/${relative(PROJECTS_DIR, targetPath)}`
+          : relative(PROJECTS_DIR, targetPath);
         const block = `\n    @${projectName} host ${projectName}.${DOMAIN}\n    handle @${projectName} {\n        root * /srv/${srvPath}\n        file_server\n        try_files {path} /index.html\n    }\n`;
         const updated = caddyContent.replace(
           /(\n? {4}handle \{[\s\S]*?respond.*?200[\s\S]*?\})/,
